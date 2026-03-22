@@ -144,6 +144,15 @@ async function initDB() {
       CREATE INDEX IF NOT EXISTS idx_income_entries_user ON income_entries(user_id);
       CREATE INDEX IF NOT EXISTS idx_income_entries_date ON income_entries(received_date);
     `);
+
+    // Migrations for existing databases - add columns that may not exist
+    const migrations = [
+      "ALTER TABLE users ADD COLUMN IF NOT EXISTS calendar_token VARCHAR(255) UNIQUE",
+    ];
+    for (const sql of migrations) {
+      try { await pool.query(sql); } catch (e) { /* column may already exist */ }
+    }
+
     console.log("✅ Database tables ready");
   } catch (err) {
     console.error("⚠️  Database init warning:", err.message);

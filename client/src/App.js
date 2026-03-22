@@ -467,17 +467,44 @@ function RemindersView({ bills, onUpdate, t }) {
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
 
             {/* ONE-TAP SUBSCRIBE BUTTON */}
-            <a href={webcalUrl} style={{
-              display: "flex", alignItems: "center", justifyContent: "center", gap: 10,
-              width: "100%", padding: "16px", borderRadius: 14, border: "none",
-              background: "linear-gradient(135deg, #4ECDC4, #45B7D1)", color: "white",
-              cursor: "pointer", fontWeight: 700, fontSize: 16, fontFamily: "'DM Sans'",
-              textDecoration: "none", boxShadow: "0 4px 16px rgba(78,205,196,0.3)",
-            }}>
+            <a
+              href={webcalUrl}
+              onClick={(e) => {
+                // Use window.location as fallback for mobile browsers that block webcal:// links
+                try { window.location.href = webcalUrl; } catch(err) {}
+              }}
+              rel="noopener noreferrer"
+              style={{
+                display: "flex", alignItems: "center", justifyContent: "center", gap: 10,
+                width: "100%", padding: "16px", borderRadius: 14, border: "none",
+                background: "linear-gradient(135deg, #4ECDC4, #45B7D1)", color: "white",
+                cursor: "pointer", fontWeight: 700, fontSize: 16, fontFamily: "'DM Sans'",
+                textDecoration: "none", boxShadow: "0 4px 16px rgba(78,205,196,0.3)",
+                boxSizing: "border-box",
+              }}
+            >
               📲 Tap to Add to Phone Calendar
             </a>
             <div style={{ fontSize: 11, color: t.sub, textAlign: "center" }}>
               Opens your calendar app and asks to subscribe — works on iPhone, iPad, and Mac
+            </div>
+
+            {/* Direct download fallback */}
+            <a
+              href={feedUrl}
+              download="billbuddy.ics"
+              style={{
+                display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+                width: "100%", padding: "12px", borderRadius: 12, border: `2px solid ${t.border}`,
+                background: "transparent", color: t.text,
+                cursor: "pointer", fontWeight: 600, fontSize: 13, fontFamily: "'DM Sans'",
+                textDecoration: "none", boxSizing: "border-box",
+              }}
+            >
+              📥 Download .ics File Instead
+            </a>
+            <div style={{ fontSize: 11, color: t.muted, textAlign: "center" }}>
+              If the button above doesn't open your calendar, download the file and open it manually
             </div>
 
             {/* Divider */}
