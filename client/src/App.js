@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { api } from "./api";
 
 // ─── Constants ───
@@ -665,18 +665,124 @@ function AddCardModal({ onClose, onAdd, t }) {
   );
 }
 
+const COMMON_BILLS = [
+  // Housing
+  { name: "Rent", category: "Housing" }, { name: "Mortgage", category: "Housing" }, { name: "HOA Fees", category: "Housing" }, { name: "Property Tax", category: "Housing" }, { name: "Renters Insurance", category: "Insurance" },
+  // Utilities
+  { name: "Electric Bill", category: "Utilities" }, { name: "Gas Bill", category: "Utilities" }, { name: "Water Bill", category: "Utilities" }, { name: "Sewer/Trash", category: "Utilities" }, { name: "ConEd", category: "Utilities" }, { name: "National Grid", category: "Utilities" }, { name: "PSE&G", category: "Utilities" }, { name: "Duke Energy", category: "Utilities" }, { name: "PG&E", category: "Utilities" }, { name: "Florida Power & Light", category: "Utilities" }, { name: "ComEd", category: "Utilities" },
+  // Phone / Internet
+  { name: "Verizon", category: "Phone/Internet" }, { name: "AT&T", category: "Phone/Internet" }, { name: "T-Mobile", category: "Phone/Internet" }, { name: "Sprint", category: "Phone/Internet" }, { name: "Mint Mobile", category: "Phone/Internet" }, { name: "Cricket Wireless", category: "Phone/Internet" }, { name: "Metro by T-Mobile", category: "Phone/Internet" },
+  { name: "Xfinity / Comcast", category: "Phone/Internet" }, { name: "Spectrum", category: "Phone/Internet" }, { name: "Cox Internet", category: "Phone/Internet" }, { name: "Frontier Internet", category: "Phone/Internet" }, { name: "Google Fiber", category: "Phone/Internet" }, { name: "Optimum", category: "Phone/Internet" }, { name: "CenturyLink", category: "Phone/Internet" }, { name: "Starlink", category: "Phone/Internet" },
+  // Subscriptions
+  { name: "Netflix", category: "Subscriptions" }, { name: "Hulu", category: "Subscriptions" }, { name: "Disney+", category: "Subscriptions" }, { name: "HBO Max", category: "Subscriptions" }, { name: "Apple TV+", category: "Subscriptions" }, { name: "Amazon Prime", category: "Subscriptions" }, { name: "Peacock", category: "Subscriptions" }, { name: "Paramount+", category: "Subscriptions" }, { name: "YouTube Premium", category: "Subscriptions" },
+  { name: "Spotify", category: "Subscriptions" }, { name: "Apple Music", category: "Subscriptions" }, { name: "Tidal", category: "Subscriptions" }, { name: "SiriusXM", category: "Subscriptions" }, { name: "Pandora", category: "Subscriptions" }, { name: "Amazon Music", category: "Subscriptions" },
+  { name: "iCloud Storage", category: "Subscriptions" }, { name: "Google One", category: "Subscriptions" }, { name: "Dropbox", category: "Subscriptions" }, { name: "Microsoft 365", category: "Subscriptions" }, { name: "Adobe Creative Cloud", category: "Subscriptions" },
+  { name: "PlayStation Plus", category: "Subscriptions" }, { name: "Xbox Game Pass", category: "Subscriptions" }, { name: "Nintendo Online", category: "Subscriptions" },
+  { name: "ChatGPT Plus", category: "Subscriptions" }, { name: "Claude Pro", category: "Subscriptions" },
+  { name: "Walmart+", category: "Subscriptions" }, { name: "Costco Membership", category: "Subscriptions" }, { name: "Sam's Club", category: "Subscriptions" },
+  // Insurance
+  { name: "Car Insurance", category: "Insurance" }, { name: "Health Insurance", category: "Insurance" }, { name: "Life Insurance", category: "Insurance" }, { name: "Home Insurance", category: "Insurance" },
+  { name: "GEICO", category: "Insurance" }, { name: "State Farm", category: "Insurance" }, { name: "Progressive", category: "Insurance" }, { name: "Allstate", category: "Insurance" }, { name: "Liberty Mutual", category: "Insurance" }, { name: "USAA", category: "Insurance" },
+  // Transportation
+  { name: "Car Payment", category: "Transportation" }, { name: "Car Lease", category: "Transportation" }, { name: "EZ Pass", category: "Transportation" }, { name: "Metro Card", category: "Transportation" }, { name: "Gas / Fuel", category: "Transportation" }, { name: "Uber One", category: "Transportation" }, { name: "Lyft", category: "Transportation" },
+  // Health
+  { name: "Gym Membership", category: "Health" }, { name: "Planet Fitness", category: "Health" }, { name: "LA Fitness", category: "Health" }, { name: "Equinox", category: "Health" }, { name: "CrossFit", category: "Health" },
+  { name: "Dental Insurance", category: "Health" }, { name: "Vision Insurance", category: "Health" }, { name: "Prescription", category: "Health" }, { name: "Therapy", category: "Health" },
+  // Other
+  { name: "Student Loan", category: "Other" }, { name: "Personal Loan", category: "Other" }, { name: "Child Care", category: "Other" }, { name: "Daycare", category: "Other" }, { name: "Tuition", category: "Other" }, { name: "Alimony", category: "Other" }, { name: "Child Support", category: "Other" }, { name: "Storage Unit", category: "Other" }, { name: "Pet Insurance", category: "Other" },
+  { name: "Venmo", category: "Other" }, { name: "Cash App", category: "Other" }, { name: "Zelle", category: "Other" },
+];
+
 function AddBillModal({ onClose, onAdd, t }) {
-  const [name, setName] = useState(""); const [amount, setAmount] = useState(""); const [dueDate, setDueDate] = useState("");
-  const [category, setCategory] = useState("Other"); const [isRecurring, setIsRecurring] = useState(true);
-  const [reminder, setReminder] = useState("1day"); const [saving, setSaving] = useState(false);
+  const [name, setName] = useState("");
+  const [amount, setAmount] = useState("");
+  const [dueDate, setDueDate] = useState("");
+  const [category, setCategory] = useState("Other");
+  const [isRecurring, setIsRecurring] = useState(true);
+  const [reminder, setReminder] = useState("1day");
+  const [saving, setSaving] = useState(false);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [filteredBills, setFilteredBills] = useState([]);
+  const inputRef = useRef(null);
+
+  const handleNameChange = (val) => {
+    setName(val);
+    if (val.length >= 1) {
+      const lower = val.toLowerCase();
+      const matches = COMMON_BILLS.filter(b => b.name.toLowerCase().includes(lower)).slice(0, 8);
+      setFilteredBills(matches);
+      setShowSuggestions(matches.length > 0);
+    } else {
+      setShowSuggestions(false);
+      setFilteredBills([]);
+    }
+  };
+
+  const selectSuggestion = (bill) => {
+    setName(bill.name);
+    setCategory(bill.category);
+    setShowSuggestions(false);
+  };
+
   const is = { width: "100%", padding: "12px 16px", borderRadius: 12, border: `2px solid ${t.border}`, fontSize: 14, fontFamily: "'DM Sans'", outline: "none", boxSizing: "border-box", background: t.input, color: t.text };
   const go = async () => { if (!name || !amount || !dueDate) return; setSaving(true); await onAdd({ name, amount: parseFloat(amount), dueDate: parseInt(dueDate), category, isRecurring, reminder }); setSaving(false); };
+
   return (
     <div style={{ position: "fixed", inset: 0, background: t.over, display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, backdropFilter: "blur(4px)" }} onClick={onClose}>
       <div style={{ background: t.modal, borderRadius: 24, padding: 32, width: "90%", maxWidth: 460, boxShadow: "0 20px 60px rgba(0,0,0,0.25)", maxHeight: "90vh", overflowY: "auto" }} onClick={e => e.stopPropagation()}>
         <h3 style={{ margin: "0 0 24px", fontFamily: "'Fredoka'", color: t.text, fontSize: 22 }}>➕ Add New Bill</h3>
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-          <div><label style={{ fontSize: 12, fontWeight: 700, color: t.sub, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4, display: "block" }}>Bill Name</label><input value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Electric Bill" style={is} /></div>
+          {/* Bill name with autocomplete */}
+          <div style={{ position: "relative" }}>
+            <label style={{ fontSize: 12, fontWeight: 700, color: t.sub, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4, display: "block" }}>Bill Name</label>
+            <div style={{ position: "relative" }}>
+              <span style={{ position: "absolute", left: 14, top: "50%", transform: "translateY(-50%)", fontSize: 16, pointerEvents: "none" }}>🔍</span>
+              <input
+                ref={inputRef}
+                value={name}
+                onChange={e => handleNameChange(e.target.value)}
+                onFocus={() => { if (name.length >= 1 && filteredBills.length > 0) setShowSuggestions(true); }}
+                onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
+                placeholder="Search or type a bill name..."
+                style={{ ...is, paddingLeft: 40 }}
+                autoComplete="off"
+              />
+            </div>
+            {/* Dropdown suggestions */}
+            {showSuggestions && (
+              <div style={{
+                position: "absolute", top: "100%", left: 0, right: 0, zIndex: 50,
+                background: t.modal, borderRadius: 14, marginTop: 4,
+                boxShadow: "0 12px 40px rgba(0,0,0,0.2)", border: `1px solid ${t.border}`,
+                maxHeight: 240, overflowY: "auto",
+              }}>
+                {filteredBills.map((bill, i) => (
+                  <div
+                    key={i}
+                    onMouseDown={() => selectSuggestion(bill)}
+                    style={{
+                      padding: "10px 16px", cursor: "pointer",
+                      display: "flex", justifyContent: "space-between", alignItems: "center",
+                      borderBottom: i < filteredBills.length - 1 ? `1px solid ${t.border}` : "none",
+                      transition: "background 0.15s",
+                    }}
+                    onMouseEnter={e => e.currentTarget.style.background = t.prog}
+                    onMouseLeave={e => e.currentTarget.style.background = "transparent"}
+                  >
+                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                      <span style={{ fontSize: 16 }}>{getCatIcon(bill.category)}</span>
+                      <span style={{ fontWeight: 600, color: t.text, fontSize: 14 }}>{bill.name}</span>
+                    </div>
+                    <span style={{
+                      fontSize: 10, fontWeight: 700, color: getCatColor(bill.category),
+                      background: getCatColor(bill.category) + "15",
+                      padding: "2px 8px", borderRadius: 6,
+                    }}>{bill.category}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
           <div style={{ display: "flex", gap: 12 }}>
             <div style={{ flex: 1 }}><label style={{ fontSize: 12, fontWeight: 700, color: t.sub, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4, display: "block" }}>Amount ($)</label><input type="number" value={amount} onChange={e => setAmount(e.target.value)} placeholder="0.00" style={is} /></div>
             <div style={{ flex: 1 }}><label style={{ fontSize: 12, fontWeight: 700, color: t.sub, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4, display: "block" }}>Due Date</label><input type="number" min="1" max="31" value={dueDate} onChange={e => setDueDate(e.target.value)} placeholder="15" style={is} /></div>
