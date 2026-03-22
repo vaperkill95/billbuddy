@@ -6,6 +6,7 @@ require("dotenv").config();
 const authRouter = require("./routes/auth");
 const billsRouter = require("./routes/bills");
 const historyRouter = require("./routes/history");
+const insightsRouter = require("./routes/insights");
 const pool = require("./db/pool");
 
 const app = express();
@@ -18,6 +19,7 @@ app.use(express.json());
 app.use("/api/auth", authRouter);
 app.use("/api/bills", billsRouter);
 app.use("/api/history", historyRouter);
+app.use("/api/insights", insightsRouter);
 
 app.get("/api/health", async (req, res) => {
   try {

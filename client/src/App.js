@@ -45,22 +45,7 @@ function useTheme(dark) {
   };
 }
 
-function getSmartSuggestions(bills) {
-  const s = [];
-  const tot = bills.reduce((a, b) => a + b.amount, 0);
-  const subs = bills.filter(b => b.category === "Subscriptions");
-  const subT = subs.reduce((a, b) => a + b.amount, 0);
-  const day = new Date().getDate();
-  const soon = bills.filter(b => !b.isPaid && b.dueDate - day <= 5 && b.dueDate - day > 0);
-  const noRem = bills.filter(b => !b.reminder || b.reminder === "none");
-  if (subT > 50) s.push({ icon: "💰", title: "Subscription Audit", desc: `Spending ${formatMoney(subT)}/mo on ${subs.length} subscriptions. Canceling one saves ~${formatMoney(subT / subs.length)}/mo.`, priority: "high" });
-  if (soon.length > 0) s.push({ icon: "⚡", title: "Bills Due Soon", desc: `${soon.length} bill${soon.length > 1 ? "s" : ""} due in 5 days totaling ${formatMoney(soon.reduce((a, b) => a + b.amount, 0))}.`, priority: "high" });
-  if (noRem.length > 0) s.push({ icon: "🔔", title: "Set Up Reminders", desc: `${noRem.length} bill${noRem.length > 1 ? "s" : ""} without reminders. Head to Reminders tab.`, priority: "high" });
-  if (tot > 2000) s.push({ icon: "📊", title: "Budget Check", desc: `Monthly total ${formatMoney(tot)}. Try the 50/30/20 rule.`, priority: "medium" });
-  s.push({ icon: "🔄", title: "Autopay", desc: "Set up autopay to avoid late fees and get discounts.", priority: "low" });
-  s.push({ icon: "📞", title: "Negotiate", desc: "Call providers yearly to negotiate rates. Save 10-20%.", priority: "medium" });
-  return s;
-}
+// AI insights are now powered by the backend API
 
 // ─── Auth Page ───
 const GOOGLE_CLIENT_ID = process.env.REACT_APP_GOOGLE_CLIENT_ID;
@@ -331,6 +316,85 @@ function RemindersView({ bills, onUpdate, t }) {
   );
 }
 
+function AIInsights({ t }) {
+  const [suggestions, setSuggestions] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [loaded, setLoaded] = useState(false);
+
+  const fetchInsights = async () => {
+    setLoading(true);
+    try {
+      const data = await api.getInsights();
+      setSuggestions(data.suggestions || []);
+      setLoaded(true);
+    } catch (err) {
+      console.error("Insights error:", err);
+      setSuggestions([{ icon: "⚠️", title: "Couldn't Load Insights", desc: "Something went wrong fetching your personalized tips. Try again in a moment.", priority: "low" }]);
+      setLoaded(true);
+    } finally { setLoading(false); }
+  };
+
+  useEffect(() => { if (!loaded) fetchInsights(); }, [loaded]);
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <div style={{ fontSize: 32 }}>🤖</div>
+          <div>
+            <h3 style={{ fontFamily: "'Fredoka'", color: t.text, margin: 0, fontSize: 20 }}>AI Insights</h3>
+            <p style={{ margin: "2px 0 0", fontSize: 13, color: t.sub }}>Personalized tips powered by AI</p>
+          </div>
+        </div>
+        <button onClick={() => { setLoaded(false); }} disabled={loading} style={{
+          padding: "8px 18px", borderRadius: 12, border: "none",
+          background: loading ? t.pill : "linear-gradient(135deg, #6C5CE7, #A29BFE)",
+          color: loading ? t.sub : "white", cursor: loading ? "default" : "pointer",
+          fontWeight: 700, fontSize: 12, fontFamily: "'DM Sans'",
+          display: "flex", alignItems: "center", gap: 6,
+        }}>
+          {loading ? "Analyzing..." : "🔄 Refresh"}
+        </button>
+      </div>
+
+      {loading && (
+        <div style={{ background: t.card, borderRadius: 20, padding: "40px 28px", boxShadow: t.cs, textAlign: "center" }}>
+          <div style={{ fontSize: 40, marginBottom: 12, animation: "pulse 1.5s ease-in-out infinite" }}>🧠</div>
+          <div style={{ fontWeight: 700, color: t.text, fontSize: 16, fontFamily: "'Fredoka'", marginBottom: 6 }}>Analyzing your bills...</div>
+          <div style={{ fontSize: 13, color: t.sub, lineHeight: 1.6 }}>Our AI is reviewing your spending, due dates, payment history, and categories to find personalized ways to save money and stay on track.</div>
+          <style>{`@keyframes pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.15); } }`}</style>
+        </div>
+      )}
+
+      {!loading && suggestions.map((s, i) => (
+        <div key={i} style={{
+          background: t.card, borderRadius: 20, padding: "18px 22px", boxShadow: t.cs,
+          borderLeft: `4px solid ${s.priority === "high" ? "#FF6B6B" : s.priority === "medium" ? "#FDCB6E" : "#4ECDC4"}`,
+        }}>
+          <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
+            <div style={{ fontSize: 26, flexShrink: 0 }}>{s.icon}</div>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontWeight: 700, color: t.text, fontSize: 14, marginBottom: 4 }}>{s.title}</div>
+              <div style={{ fontSize: 13, color: t.sub, lineHeight: 1.6 }}>{s.desc}</div>
+            </div>
+            <div style={{
+              fontSize: 10, fontWeight: 700, padding: "3px 8px", borderRadius: 6, flexShrink: 0, textTransform: "uppercase",
+              background: s.priority === "high" ? t.priH : s.priority === "medium" ? t.priM : t.priL,
+              color: s.priority === "high" ? "#FF6B6B" : s.priority === "medium" ? "#F39C12" : "#4ECDC4",
+            }}>{s.priority}</div>
+          </div>
+        </div>
+      ))}
+
+      {!loading && loaded && (
+        <div style={{ textAlign: "center", fontSize: 11, color: t.muted, marginTop: 4 }}>
+          Insights generated by AI based on your current bills and payment history
+        </div>
+      )}
+    </div>
+  );
+}
+
 function AddBillModal({ onClose, onAdd, t }) {
   const [name, setName] = useState(""); const [amount, setAmount] = useState(""); const [dueDate, setDueDate] = useState("");
   const [category, setCategory] = useState("Other"); const [isRecurring, setIsRecurring] = useState(true);
@@ -429,7 +493,6 @@ export default function App() {
   const totalPaid = bills.filter(b => b.isPaid).reduce((s, b) => s + b.amount, 0);
   const totalUnpaid = totalMonthly - totalPaid;
   const paidCount = bills.filter(b => b.isPaid).length;
-  const suggestions = getSmartSuggestions(bills);
 
   const tabs = [
     { key: "dashboard", label: "Dashboard", icon: "📊" }, { key: "calendar", label: "Calendar", icon: "📅" },
@@ -498,20 +561,7 @@ export default function App() {
             </div>
           )}
           {tab === "calendar" && <CalendarView bills={bills} t={t} />}
-          {tab === "insights" && (
-            <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 12 }}><div style={{ fontSize: 32 }}>🤖</div><div><h3 style={{ fontFamily: "'Fredoka'", color: t.text, margin: 0, fontSize: 20 }}>Smart Suggestions</h3><p style={{ margin: "2px 0 0", fontSize: 13, color: t.sub }}>Tips based on your bills</p></div></div>
-              {suggestions.map((s, i) => (
-                <div key={i} style={{ background: t.card, borderRadius: 20, padding: "18px 22px", boxShadow: t.cs, borderLeft: `4px solid ${s.priority === "high" ? "#FF6B6B" : s.priority === "medium" ? "#FDCB6E" : "#4ECDC4"}` }}>
-                  <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
-                    <div style={{ fontSize: 26 }}>{s.icon}</div>
-                    <div style={{ flex: 1 }}><div style={{ fontWeight: 700, color: t.text, fontSize: 14, marginBottom: 4 }}>{s.title}</div><div style={{ fontSize: 13, color: t.sub, lineHeight: 1.6 }}>{s.desc}</div></div>
-                    <div style={{ fontSize: 10, fontWeight: 700, padding: "3px 8px", borderRadius: 6, background: s.priority === "high" ? t.priH : s.priority === "medium" ? t.priM : t.priL, color: s.priority === "high" ? "#FF6B6B" : s.priority === "medium" ? "#F39C12" : "#4ECDC4", textTransform: "uppercase" }}>{s.priority}</div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
+          {tab === "insights" && <AIInsights t={t} />}
           {tab === "charts" && <SpendingChart bills={bills} t={t} />}
           {tab === "history" && <HistoryView history={history} months={hMonths} filter={hFilter} setFilter={setHFilter} t={t} />}
           {tab === "reminders" && <RemindersView bills={bills} onUpdate={updateReminder} t={t} />}

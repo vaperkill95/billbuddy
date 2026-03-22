@@ -61,6 +61,9 @@ export const api = {
   recordPayment: (p) => request("/history", { method: "POST", body: JSON.stringify(p) }),
   getHistoryMonths: () => request("/history/months"),
 
+  // AI Insights
+  getInsights: () => request("/insights", { method: "POST" }),
+
   // Helpers
   getToken, setToken, clearToken, getUser, setUser,
 };
