@@ -8,6 +8,7 @@ const billsRouter = require("./routes/bills");
 const historyRouter = require("./routes/history");
 const insightsRouter = require("./routes/insights");
 const cardsRouter = require("./routes/cards");
+const incomeRouter = require("./routes/income");
 const pool = require("./db/pool");
 
 const app = express();
@@ -22,6 +23,7 @@ app.use("/api/bills", billsRouter);
 app.use("/api/history", historyRouter);
 app.use("/api/insights", insightsRouter);
 app.use("/api/cards", cardsRouter);
+app.use("/api/income", incomeRouter);
 
 app.get("/api/health", async (req, res) => {
   try {
@@ -111,6 +113,33 @@ async function initDB() {
       CREATE INDEX IF NOT EXISTS idx_cards_user_id ON credit_cards(user_id);
       CREATE INDEX IF NOT EXISTS idx_card_payments_user_id ON card_payments(user_id);
       CREATE INDEX IF NOT EXISTS idx_card_payments_card_id ON card_payments(card_id);
+
+      CREATE TABLE IF NOT EXISTS income_sources (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        name VARCHAR(255) NOT NULL,
+        amount DECIMAL(12, 2) NOT NULL,
+        frequency VARCHAR(20) NOT NULL DEFAULT 'monthly',
+        next_pay_date DATE,
+        is_active BOOLEAN NOT NULL DEFAULT true,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+      );
+
+      CREATE TABLE IF NOT EXISTS income_entries (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        source_id INTEGER REFERENCES income_sources(id) ON DELETE SET NULL,
+        source_name VARCHAR(255) NOT NULL,
+        amount DECIMAL(12, 2) NOT NULL,
+        received_date DATE NOT NULL DEFAULT CURRENT_DATE,
+        month_label VARCHAR(50) NOT NULL,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_income_sources_user ON income_sources(user_id);
+      CREATE INDEX IF NOT EXISTS idx_income_entries_user ON income_entries(user_id);
+      CREATE INDEX IF NOT EXISTS idx_income_entries_date ON income_entries(received_date);
     `);
     console.log("✅ Database tables ready");
   } catch (err) {

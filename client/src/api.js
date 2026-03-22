@@ -74,6 +74,16 @@ export const api = {
   getCardPayoff: (id) => request(`/cards/${id}/payoff`),
   getDebtStrategy: () => request("/cards/strategy"),
 
+  // Income
+  getIncomeSources: () => request("/income/sources"),
+  createIncomeSource: (s) => request("/income/sources", { method: "POST", body: JSON.stringify(s) }),
+  updateIncomeSource: (id, u) => request(`/income/sources/${id}`, { method: "PATCH", body: JSON.stringify(u) }),
+  deleteIncomeSource: (id) => request(`/income/sources/${id}`, { method: "DELETE" }),
+  getIncomeEntries: (month) => request(`/income/entries${month && month !== "all" ? `?month=${encodeURIComponent(month)}` : ""}`),
+  createIncomeEntry: (e) => request("/income/entries", { method: "POST", body: JSON.stringify(e) }),
+  deleteIncomeEntry: (id) => request(`/income/entries/${id}`, { method: "DELETE" }),
+  getIncomeSummary: () => request("/income/summary"),
+
   // Helpers
   getToken, setToken, clearToken, getUser, setUser,
 };
