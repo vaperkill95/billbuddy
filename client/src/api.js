@@ -84,6 +84,10 @@ export const api = {
   deleteIncomeEntry: (id) => request(`/income/entries/${id}`, { method: "DELETE" }),
   getIncomeSummary: () => request("/income/summary"),
 
+  // Calendar Feed
+  getCalendarToken: () => request("/calendar/token", { method: "POST" }),
+  resetCalendarToken: () => request("/calendar/token/reset", { method: "POST" }),
+
   // Helpers
   getToken, setToken, clearToken, getUser, setUser,
 };

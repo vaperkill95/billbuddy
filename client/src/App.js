@@ -397,7 +397,36 @@ function HistoryView({ history, months, filter, setFilter, t }) {
 
 function RemindersView({ bills, onUpdate, t }) {
   const [toast, setToast] = useState(null);
+  const [feedUrl, setFeedUrl] = useState(null);
+  const [feedLoading, setFeedLoading] = useState(false);
+  const [copied, setCopied] = useState(false);
+
   const handle = (id, v) => { onUpdate(id, v); const b = bills.find(x => x.id === id); if (v !== "none") { setToast(`🔔 Reminder set for ${b?.name}: ${reminderLabel(v)}`); setTimeout(() => setToast(null), 2500); } };
+
+  const generateFeed = async () => {
+    setFeedLoading(true);
+    try {
+      const data = await api.getCalendarToken();
+      setFeedUrl(data.feedUrl);
+    } catch (err) { console.error(err); }
+    finally { setFeedLoading(false); }
+  };
+
+  const copyUrl = () => {
+    if (feedUrl) {
+      navigator.clipboard.writeText(feedUrl).then(() => { setCopied(true); setTimeout(() => setCopied(false), 2000); });
+    }
+  };
+
+  const resetFeed = async () => {
+    setFeedLoading(true);
+    try {
+      const data = await api.resetCalendarToken();
+      setFeedUrl(data.feedUrl);
+    } catch (err) { console.error(err); }
+    finally { setFeedLoading(false); }
+  };
+
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 12 }}><div style={{ fontSize: 32 }}>🔔</div><div><h3 style={{ fontFamily: "'Fredoka', sans-serif", color: t.text, margin: 0, fontSize: 20 }}>Notification Reminders</h3><p style={{ margin: "2px 0 0", fontSize: 13, color: t.sub }}>Never miss a due date</p></div></div>
@@ -412,6 +441,74 @@ function RemindersView({ bills, onUpdate, t }) {
             </select>
           </div>
         ))}
+      </div>
+
+      {/* Calendar Sync Section */}
+      <div style={{ background: t.card, borderRadius: 20, padding: "22px 26px", boxShadow: t.cs, marginTop: 8 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
+          <div style={{ fontSize: 26 }}>📱</div>
+          <div>
+            <div style={{ fontWeight: 700, color: t.text, fontSize: 16 }}>Sync to iPhone / Google Calendar</div>
+            <div style={{ fontSize: 12, color: t.sub, marginTop: 2 }}>Subscribe to your BillBuddy calendar feed and all your bill due dates show up on your phone</div>
+          </div>
+        </div>
+
+        {!feedUrl ? (
+          <button onClick={generateFeed} disabled={feedLoading} style={{
+            width: "100%", padding: "14px", borderRadius: 14, border: "none",
+            background: "linear-gradient(135deg, #6C5CE7, #A29BFE)", color: "white",
+            cursor: "pointer", fontWeight: 700, fontSize: 14, fontFamily: "'DM Sans'",
+            opacity: feedLoading ? 0.7 : 1,
+          }}>{feedLoading ? "Generating..." : "🔗 Generate Calendar Feed URL"}</button>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            {/* Feed URL with copy */}
+            <div style={{ display: "flex", gap: 8 }}>
+              <input value={feedUrl} readOnly style={{
+                flex: 1, padding: "10px 14px", borderRadius: 10, border: `2px solid ${t.border}`,
+                background: t.input, color: t.text, fontSize: 12, fontFamily: "'DM Sans'",
+                outline: "none",
+              }} onClick={e => e.target.select()} />
+              <button onClick={copyUrl} style={{
+                padding: "10px 18px", borderRadius: 10, border: "none",
+                background: copied ? "#4ECDC4" : "linear-gradient(135deg, #6C5CE7, #A29BFE)",
+                color: "white", cursor: "pointer", fontWeight: 700, fontSize: 12,
+                fontFamily: "'DM Sans'", whiteSpace: "nowrap",
+              }}>{copied ? "✅ Copied!" : "📋 Copy"}</button>
+            </div>
+
+            {/* Instructions */}
+            <div style={{ background: t.prog, borderRadius: 14, padding: "16px 18px" }}>
+              <div style={{ fontWeight: 700, color: t.text, fontSize: 13, marginBottom: 10 }}>How to add to your phone:</div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                <div style={{ display: "flex", gap: 10 }}>
+                  <div style={{ width: 24, height: 24, borderRadius: 8, background: "linear-gradient(135deg, #6C5CE7, #A29BFE)", color: "white", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 800, flexShrink: 0 }}>1</div>
+                  <div style={{ fontSize: 12, color: t.sub, lineHeight: 1.5 }}><strong style={{ color: t.text }}>iPhone:</strong> Settings → Calendar → Accounts → Add Account → Other → Add Subscribed Calendar → paste the URL</div>
+                </div>
+                <div style={{ display: "flex", gap: 10 }}>
+                  <div style={{ width: 24, height: 24, borderRadius: 8, background: "linear-gradient(135deg, #6C5CE7, #A29BFE)", color: "white", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 800, flexShrink: 0 }}>2</div>
+                  <div style={{ fontSize: 12, color: t.sub, lineHeight: 1.5 }}><strong style={{ color: t.text }}>Google Calendar:</strong> Settings → Add calendar → From URL → paste the URL</div>
+                </div>
+                <div style={{ display: "flex", gap: 10 }}>
+                  <div style={{ width: 24, height: 24, borderRadius: 8, background: "linear-gradient(135deg, #6C5CE7, #A29BFE)", color: "white", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 800, flexShrink: 0 }}>3</div>
+                  <div style={{ fontSize: 12, color: t.sub, lineHeight: 1.5 }}><strong style={{ color: t.text }}>Outlook:</strong> Add calendar → Subscribe from web → paste the URL</div>
+                </div>
+              </div>
+            </div>
+
+            {/* What's included */}
+            <div style={{ fontSize: 12, color: t.sub, lineHeight: 1.6 }}>
+              Your feed includes all bill due dates with amounts, credit card payment dates, reminder alerts, and paid/unpaid status. It refreshes automatically every 6 hours.
+            </div>
+
+            {/* Reset button */}
+            <button onClick={resetFeed} style={{
+              padding: "8px 16px", borderRadius: 10, border: `1px solid ${t.border}`,
+              background: "transparent", color: t.sub, cursor: "pointer",
+              fontWeight: 600, fontSize: 11, fontFamily: "'DM Sans'", alignSelf: "flex-start",
+            }}>🔄 Generate New URL (invalidates old one)</button>
+          </div>
+        )}
       </div>
     </div>
   );

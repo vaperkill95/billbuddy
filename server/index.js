@@ -9,6 +9,7 @@ const historyRouter = require("./routes/history");
 const insightsRouter = require("./routes/insights");
 const cardsRouter = require("./routes/cards");
 const incomeRouter = require("./routes/income");
+const calendarRouter = require("./routes/calendar");
 const pool = require("./db/pool");
 
 const app = express();
@@ -24,6 +25,7 @@ app.use("/api/history", historyRouter);
 app.use("/api/insights", insightsRouter);
 app.use("/api/cards", cardsRouter);
 app.use("/api/income", incomeRouter);
+app.use("/api/calendar", calendarRouter);
 
 app.get("/api/health", async (req, res) => {
   try {
@@ -53,6 +55,7 @@ async function initDB() {
         google_id VARCHAR(255),
         avatar_url TEXT,
         auth_provider VARCHAR(20) NOT NULL DEFAULT 'email',
+        calendar_token VARCHAR(255) UNIQUE,
         created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
         updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
       );
