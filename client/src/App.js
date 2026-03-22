@@ -398,6 +398,7 @@ function HistoryView({ history, months, filter, setFilter, t }) {
 function RemindersView({ bills, onUpdate, t }) {
   const [toast, setToast] = useState(null);
   const [feedUrl, setFeedUrl] = useState(null);
+  const [webcalUrl, setWebcalUrl] = useState(null);
   const [feedLoading, setFeedLoading] = useState(false);
   const [copied, setCopied] = useState(false);
 
@@ -408,6 +409,7 @@ function RemindersView({ bills, onUpdate, t }) {
     try {
       const data = await api.getCalendarToken();
       setFeedUrl(data.feedUrl);
+      setWebcalUrl(data.webcalUrl);
     } catch (err) { console.error(err); }
     finally { setFeedLoading(false); }
   };
@@ -423,6 +425,7 @@ function RemindersView({ bills, onUpdate, t }) {
     try {
       const data = await api.resetCalendarToken();
       setFeedUrl(data.feedUrl);
+      setWebcalUrl(data.webcalUrl);
     } catch (err) { console.error(err); }
     finally { setFeedLoading(false); }
   };
@@ -448,8 +451,8 @@ function RemindersView({ bills, onUpdate, t }) {
         <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
           <div style={{ fontSize: 26 }}>📱</div>
           <div>
-            <div style={{ fontWeight: 700, color: t.text, fontSize: 16 }}>Sync to iPhone / Google Calendar</div>
-            <div style={{ fontSize: 12, color: t.sub, marginTop: 2 }}>Subscribe to your BillBuddy calendar feed and all your bill due dates show up on your phone</div>
+            <div style={{ fontWeight: 700, color: t.text, fontSize: 16 }}>Sync to Phone Calendar</div>
+            <div style={{ fontSize: 12, color: t.sub, marginTop: 2 }}>All your bill due dates will show up right on your phone's calendar</div>
           </div>
         </div>
 
@@ -459,14 +462,36 @@ function RemindersView({ bills, onUpdate, t }) {
             background: "linear-gradient(135deg, #6C5CE7, #A29BFE)", color: "white",
             cursor: "pointer", fontWeight: 700, fontSize: 14, fontFamily: "'DM Sans'",
             opacity: feedLoading ? 0.7 : 1,
-          }}>{feedLoading ? "Generating..." : "🔗 Generate Calendar Feed URL"}</button>
+          }}>{feedLoading ? "Generating..." : "🔗 Set Up Calendar Sync"}</button>
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+
+            {/* ONE-TAP SUBSCRIBE BUTTON */}
+            <a href={webcalUrl} style={{
+              display: "flex", alignItems: "center", justifyContent: "center", gap: 10,
+              width: "100%", padding: "16px", borderRadius: 14, border: "none",
+              background: "linear-gradient(135deg, #4ECDC4, #45B7D1)", color: "white",
+              cursor: "pointer", fontWeight: 700, fontSize: 16, fontFamily: "'DM Sans'",
+              textDecoration: "none", boxShadow: "0 4px 16px rgba(78,205,196,0.3)",
+            }}>
+              📲 Tap to Add to Phone Calendar
+            </a>
+            <div style={{ fontSize: 11, color: t.sub, textAlign: "center" }}>
+              Opens your calendar app and asks to subscribe — works on iPhone, iPad, and Mac
+            </div>
+
+            {/* Divider */}
+            <div style={{ display: "flex", alignItems: "center", gap: 12, margin: "4px 0" }}>
+              <div style={{ flex: 1, height: 1, background: t.border }} />
+              <span style={{ fontSize: 11, color: t.muted, fontWeight: 600 }}>OR COPY URL MANUALLY</span>
+              <div style={{ flex: 1, height: 1, background: t.border }} />
+            </div>
+
             {/* Feed URL with copy */}
             <div style={{ display: "flex", gap: 8 }}>
               <input value={feedUrl} readOnly style={{
                 flex: 1, padding: "10px 14px", borderRadius: 10, border: `2px solid ${t.border}`,
-                background: t.input, color: t.text, fontSize: 12, fontFamily: "'DM Sans'",
+                background: t.input, color: t.text, fontSize: 11, fontFamily: "'DM Sans'",
                 outline: "none",
               }} onClick={e => e.target.select()} />
               <button onClick={copyUrl} style={{
@@ -477,28 +502,28 @@ function RemindersView({ bills, onUpdate, t }) {
               }}>{copied ? "✅ Copied!" : "📋 Copy"}</button>
             </div>
 
-            {/* Instructions */}
-            <div style={{ background: t.prog, borderRadius: 14, padding: "16px 18px" }}>
-              <div style={{ fontWeight: 700, color: t.text, fontSize: 13, marginBottom: 10 }}>How to add to your phone:</div>
-              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {/* Instructions for manual setup */}
+            <details style={{ background: t.prog, borderRadius: 14, padding: "4px 18px" }}>
+              <summary style={{ fontWeight: 700, color: t.text, fontSize: 13, cursor: "pointer", padding: "12px 0" }}>Manual setup instructions</summary>
+              <div style={{ display: "flex", flexDirection: "column", gap: 8, paddingBottom: 14 }}>
                 <div style={{ display: "flex", gap: 10 }}>
                   <div style={{ width: 24, height: 24, borderRadius: 8, background: "linear-gradient(135deg, #6C5CE7, #A29BFE)", color: "white", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 800, flexShrink: 0 }}>1</div>
-                  <div style={{ fontSize: 12, color: t.sub, lineHeight: 1.5 }}><strong style={{ color: t.text }}>iPhone:</strong> Settings → Calendar → Accounts → Add Account → Other → Add Subscribed Calendar → paste the URL</div>
+                  <div style={{ fontSize: 12, color: t.sub, lineHeight: 1.5 }}><strong style={{ color: t.text }}>iPhone:</strong> Settings → Calendar → Accounts → Add Account → Other → Add Subscribed Calendar → paste the URL above</div>
                 </div>
                 <div style={{ display: "flex", gap: 10 }}>
                   <div style={{ width: 24, height: 24, borderRadius: 8, background: "linear-gradient(135deg, #6C5CE7, #A29BFE)", color: "white", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 800, flexShrink: 0 }}>2</div>
-                  <div style={{ fontSize: 12, color: t.sub, lineHeight: 1.5 }}><strong style={{ color: t.text }}>Google Calendar:</strong> Settings → Add calendar → From URL → paste the URL</div>
+                  <div style={{ fontSize: 12, color: t.sub, lineHeight: 1.5 }}><strong style={{ color: t.text }}>Google Calendar:</strong> Settings → Add calendar → From URL → paste the URL above</div>
                 </div>
                 <div style={{ display: "flex", gap: 10 }}>
                   <div style={{ width: 24, height: 24, borderRadius: 8, background: "linear-gradient(135deg, #6C5CE7, #A29BFE)", color: "white", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 800, flexShrink: 0 }}>3</div>
-                  <div style={{ fontSize: 12, color: t.sub, lineHeight: 1.5 }}><strong style={{ color: t.text }}>Outlook:</strong> Add calendar → Subscribe from web → paste the URL</div>
+                  <div style={{ fontSize: 12, color: t.sub, lineHeight: 1.5 }}><strong style={{ color: t.text }}>Outlook:</strong> Add calendar → Subscribe from web → paste the URL above</div>
                 </div>
               </div>
-            </div>
+            </details>
 
             {/* What's included */}
             <div style={{ fontSize: 12, color: t.sub, lineHeight: 1.6 }}>
-              Your feed includes all bill due dates with amounts, credit card payment dates, reminder alerts, and paid/unpaid status. It refreshes automatically every 6 hours.
+              ✅ Bill due dates with amounts · ✅ Credit card payment dates · ✅ Reminder alerts · ✅ Paid/unpaid status · ✅ Auto-refreshes every 6 hours
             </div>
 
             {/* Reset button */}

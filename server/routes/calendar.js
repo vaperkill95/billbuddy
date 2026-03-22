@@ -23,20 +23,20 @@ function esc(text) {
 
 router.post("/token", authMiddleware, async (req, res) => {
   try {
-    // Check if user already has a token
     const { rows } = await pool.query("SELECT calendar_token FROM users WHERE id=$1", [req.user.id]);
     let token = rows[0]?.calendar_token;
 
     if (!token) {
-      // Generate a new unique token
       token = crypto.randomBytes(32).toString("hex");
       await pool.query("UPDATE users SET calendar_token=$1 WHERE id=$2", [token, req.user.id]);
     }
 
     const baseUrl = process.env.BASE_URL || `${req.protocol}://${req.get("host")}`;
     const feedUrl = `${baseUrl}/api/calendar/feed/${token}`;
+    // webcal:// protocol triggers native calendar subscription on iOS/macOS
+    const webcalUrl = feedUrl.replace(/^https?:\/\//, "webcal://");
 
-    res.json({ token, feedUrl });
+    res.json({ token, feedUrl, webcalUrl });
   } catch (err) {
     console.error("Calendar token error:", err);
     res.status(500).json({ error: "Failed to generate calendar token" });
@@ -49,7 +49,9 @@ router.post("/token/reset", authMiddleware, async (req, res) => {
     const token = crypto.randomBytes(32).toString("hex");
     await pool.query("UPDATE users SET calendar_token=$1 WHERE id=$2", [token, req.user.id]);
     const baseUrl = process.env.BASE_URL || `${req.protocol}://${req.get("host")}`;
-    res.json({ token, feedUrl: `${baseUrl}/api/calendar/feed/${token}` });
+    const feedUrl = `${baseUrl}/api/calendar/feed/${token}`;
+    const webcalUrl = feedUrl.replace(/^https?:\/\//, "webcal://");
+    res.json({ token, feedUrl, webcalUrl });
   } catch (err) {
     res.status(500).json({ error: "Failed to reset token" });
   }
