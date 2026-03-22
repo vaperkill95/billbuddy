@@ -7,6 +7,7 @@ const authRouter = require("./routes/auth");
 const billsRouter = require("./routes/bills");
 const historyRouter = require("./routes/history");
 const insightsRouter = require("./routes/insights");
+const cardsRouter = require("./routes/cards");
 const pool = require("./db/pool");
 
 const app = express();
@@ -20,6 +21,7 @@ app.use("/api/auth", authRouter);
 app.use("/api/bills", billsRouter);
 app.use("/api/history", historyRouter);
 app.use("/api/insights", insightsRouter);
+app.use("/api/cards", cardsRouter);
 
 app.get("/api/health", async (req, res) => {
   try {
@@ -79,6 +81,36 @@ async function initDB() {
       CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
       CREATE INDEX IF NOT EXISTS idx_bills_user_id ON bills(user_id);
       CREATE INDEX IF NOT EXISTS idx_history_user_id ON payment_history(user_id);
+
+      CREATE TABLE IF NOT EXISTS credit_cards (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        name VARCHAR(255) NOT NULL,
+        balance DECIMAL(12, 2) NOT NULL DEFAULT 0,
+        credit_limit DECIMAL(12, 2) NOT NULL DEFAULT 0,
+        apr DECIMAL(5, 2) NOT NULL DEFAULT 0,
+        min_payment DECIMAL(10, 2) NOT NULL DEFAULT 0,
+        due_date INTEGER NOT NULL CHECK (due_date >= 1 AND due_date <= 31),
+        goal_date DATE,
+        show_in_history BOOLEAN NOT NULL DEFAULT true,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+      );
+
+      CREATE TABLE IF NOT EXISTS card_payments (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        card_id INTEGER NOT NULL REFERENCES credit_cards(id) ON DELETE CASCADE,
+        amount DECIMAL(10, 2) NOT NULL,
+        paid_date DATE NOT NULL DEFAULT CURRENT_DATE,
+        month_label VARCHAR(50) NOT NULL,
+        note VARCHAR(255),
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_cards_user_id ON credit_cards(user_id);
+      CREATE INDEX IF NOT EXISTS idx_card_payments_user_id ON card_payments(user_id);
+      CREATE INDEX IF NOT EXISTS idx_card_payments_card_id ON card_payments(card_id);
     `);
     console.log("✅ Database tables ready");
   } catch (err) {

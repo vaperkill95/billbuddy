@@ -29,7 +29,13 @@ router.post("/", async (req, res) => {
       [req.user.id]
     );
 
-    if (bills.length === 0) {
+    // Fetch credit cards
+    const { rows: cards } = await pool.query(
+      "SELECT * FROM credit_cards WHERE user_id = $1 ORDER BY balance DESC",
+      [req.user.id]
+    );
+
+    if (bills.length === 0 && cards.length === 0) {
       return res.json({
         suggestions: [
           {
@@ -100,7 +106,14 @@ PAYMENT HISTORY:
 - Late payments: ${latePayments}
 - On-time rate: ${onTimeRate}%
 
-Respond ONLY with a JSON array of 4-6 suggestion objects. Each object must have:
+${cards.length > 0 ? `CREDIT CARDS:
+${cards.map(c => `- ${c.name}: Balance $${parseFloat(c.balance).toFixed(2)} / Limit $${parseFloat(c.credit_limit).toFixed(2)} | APR ${parseFloat(c.apr)}% | Min Payment $${parseFloat(c.min_payment).toFixed(2)} | Due ${c.due_date}th${c.goal_date ? ` | Goal: pay off by ${c.goal_date}` : ""}`).join("\n")}
+- Total credit card debt: $${cards.reduce((s, c) => s + parseFloat(c.balance), 0).toFixed(2)}
+- Average APR: ${(cards.reduce((s, c) => s + parseFloat(c.apr), 0) / cards.length).toFixed(1)}%
+- Total minimum payments: $${cards.reduce((s, c) => s + parseFloat(c.min_payment), 0).toFixed(2)}/mo
+` : "CREDIT CARDS: None"}
+
+Respond ONLY with a JSON array of 4-8 suggestion objects. Each object must have:
 - "icon": a single relevant emoji
 - "title": short title (3-6 words)
 - "desc": specific, personalized advice referencing their actual bill names and amounts (2-3 sentences max)
@@ -116,6 +129,8 @@ Rules:
 - Suggest optimal bill payment ordering (highest interest/penalty bills first)
 - If they have no reminders set on upcoming bills, flag that
 - Compare their spending ratios to common benchmarks
+- If they have credit cards: analyze debt-to-limit ratio, suggest snowball vs avalanche strategy by name, calculate interest savings from paying more than minimum, flag high-APR cards, and comment on their payoff goals if set
+- If total credit card debt is significant, make 1-2 suggestions specifically about debt reduction
 - Be encouraging and specific, not generic
 
 Respond with ONLY the JSON array, no other text.`;

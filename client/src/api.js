@@ -64,6 +64,16 @@ export const api = {
   // AI Insights
   getInsights: () => request("/insights", { method: "POST" }),
 
+  // Credit Cards
+  getCards: () => request("/cards"),
+  createCard: (card) => request("/cards", { method: "POST", body: JSON.stringify(card) }),
+  updateCard: (id, updates) => request(`/cards/${id}`, { method: "PATCH", body: JSON.stringify(updates) }),
+  deleteCard: (id) => request(`/cards/${id}`, { method: "DELETE" }),
+  makeCardPayment: (id, payment) => request(`/cards/${id}/pay`, { method: "POST", body: JSON.stringify(payment) }),
+  getCardPayments: (id) => request(`/cards/${id}/payments`),
+  getCardPayoff: (id) => request(`/cards/${id}/payoff`),
+  getDebtStrategy: () => request("/cards/strategy"),
+
   // Helpers
   getToken, setToken, clearToken, getUser, setUser,
 };

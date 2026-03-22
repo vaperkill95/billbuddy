@@ -395,6 +395,276 @@ function AIInsights({ t }) {
   );
 }
 
+function CreditCardsView({ t }) {
+  const [cards, setCards] = useState([]);
+  const [showAddCard, setShowAddCard] = useState(false);
+  const [selectedCard, setSelectedCard] = useState(null);
+  const [payoff, setPayoff] = useState(null);
+  const [strategy, setStrategy] = useState(null);
+  const [payAmount, setPayAmount] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [view, setView] = useState("cards"); // cards | strategy
+
+  const loadCards = async () => {
+    try {
+      const c = await api.getCards();
+      setCards(c);
+      if (c.length > 1) {
+        const s = await api.getDebtStrategy();
+        setStrategy(s);
+      }
+    } catch (err) { console.error(err); }
+    finally { setLoading(false); }
+  };
+
+  useEffect(() => { loadCards(); }, []);
+
+  const addCard = async (card) => {
+    try { const c = await api.createCard(card); setCards(p => [...p, c]); setShowAddCard(false); } catch (err) { console.error(err); }
+  };
+
+  const deleteCard = async (id) => {
+    setCards(p => p.filter(c => c.id !== id));
+    try { await api.deleteCard(id); } catch { loadCards(); }
+    if (selectedCard?.id === id) { setSelectedCard(null); setPayoff(null); }
+  };
+
+  const toggleHistory = async (id, val) => {
+    setCards(p => p.map(c => c.id === id ? { ...c, showInHistory: val } : c));
+    try { await api.updateCard(id, { showInHistory: val }); } catch {}
+  };
+
+  const makePayment = async (card) => {
+    const amt = parseFloat(payAmount);
+    if (!amt || amt <= 0) return;
+    try {
+      const res = await api.makeCardPayment(card.id, { amount: amt });
+      setCards(p => p.map(c => c.id === card.id ? { ...c, balance: res.newBalance } : c));
+      setPayAmount("");
+      if (selectedCard?.id === card.id) loadPayoff(card.id);
+    } catch (err) { console.error(err); }
+  };
+
+  const loadPayoff = async (id) => {
+    try {
+      const p = await api.getCardPayoff(id);
+      setPayoff(p);
+    } catch { setPayoff(null); }
+  };
+
+  const selectCard = (card) => {
+    setSelectedCard(card);
+    loadPayoff(card.id);
+  };
+
+  const fmtMo = (m) => m === Infinity ? "Never" : m === 1 ? "1 month" : `${m} months`;
+  const fmtYr = (m) => m === Infinity ? "Never" : m < 12 ? fmtMo(m) : `${Math.floor(m / 12)}y ${m % 12}m`;
+
+  const is = { width: "100%", padding: "12px 16px", borderRadius: 12, border: `2px solid ${t.border}`, fontSize: 14, fontFamily: "'DM Sans'", outline: "none", boxSizing: "border-box", background: t.input, color: t.text };
+  const totalDebt = cards.reduce((s, c) => s + c.balance, 0);
+  const totalLimit = cards.reduce((s, c) => s + c.creditLimit, 0);
+  const totalMin = cards.reduce((s, c) => s + c.minPayment, 0);
+  const utilization = totalLimit > 0 ? (totalDebt / totalLimit * 100) : 0;
+
+  if (loading) return <div style={{ textAlign: "center", padding: 60, color: t.sub }}>Loading cards...</div>;
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+      {/* Header */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <div style={{ fontSize: 32 }}>💳</div>
+          <div>
+            <h3 style={{ fontFamily: "'Fredoka'", color: t.text, margin: 0, fontSize: 20 }}>Credit Cards</h3>
+            <p style={{ margin: "2px 0 0", fontSize: 13, color: t.sub }}>Track balances, payments & payoff goals</p>
+          </div>
+        </div>
+        <button onClick={() => setShowAddCard(true)} style={{ padding: "8px 18px", borderRadius: 12, border: "none", background: "linear-gradient(135deg, #6C5CE7, #A29BFE)", color: "white", cursor: "pointer", fontWeight: 700, fontSize: 12, fontFamily: "'DM Sans'" }}>+ Add Card</button>
+      </div>
+
+      {/* Summary stats */}
+      {cards.length > 0 && (
+        <div style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
+          <div style={{ background: t.card, borderRadius: 16, padding: "16px 22px", boxShadow: t.cs, flex: 1, minWidth: 140 }}>
+            <div style={{ fontSize: 11, color: t.sub, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5 }}>Total Debt</div>
+            <div style={{ fontSize: 22, fontWeight: 800, color: "#FF6B6B", fontFamily: "'Fredoka'", marginTop: 2 }}>{formatMoney(totalDebt)}</div>
+          </div>
+          <div style={{ background: t.card, borderRadius: 16, padding: "16px 22px", boxShadow: t.cs, flex: 1, minWidth: 140 }}>
+            <div style={{ fontSize: 11, color: t.sub, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5 }}>Min Payments</div>
+            <div style={{ fontSize: 22, fontWeight: 800, color: t.text, fontFamily: "'Fredoka'", marginTop: 2 }}>{formatMoney(totalMin)}/mo</div>
+          </div>
+          <div style={{ background: t.card, borderRadius: 16, padding: "16px 22px", boxShadow: t.cs, flex: 1, minWidth: 140 }}>
+            <div style={{ fontSize: 11, color: t.sub, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5 }}>Utilization</div>
+            <div style={{ fontSize: 22, fontWeight: 800, color: utilization > 30 ? "#FF6B6B" : "#4ECDC4", fontFamily: "'Fredoka'", marginTop: 2 }}>{utilization.toFixed(0)}%</div>
+          </div>
+        </div>
+      )}
+
+      {/* View toggle */}
+      {cards.length > 1 && (
+        <div style={{ display: "flex", gap: 4, background: t.pill, borderRadius: 12, padding: 4, alignSelf: "flex-start" }}>
+          {[["cards", "💳 Cards"], ["strategy", "🎯 Payoff Strategy"]].map(([k, l]) => (
+            <button key={k} onClick={() => setView(k)} style={{ padding: "8px 16px", borderRadius: 10, border: "none", background: view === k ? "linear-gradient(135deg, #6C5CE7, #A29BFE)" : "transparent", color: view === k ? "white" : t.sub, cursor: "pointer", fontWeight: 700, fontSize: 12, fontFamily: "'DM Sans'" }}>{l}</button>
+          ))}
+        </div>
+      )}
+
+      {/* Cards list */}
+      {view === "cards" && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          {cards.map(card => {
+            const pct = card.creditLimit > 0 ? (card.balance / card.creditLimit * 100) : 0;
+            const isSelected = selectedCard?.id === card.id;
+            return (
+              <div key={card.id}>
+                <div onClick={() => selectCard(card)} style={{
+                  background: t.card, borderRadius: 20, padding: "20px 24px", boxShadow: t.cs, cursor: "pointer",
+                  borderLeft: `4px solid ${pct > 50 ? "#FF6B6B" : pct > 30 ? "#FDCB6E" : "#4ECDC4"}`,
+                  border: isSelected ? "2px solid #6C5CE7" : undefined,
+                }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12 }}>
+                    <div>
+                      <div style={{ fontWeight: 700, color: t.text, fontSize: 16 }}>💳 {card.name}</div>
+                      <div style={{ fontSize: 12, color: t.sub, marginTop: 2 }}>APR: {card.apr}% · Due: {card.dueDate}th · Min: {formatMoney(card.minPayment)}</div>
+                    </div>
+                    <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                      <label style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 10, color: t.sub, cursor: "pointer" }}>
+                        <div onClick={e => { e.stopPropagation(); toggleHistory(card.id, !card.showInHistory); }} style={{ width: 18, height: 18, borderRadius: 5, border: card.showInHistory ? "none" : `2px solid ${t.border}`, background: card.showInHistory ? "#4ECDC4" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", color: "white", fontSize: 10, fontWeight: 700 }}>{card.showInHistory && "✓"}</div>
+                        History
+                      </label>
+                      <button onClick={e => { e.stopPropagation(); deleteCard(card.id); }} style={{ width: 24, height: 24, borderRadius: 8, border: "none", background: "#FFF0F0", cursor: "pointer", color: "#FF6B6B", fontSize: 12, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center" }}>×</button>
+                    </div>
+                  </div>
+                  {/* Balance bar */}
+                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
+                    <span style={{ fontSize: 24, fontWeight: 800, color: t.text, fontFamily: "'Fredoka'" }}>{formatMoney(card.balance)}</span>
+                    <span style={{ fontSize: 13, color: t.sub, alignSelf: "flex-end" }}>of {formatMoney(card.creditLimit)}</span>
+                  </div>
+                  <div style={{ height: 10, background: t.prog, borderRadius: 5, overflow: "hidden" }}>
+                    <div style={{ height: "100%", borderRadius: 5, background: pct > 50 ? "linear-gradient(90deg, #FF6B6B, #FF8E8E)" : pct > 30 ? "linear-gradient(90deg, #FDCB6E, #FDE68A)" : "linear-gradient(90deg, #4ECDC4, #6EE7DE)", width: `${Math.min(pct, 100)}%`, transition: "width 0.5s" }} />
+                  </div>
+                  <div style={{ fontSize: 11, color: t.sub, marginTop: 4 }}>{pct.toFixed(0)}% utilized{card.goalDate ? ` · Goal: pay off by ${card.goalDate}` : ""}</div>
+                </div>
+
+                {/* Expanded: payment + payoff */}
+                {isSelected && (
+                  <div style={{ background: t.card, borderRadius: "0 0 20px 20px", padding: "16px 24px", boxShadow: t.cs, marginTop: -8, borderTop: `1px solid ${t.border}` }}>
+                    {/* Make a payment */}
+                    <div style={{ display: "flex", gap: 8, marginBottom: 16, alignItems: "center" }}>
+                      <input type="number" value={payAmount} onChange={e => setPayAmount(e.target.value)} placeholder="Payment amount" style={{ ...is, flex: 1 }} onKeyDown={e => e.key === "Enter" && makePayment(card)} />
+                      <button onClick={() => makePayment(card)} style={{ padding: "12px 20px", borderRadius: 12, border: "none", background: "linear-gradient(135deg, #4ECDC4, #45B7D1)", color: "white", cursor: "pointer", fontWeight: 700, fontSize: 13, fontFamily: "'DM Sans'", whiteSpace: "nowrap" }}>Pay Now</button>
+                    </div>
+
+                    {/* Payoff scenarios */}
+                    {payoff && payoff.scenarios && (
+                      <div>
+                        <div style={{ fontWeight: 700, color: t.text, fontSize: 14, marginBottom: 10 }}>📊 Payoff Scenarios</div>
+                        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                          {payoff.scenarios.map((s, i) => (
+                            <div key={i} style={{ background: t.prog, borderRadius: 12, padding: "12px 16px", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
+                              <div>
+                                <div style={{ fontWeight: 700, color: t.text, fontSize: 13 }}>{s.label}</div>
+                                <div style={{ fontSize: 11, color: t.sub }}>{formatMoney(s.monthlyPayment)}/mo · {fmtYr(s.months)}</div>
+                              </div>
+                              <div style={{ textAlign: "right" }}>
+                                <div style={{ fontSize: 13, fontWeight: 700, color: "#FF6B6B" }}>{s.totalInterest === Infinity ? "∞" : formatMoney(s.totalInterest)} interest</div>
+                                <div style={{ fontSize: 11, color: t.sub }}>{s.totalPaid === Infinity ? "∞" : formatMoney(s.totalPaid)} total</div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+          {!cards.length && <div style={{ textAlign: "center", padding: 40, color: t.sub }}>No credit cards yet — add one to start tracking your debt.</div>}
+        </div>
+      )}
+
+      {/* Strategy view */}
+      {view === "strategy" && strategy && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          {[
+            { key: "avalanche", title: "🏔️ Avalanche Method", sub: "Pay highest APR first — saves the most money on interest", data: strategy.avalanche },
+            { key: "snowball", title: "⛄ Snowball Method", sub: "Pay lowest balance first — quick wins to build momentum", data: strategy.snowball },
+          ].map(method => (
+            <div key={method.key} style={{ background: t.card, borderRadius: 20, padding: "20px 24px", boxShadow: t.cs }}>
+              <div style={{ fontWeight: 700, color: t.text, fontSize: 16, marginBottom: 2 }}>{method.title}</div>
+              <div style={{ fontSize: 12, color: t.sub, marginBottom: 14 }}>{method.sub}</div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                {method.data.map((c, i) => (
+                  <div key={c.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 14px", background: t.prog, borderRadius: 12 }}>
+                    <div style={{ width: 28, height: 28, borderRadius: 8, background: i === 0 ? "linear-gradient(135deg, #6C5CE7, #A29BFE)" : t.pill, display: "flex", alignItems: "center", justifyContent: "center", color: i === 0 ? "white" : t.sub, fontSize: 12, fontWeight: 800 }}>{c.order}</div>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontWeight: 700, color: t.text, fontSize: 13 }}>{c.name}</div>
+                      <div style={{ fontSize: 11, color: t.sub }}>{method.key === "avalanche" ? `${c.apr}% APR` : formatMoney(c.balance)} · Min {formatMoney(c.minPayment)}</div>
+                    </div>
+                    <div style={{ fontWeight: 800, color: t.text, fontSize: 14, fontFamily: "'Fredoka'" }}>{formatMoney(c.balance)}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Add Card Modal */}
+      {showAddCard && <AddCardModal onClose={() => setShowAddCard(false)} onAdd={addCard} t={t} />}
+    </div>
+  );
+}
+
+function AddCardModal({ onClose, onAdd, t }) {
+  const [name, setName] = useState("");
+  const [balance, setBalance] = useState("");
+  const [creditLimit, setCreditLimit] = useState("");
+  const [apr, setApr] = useState("");
+  const [minPayment, setMinPayment] = useState("");
+  const [dueDate, setDueDate] = useState("");
+  const [goalDate, setGoalDate] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  const is = { width: "100%", padding: "12px 16px", borderRadius: 12, border: `2px solid ${t.border}`, fontSize: 14, fontFamily: "'DM Sans'", outline: "none", boxSizing: "border-box", background: t.input, color: t.text };
+  const lb = { fontSize: 12, fontWeight: 700, color: t.sub, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4, display: "block" };
+
+  const go = async () => {
+    if (!name || !balance || !dueDate) return;
+    setSaving(true);
+    await onAdd({ name, balance: parseFloat(balance), creditLimit: parseFloat(creditLimit) || 0, apr: parseFloat(apr) || 0, minPayment: parseFloat(minPayment) || 0, dueDate: parseInt(dueDate), goalDate: goalDate || null, showInHistory: true });
+    setSaving(false);
+  };
+
+  return (
+    <div style={{ position: "fixed", inset: 0, background: t.over, display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, backdropFilter: "blur(4px)" }} onClick={onClose}>
+      <div style={{ background: t.modal, borderRadius: 24, padding: 32, width: "90%", maxWidth: 460, boxShadow: "0 20px 60px rgba(0,0,0,0.25)", maxHeight: "90vh", overflowY: "auto" }} onClick={e => e.stopPropagation()}>
+        <h3 style={{ margin: "0 0 24px", fontFamily: "'Fredoka'", color: t.text, fontSize: 22 }}>💳 Add Credit Card</h3>
+        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+          <div><label style={lb}>Card Name</label><input value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Chase Sapphire" style={is} /></div>
+          <div style={{ display: "flex", gap: 12 }}>
+            <div style={{ flex: 1 }}><label style={lb}>Current Balance ($)</label><input type="number" value={balance} onChange={e => setBalance(e.target.value)} placeholder="3500.00" style={is} /></div>
+            <div style={{ flex: 1 }}><label style={lb}>Credit Limit ($)</label><input type="number" value={creditLimit} onChange={e => setCreditLimit(e.target.value)} placeholder="10000" style={is} /></div>
+          </div>
+          <div style={{ display: "flex", gap: 12 }}>
+            <div style={{ flex: 1 }}><label style={lb}>APR (%)</label><input type="number" step="0.1" value={apr} onChange={e => setApr(e.target.value)} placeholder="24.99" style={is} /></div>
+            <div style={{ flex: 1 }}><label style={lb}>Min Payment ($)</label><input type="number" value={minPayment} onChange={e => setMinPayment(e.target.value)} placeholder="35.00" style={is} /></div>
+          </div>
+          <div style={{ display: "flex", gap: 12 }}>
+            <div style={{ flex: 1 }}><label style={lb}>Due Date (Day)</label><input type="number" min="1" max="31" value={dueDate} onChange={e => setDueDate(e.target.value)} placeholder="15" style={is} /></div>
+            <div style={{ flex: 1 }}><label style={lb}>Payoff Goal Date</label><input type="date" value={goalDate} onChange={e => setGoalDate(e.target.value)} style={is} /></div>
+          </div>
+          <div style={{ display: "flex", gap: 12, marginTop: 8 }}>
+            <button onClick={onClose} style={{ flex: 1, padding: 14, borderRadius: 14, border: `2px solid ${t.border}`, background: t.card, cursor: "pointer", fontWeight: 700, fontSize: 14, color: t.sub, fontFamily: "'DM Sans'" }}>Cancel</button>
+            <button onClick={go} disabled={saving} style={{ flex: 2, padding: 14, borderRadius: 14, border: "none", background: "linear-gradient(135deg, #6C5CE7, #A29BFE)", color: "white", cursor: "pointer", fontWeight: 700, fontSize: 14, fontFamily: "'DM Sans'", opacity: saving ? 0.7 : 1 }}>{saving ? "Saving..." : "Add Card"}</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function AddBillModal({ onClose, onAdd, t }) {
   const [name, setName] = useState(""); const [amount, setAmount] = useState(""); const [dueDate, setDueDate] = useState("");
   const [category, setCategory] = useState("Other"); const [isRecurring, setIsRecurring] = useState(true);
@@ -496,7 +766,8 @@ export default function App() {
 
   const tabs = [
     { key: "dashboard", label: "Dashboard", icon: "📊" }, { key: "calendar", label: "Calendar", icon: "📅" },
-    { key: "insights", label: "AI Insights", icon: "🤖" }, { key: "charts", label: "Charts", icon: "📈" },
+    { key: "cards", label: "Credit Cards", icon: "💳" }, { key: "insights", label: "AI Insights", icon: "🤖" },
+    { key: "charts", label: "Charts", icon: "📈" },
     { key: "history", label: "History", icon: "📜" }, { key: "reminders", label: "Reminders", icon: "🔔" },
   ];
 
@@ -561,6 +832,7 @@ export default function App() {
             </div>
           )}
           {tab === "calendar" && <CalendarView bills={bills} t={t} />}
+          {tab === "cards" && <CreditCardsView t={t} />}
           {tab === "insights" && <AIInsights t={t} />}
           {tab === "charts" && <SpendingChart bills={bills} t={t} />}
           {tab === "history" && <HistoryView history={history} months={hMonths} filter={hFilter} setFilter={setHFilter} t={t} />}
