@@ -470,7 +470,6 @@ function RemindersView({ bills, onUpdate, t }) {
             <a
               href={webcalUrl}
               onClick={(e) => {
-                // Use window.location as fallback for mobile browsers that block webcal:// links
                 try { window.location.href = webcalUrl; } catch(err) {}
               }}
               rel="noopener noreferrer"
@@ -483,10 +482,10 @@ function RemindersView({ bills, onUpdate, t }) {
                 boxSizing: "border-box",
               }}
             >
-              📲 Tap to Add to Phone Calendar
+              📲 Subscribe to BillBuddy Calendar
             </a>
             <div style={{ fontSize: 11, color: t.sub, textAlign: "center" }}>
-              Opens your calendar app and asks to subscribe — works on iPhone, iPad, and Mac
+              This creates a <strong style={{ color: t.text }}>live subscription</strong> — your phone will automatically pull updates when you add, move, or pay bills. No need to re-sync.
             </div>
 
             {/* Direct download fallback */}
@@ -501,10 +500,10 @@ function RemindersView({ bills, onUpdate, t }) {
                 textDecoration: "none", boxSizing: "border-box",
               }}
             >
-              📥 Download .ics File Instead
+              📥 Download .ics Snapshot Instead
             </a>
             <div style={{ fontSize: 11, color: t.muted, textAlign: "center" }}>
-              If the button above doesn't open your calendar, download the file and open it manually
+              One-time import — won't auto-update. Use the Subscribe button above for live sync.
             </div>
 
             {/* Divider */}

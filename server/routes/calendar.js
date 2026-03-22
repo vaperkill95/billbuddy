@@ -21,6 +21,13 @@ function esc(text) {
 
 // ─── Generate / get calendar token (requires auth) ───
 
+// Railway runs behind a proxy so req.protocol is always http — detect real protocol
+function getBaseUrl(req) {
+  if (process.env.BASE_URL) return process.env.BASE_URL;
+  const proto = req.get("x-forwarded-proto") || req.protocol;
+  return `${proto}://${req.get("host")}`;
+}
+
 router.post("/token", authMiddleware, async (req, res) => {
   try {
     const { rows } = await pool.query("SELECT calendar_token FROM users WHERE id=$1", [req.user.id]);
@@ -31,9 +38,8 @@ router.post("/token", authMiddleware, async (req, res) => {
       await pool.query("UPDATE users SET calendar_token=$1 WHERE id=$2", [token, req.user.id]);
     }
 
-    const baseUrl = process.env.BASE_URL || `${req.protocol}://${req.get("host")}`;
+    const baseUrl = getBaseUrl(req);
     const feedUrl = `${baseUrl}/api/calendar/feed/${token}`;
-    // webcal:// protocol triggers native calendar subscription on iOS/macOS
     const webcalUrl = feedUrl.replace(/^https?:\/\//, "webcal://");
 
     res.json({ token, feedUrl, webcalUrl });
@@ -48,7 +54,7 @@ router.post("/token/reset", authMiddleware, async (req, res) => {
   try {
     const token = crypto.randomBytes(32).toString("hex");
     await pool.query("UPDATE users SET calendar_token=$1 WHERE id=$2", [token, req.user.id]);
-    const baseUrl = process.env.BASE_URL || `${req.protocol}://${req.get("host")}`;
+    const baseUrl = getBaseUrl(req);
     const feedUrl = `${baseUrl}/api/calendar/feed/${token}`;
     const webcalUrl = feedUrl.replace(/^https?:\/\//, "webcal://");
     res.json({ token, feedUrl, webcalUrl });
