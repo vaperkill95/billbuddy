@@ -218,6 +218,8 @@ function CalendarView({ bills, t }) {
   const dim = getDaysInMonth(cy, cm), fd = getFirstDayOfMonth(cy, cm);
   const now = new Date(), isCur = cm === now.getMonth() && cy === now.getFullYear();
   const cells = []; for (let i = 0; i < fd; i++) cells.push(null); for (let d = 1; d <= dim; d++) cells.push(d);
+  const dayTotal = (day) => bills.filter(b => b.dueDate === day).reduce((s, b) => s + b.amount, 0);
+
   return (
     <div style={{ background: t.card, borderRadius: 20, padding: 28, boxShadow: t.cs }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
@@ -230,8 +232,43 @@ function CalendarView({ bills, t }) {
         {cells.map((day, i) => {
           const db = day ? bills.filter(b => b.dueDate === day) : [];
           const isT = isCur && day === now.getDate();
-          return (<div key={i} style={{ minHeight: 52, borderRadius: 10, padding: 4, background: isT ? t.today : day ? t.cell : "transparent", border: isT ? "2px solid #6C5CE7" : "2px solid transparent" }}>{day && <><div style={{ fontSize: 12, fontWeight: isT ? 800 : 500, color: isT ? "#6C5CE7" : t.sub, textAlign: "right", padding: "0 2px" }}>{day}</div><div style={{ display: "flex", flexDirection: "column", gap: 2, marginTop: 2 }}>{db.map(b => <div key={b.id} title={`${b.name} - ${formatMoney(b.amount)}`} style={{ width: "100%", height: 6, borderRadius: 3, background: b.isPaid ? "#4ECDC4" : getCatColor(b.category), opacity: b.isPaid ? 0.4 : 1 }} />)}</div></>}</div>);
+          const total = dayTotal(day);
+          return (
+            <div key={i} style={{
+              minHeight: 80, borderRadius: 10, padding: "4px 5px",
+              background: isT ? t.today : day ? t.cell : "transparent",
+              border: isT ? "2px solid #6C5CE7" : "2px solid transparent",
+              overflow: "hidden",
+            }}>
+              {day && <>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 3 }}>
+                  <div style={{ fontSize: 12, fontWeight: isT ? 800 : 600, color: isT ? "#6C5CE7" : t.sub }}>{day}</div>
+                  {total > 0 && <div style={{ fontSize: 9, fontWeight: 700, color: "#6C5CE7", background: "#6C5CE715", padding: "1px 5px", borderRadius: 4 }}>{formatMoney(total)}</div>}
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                  {db.slice(0, 3).map(b => (
+                    <div key={b.id} style={{
+                      display: "flex", alignItems: "center", gap: 3,
+                      padding: "2px 4px", borderRadius: 4,
+                      background: b.isPaid ? "#4ECDC415" : getCatColor(b.category) + "18",
+                      opacity: b.isPaid ? 0.5 : 1,
+                    }}>
+                      <div style={{ width: 4, height: 4, borderRadius: 2, background: b.isPaid ? "#4ECDC4" : getCatColor(b.category), flexShrink: 0 }} />
+                      <div style={{ fontSize: 9, fontWeight: 600, color: t.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1, textDecoration: b.isPaid ? "line-through" : "none" }}>{b.name}</div>
+                      <div style={{ fontSize: 8, fontWeight: 700, color: t.sub, flexShrink: 0 }}>{formatMoney(b.amount)}</div>
+                    </div>
+                  ))}
+                  {db.length > 3 && <div style={{ fontSize: 8, color: t.sub, fontWeight: 700, textAlign: "center" }}>+{db.length - 3} more</div>}
+                </div>
+              </>}
+            </div>
+          );
         })}
+      </div>
+      {/* Legend */}
+      <div style={{ marginTop: 16, display: "flex", flexWrap: "wrap", gap: 8 }}>
+        {CATEGORIES.map(c => bills.some(b => b.category === c.name) ? <div key={c.name} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11, color: t.sub }}><div style={{ width: 8, height: 8, borderRadius: 4, background: c.color }} />{c.name}</div> : null)}
+        <div style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11, color: t.sub }}><div style={{ width: 8, height: 8, borderRadius: 4, background: "#4ECDC4", opacity: 0.5 }} />Paid</div>
       </div>
     </div>
   );
