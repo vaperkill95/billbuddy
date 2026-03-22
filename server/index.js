@@ -3,6 +3,7 @@ const cors = require("cors");
 const path = require("path");
 require("dotenv").config();
 
+const authRouter = require("./routes/auth");
 const billsRouter = require("./routes/bills");
 const historyRouter = require("./routes/history");
 const pool = require("./db/pool");
@@ -10,15 +11,14 @@ const pool = require("./db/pool");
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-// Middleware
 app.use(cors());
 app.use(express.json());
 
-// API routes
+// Routes
+app.use("/api/auth", authRouter);
 app.use("/api/bills", billsRouter);
 app.use("/api/history", historyRouter);
 
-// Health check
 app.get("/api/health", async (req, res) => {
   try {
     await pool.query("SELECT 1");
@@ -36,12 +36,23 @@ if (process.env.NODE_ENV === "production") {
   });
 }
 
-// Auto-initialize database tables on startup
 async function initDB() {
   try {
     await pool.query(`
+      CREATE TABLE IF NOT EXISTS users (
+        id SERIAL PRIMARY KEY,
+        email VARCHAR(255) UNIQUE NOT NULL,
+        password_hash VARCHAR(255),
+        name VARCHAR(255) NOT NULL,
+        google_id VARCHAR(255),
+        avatar_url TEXT,
+        auth_provider VARCHAR(20) NOT NULL DEFAULT 'email',
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+      );
       CREATE TABLE IF NOT EXISTS bills (
         id SERIAL PRIMARY KEY,
+        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
         name VARCHAR(255) NOT NULL,
         amount DECIMAL(10, 2) NOT NULL,
         due_date INTEGER NOT NULL CHECK (due_date >= 1 AND due_date <= 31),
@@ -54,6 +65,7 @@ async function initDB() {
       );
       CREATE TABLE IF NOT EXISTS payment_history (
         id SERIAL PRIMARY KEY,
+        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
         bill_name VARCHAR(255) NOT NULL,
         amount DECIMAL(10, 2) NOT NULL,
         category VARCHAR(100) NOT NULL,
@@ -62,10 +74,9 @@ async function initDB() {
         status VARCHAR(20) NOT NULL DEFAULT 'on-time',
         created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
       );
-      CREATE INDEX IF NOT EXISTS idx_bills_due_date ON bills(due_date);
-      CREATE INDEX IF NOT EXISTS idx_bills_is_paid ON bills(is_paid);
-      CREATE INDEX IF NOT EXISTS idx_history_paid_date ON payment_history(paid_date);
-      CREATE INDEX IF NOT EXISTS idx_history_month ON payment_history(month_label);
+      CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
+      CREATE INDEX IF NOT EXISTS idx_bills_user_id ON bills(user_id);
+      CREATE INDEX IF NOT EXISTS idx_history_user_id ON payment_history(user_id);
     `);
     console.log("✅ Database tables ready");
   } catch (err) {
@@ -76,8 +87,6 @@ async function initDB() {
 initDB().then(() => {
   app.listen(PORT, () => {
     console.log(`\n🚀 BillBuddy server running on port ${PORT}`);
-    console.log(`   API:    http://localhost:${PORT}/api/health`);
-    console.log(`   Bills:  http://localhost:${PORT}/api/bills`);
-    console.log(`   History: http://localhost:${PORT}/api/history\n`);
+    console.log(`   Health: http://localhost:${PORT}/api/health\n`);
   });
 });

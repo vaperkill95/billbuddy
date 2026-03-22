@@ -7,9 +7,23 @@ const pool = new Pool({
 });
 
 const initSQL = `
--- Bills table
+-- Users table
+CREATE TABLE IF NOT EXISTS users (
+  id SERIAL PRIMARY KEY,
+  email VARCHAR(255) UNIQUE NOT NULL,
+  password_hash VARCHAR(255),
+  name VARCHAR(255) NOT NULL,
+  google_id VARCHAR(255),
+  avatar_url TEXT,
+  auth_provider VARCHAR(20) NOT NULL DEFAULT 'email',
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Bills table with user_id
 CREATE TABLE IF NOT EXISTS bills (
   id SERIAL PRIMARY KEY,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   name VARCHAR(255) NOT NULL,
   amount DECIMAL(10, 2) NOT NULL,
   due_date INTEGER NOT NULL CHECK (due_date >= 1 AND due_date <= 31),
@@ -21,9 +35,10 @@ CREATE TABLE IF NOT EXISTS bills (
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- Payment history table
+-- Payment history table with user_id
 CREATE TABLE IF NOT EXISTS payment_history (
   id SERIAL PRIMARY KEY,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   bill_name VARCHAR(255) NOT NULL,
   amount DECIMAL(10, 2) NOT NULL,
   category VARCHAR(100) NOT NULL,
@@ -33,46 +48,14 @@ CREATE TABLE IF NOT EXISTS payment_history (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- Index for faster queries
+-- Indexes
+CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
+CREATE INDEX IF NOT EXISTS idx_users_google_id ON users(google_id);
+CREATE INDEX IF NOT EXISTS idx_bills_user_id ON bills(user_id);
 CREATE INDEX IF NOT EXISTS idx_bills_due_date ON bills(due_date);
-CREATE INDEX IF NOT EXISTS idx_bills_category ON bills(category);
-CREATE INDEX IF NOT EXISTS idx_bills_is_paid ON bills(is_paid);
+CREATE INDEX IF NOT EXISTS idx_history_user_id ON payment_history(user_id);
 CREATE INDEX IF NOT EXISTS idx_history_paid_date ON payment_history(paid_date);
 CREATE INDEX IF NOT EXISTS idx_history_month ON payment_history(month_label);
-
--- Seed some sample data if bills table is empty
-INSERT INTO bills (name, amount, due_date, category, is_paid, is_recurring, reminder)
-SELECT * FROM (VALUES
-  ('Rent', 1500.00, 1, 'Housing', false, true, '3days'),
-  ('Electric', 120.00, 15, 'Utilities', false, true, '1day'),
-  ('Netflix', 15.99, 8, 'Subscriptions', true, true, 'none'),
-  ('Car Insurance', 180.00, 20, 'Insurance', false, true, '1week'),
-  ('Phone Bill', 85.00, 12, 'Phone/Internet', true, true, '1day'),
-  ('Spotify', 10.99, 5, 'Subscriptions', true, true, 'none'),
-  ('Internet', 65.00, 18, 'Phone/Internet', false, true, '3days'),
-  ('Gym', 40.00, 1, 'Health', false, true, '1day')
-) AS seed(name, amount, due_date, category, is_paid, is_recurring, reminder)
-WHERE NOT EXISTS (SELECT 1 FROM bills LIMIT 1);
-
--- Seed payment history if empty
-INSERT INTO payment_history (bill_name, amount, category, paid_date, month_label, status)
-SELECT * FROM (VALUES
-  ('Rent', 1500.00, 'Housing', '2026-02-01'::date, 'February 2026', 'on-time'),
-  ('Electric', 135.00, 'Utilities', '2026-02-16'::date, 'February 2026', 'late'),
-  ('Netflix', 15.99, 'Subscriptions', '2026-02-08'::date, 'February 2026', 'on-time'),
-  ('Car Insurance', 180.00, 'Insurance', '2026-02-20'::date, 'February 2026', 'on-time'),
-  ('Phone Bill', 85.00, 'Phone/Internet', '2026-02-12'::date, 'February 2026', 'on-time'),
-  ('Spotify', 10.99, 'Subscriptions', '2026-02-05'::date, 'February 2026', 'on-time'),
-  ('Internet', 65.00, 'Phone/Internet', '2026-02-18'::date, 'February 2026', 'on-time'),
-  ('Gym', 40.00, 'Health', '2026-02-01'::date, 'February 2026', 'on-time'),
-  ('Rent', 1500.00, 'Housing', '2026-01-01'::date, 'January 2026', 'on-time'),
-  ('Electric', 142.00, 'Utilities', '2026-01-15'::date, 'January 2026', 'on-time'),
-  ('Netflix', 15.99, 'Subscriptions', '2026-01-08'::date, 'January 2026', 'on-time'),
-  ('Car Insurance', 180.00, 'Insurance', '2026-01-22'::date, 'January 2026', 'late'),
-  ('Phone Bill', 85.00, 'Phone/Internet', '2026-01-12'::date, 'January 2026', 'on-time'),
-  ('Gym', 40.00, 'Health', '2026-01-01'::date, 'January 2026', 'on-time')
-) AS seed(bill_name, amount, category, paid_date, month_label, status)
-WHERE NOT EXISTS (SELECT 1 FROM payment_history LIMIT 1);
 `;
 
 async function init() {
@@ -80,10 +63,10 @@ async function init() {
     console.log("🔌 Connecting to database...");
     await pool.query(initSQL);
     console.log("✅ Database initialized successfully!");
-    console.log("   - bills table created");
-    console.log("   - payment_history table created");
+    console.log("   - users table created");
+    console.log("   - bills table created (with user_id)");
+    console.log("   - payment_history table created (with user_id)");
     console.log("   - indexes created");
-    console.log("   - sample data seeded (if empty)");
   } catch (err) {
     console.error("❌ Database initialization failed:", err.message);
     process.exit(1);

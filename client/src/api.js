@@ -1,11 +1,40 @@
 const API_BASE = process.env.REACT_APP_API_URL || "/api";
 
+function getToken() {
+  return localStorage.getItem("billbuddy_token");
+}
+
+function setToken(token) {
+  localStorage.setItem("billbuddy_token", token);
+}
+
+function clearToken() {
+  localStorage.removeItem("billbuddy_token");
+  localStorage.removeItem("billbuddy_user");
+}
+
+function getUser() {
+  const u = localStorage.getItem("billbuddy_user");
+  return u ? JSON.parse(u) : null;
+}
+
+function setUser(user) {
+  localStorage.setItem("billbuddy_user", JSON.stringify(user));
+}
+
 async function request(path, options = {}) {
-  const url = `${API_BASE}${path}`;
-  const res = await fetch(url, {
-    headers: { "Content-Type": "application/json", ...options.headers },
-    ...options,
-  });
+  const token = getToken();
+  const headers = { "Content-Type": "application/json", ...options.headers };
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+
+  const res = await fetch(`${API_BASE}${path}`, { ...options, headers });
+
+  if (res.status === 401) {
+    clearToken();
+    window.location.reload();
+    throw new Error("Session expired");
+  }
+
   if (!res.ok) {
     const err = await res.json().catch(() => ({ error: res.statusText }));
     throw new Error(err.error || "Request failed");
@@ -14,6 +43,12 @@ async function request(path, options = {}) {
 }
 
 export const api = {
+  // Auth
+  signup: (data) => request("/auth/signup", { method: "POST", body: JSON.stringify(data) }),
+  login: (data) => request("/auth/login", { method: "POST", body: JSON.stringify(data) }),
+  googleLogin: (credential) => request("/auth/google", { method: "POST", body: JSON.stringify({ credential }) }),
+  getMe: () => request("/auth/me"),
+
   // Bills
   getBills: () => request("/bills"),
   createBill: (bill) => request("/bills", { method: "POST", body: JSON.stringify(bill) }),
@@ -23,10 +58,9 @@ export const api = {
 
   // History
   getHistory: (month) => request(`/history${month && month !== "all" ? `?month=${encodeURIComponent(month)}` : ""}`),
-  recordPayment: (payment) => request("/history", { method: "POST", body: JSON.stringify(payment) }),
+  recordPayment: (p) => request("/history", { method: "POST", body: JSON.stringify(p) }),
   getHistoryMonths: () => request("/history/months"),
-  getHistoryStats: () => request("/history/stats"),
 
-  // Health
-  health: () => request("/health"),
+  // Helpers
+  getToken, setToken, clearToken, getUser, setUser,
 };
