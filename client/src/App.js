@@ -246,7 +246,7 @@ function BillRow({ bill, onToggle, onDelete, t }) {
   );
 }
 
-function CalendarView({ bills, t, onMoveBill }) {
+function CalendarView({ bills, cards, t, onMoveBill }) {
   const [cm, setCm] = useState(new Date().getMonth());
   const [cy, setCy] = useState(new Date().getFullYear());
   const [dragBill, setDragBill] = useState(null);
@@ -255,7 +255,14 @@ function CalendarView({ bills, t, onMoveBill }) {
   const dim = getDaysInMonth(cy, cm), fd = getFirstDayOfMonth(cy, cm);
   const now = new Date(), isCur = cm === now.getMonth() && cy === now.getFullYear();
   const cells = []; for (let i = 0; i < fd; i++) cells.push(null); for (let d = 1; d <= dim; d++) cells.push(d);
-  const dayTotal = (day) => bills.filter(b => b.dueDate === day).reduce((s, b) => s + b.amount, 0);
+
+  // Merge bills and credit cards into calendar items
+  const getItemsForDay = (day) => {
+    const billItems = bills.filter(b => b.dueDate === day).map(b => ({ ...b, type: "bill" }));
+    const cardItems = (cards || []).filter(c => c.dueDate === day && c.balance > 0).map(c => ({ id: `card-${c.id}`, name: c.name, amount: c.minPayment, dueDate: c.dueDate, category: "Credit Card", type: "card", balance: c.balance }));
+    return [...billItems, ...cardItems];
+  };
+  const dayTotal = (day) => getItemsForDay(day).reduce((s, item) => s + item.amount, 0);
 
   const handleDragStart = (e, bill) => {
     setDragBill(bill);
@@ -312,7 +319,7 @@ function CalendarView({ bills, t, onMoveBill }) {
       <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 4 }}>
         {["Sun","Mon","Tue","Wed","Thu","Fri","Sat"].map(d => <div key={d} style={{ textAlign: "center", fontSize: 11, fontWeight: 700, color: t.muted, padding: "4px 0" }}>{d}</div>)}
         {cells.map((day, i) => {
-          const db = day ? bills.filter(b => b.dueDate === day) : [];
+          const db = day ? getItemsForDay(day) : [];
           const isT = isCur && day === now.getDate();
           const total = dayTotal(day);
           const isDropTarget = dragOverDay === day && dragBill && day !== dragBill.dueDate;
@@ -339,21 +346,23 @@ function CalendarView({ bills, t, onMoveBill }) {
                   {db.slice(0, 3).map(b => (
                     <div
                       key={b.id}
-                      draggable
-                      onDragStart={e => handleDragStart(e, b)}
-                      onDragEnd={handleDragEnd}
+                      draggable={b.type === "bill"}
+                      onDragStart={b.type === "bill" ? (e => handleDragStart(e, b)) : undefined}
+                      onDragEnd={b.type === "bill" ? handleDragEnd : undefined}
                       style={{
                         display: "flex", alignItems: "center", gap: 3,
                         padding: "2px 4px", borderRadius: 4,
-                        background: dragBill?.id === b.id ? "#6C5CE730" : b.isPaid ? "#4ECDC415" : getCatColor(b.category) + "18",
+                        background: b.type === "card" ? "#FF6B6B15" : dragBill?.id === b.id ? "#6C5CE730" : b.isPaid ? "#4ECDC415" : getCatColor(b.category) + "18",
                         opacity: dragBill?.id === b.id ? 0.4 : b.isPaid ? 0.5 : 1,
-                        cursor: "grab",
+                        cursor: b.type === "bill" ? "grab" : "default",
                         transition: "opacity 0.15s",
                       }}
                     >
-                      <div style={{ width: 4, height: 4, borderRadius: 2, background: b.isPaid ? "#4ECDC4" : getCatColor(b.category), flexShrink: 0 }} />
-                      <div style={{ fontSize: 9, fontWeight: 600, color: t.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1, textDecoration: b.isPaid ? "line-through" : "none" }}>{b.name}</div>
-                      <div style={{ fontSize: 8, fontWeight: 700, color: t.sub, flexShrink: 0 }}>{formatMoney(b.amount)}</div>
+                      <div style={{ width: 4, height: 4, borderRadius: 2, background: b.type === "card" ? "#FF6B6B" : b.isPaid ? "#4ECDC4" : getCatColor(b.category), flexShrink: 0 }} />
+                      <div style={{ fontSize: 9, fontWeight: 600, color: t.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1, textDecoration: b.isPaid ? "line-through" : "none" }}>
+                        {b.type === "card" ? `💳 ${b.name}` : b.name}
+                      </div>
+                      <div style={{ fontSize: 8, fontWeight: 700, color: b.type === "card" ? "#FF6B6B" : t.sub, flexShrink: 0 }}>{formatMoney(b.amount)}</div>
                     </div>
                   ))}
                   {db.length > 3 && <div style={{ fontSize: 8, color: t.sub, fontWeight: 700, textAlign: "center" }}>+{db.length - 3} more</div>}
@@ -366,6 +375,7 @@ function CalendarView({ bills, t, onMoveBill }) {
       {/* Legend */}
       <div style={{ marginTop: 16, display: "flex", flexWrap: "wrap", gap: 8 }}>
         {CATEGORIES.map(c => bills.some(b => b.category === c.name) ? <div key={c.name} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11, color: t.sub }}><div style={{ width: 8, height: 8, borderRadius: 4, background: c.color }} />{c.name}</div> : null)}
+        {(cards || []).some(c => c.balance > 0) && <div style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11, color: t.sub }}><div style={{ width: 8, height: 8, borderRadius: 4, background: "#FF6B6B" }} />💳 Credit Card</div>}
         <div style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11, color: t.sub }}><div style={{ width: 8, height: 8, borderRadius: 4, background: "#4ECDC4", opacity: 0.5 }} />Paid</div>
       </div>
     </div>
@@ -1711,6 +1721,7 @@ function AddBillModal({ onClose, onAdd, t }) {
 export default function App() {
   const [user, setUser] = useState(api.getUser());
   const [bills, setBills] = useState([]);
+  const [calCards, setCalCards] = useState([]);
   const [history, setHistory] = useState([]);
   const [hMonths, setHMonths] = useState([]);
   const [tab, setTab] = useState("dashboard");
@@ -1727,6 +1738,8 @@ export default function App() {
       setLoading(true);
       const [b, h, m] = await Promise.all([api.getBills(), api.getHistory(), api.getHistoryMonths()]);
       setBills(b); setHistory(h); setHMonths(m);
+      // Also fetch cards for calendar
+      try { const c = await api.getCards(); setCalCards(c); } catch(e) {}
     } catch (err) { console.error("Load error:", err); }
     finally { setLoading(false); }
   }, [user]);
@@ -1897,7 +1910,7 @@ export default function App() {
               </div>
             </div>
           )}
-          {tab === "calendar" && <CalendarView bills={bills} t={t} onMoveBill={moveBillDate} />}
+          {tab === "calendar" && <CalendarView bills={bills} cards={calCards} t={t} onMoveBill={moveBillDate} />}
           {tab === "bank" && <BankAccountsView t={t} />}
           {tab === "income" && <IncomeView t={t} />}
           {tab === "cards" && <CreditCardsView t={t} />}
