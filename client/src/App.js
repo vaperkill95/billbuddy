@@ -838,39 +838,97 @@ function BankAccountsView({ t }) {
 
       {/* Accounts list */}
       {view === "overview" && (
-        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
           {accounts.map(a => {
-            const pendingTxns = transactions.filter(tx => tx.pending && tx.accountId === a.accountId);
-            const pendingTotal = pendingTxns.reduce((s, tx) => s + tx.amount, 0);
-            const projectedBalance = a.balanceCurrent - pendingTotal;
+            const acctTxns = transactions.filter(tx => tx.accountId === a.accountId);
+            const pendingOut = acctTxns.filter(tx => tx.pending && tx.amount > 0);
+            const pendingIn = acctTxns.filter(tx => tx.pending && tx.amount < 0);
+            const pendingOutTotal = pendingOut.reduce((s, tx) => s + tx.amount, 0);
+            const pendingInTotal = pendingIn.reduce((s, tx) => s + Math.abs(tx.amount), 0);
+            const projectedBalance = a.balanceCurrent - pendingOutTotal + pendingInTotal;
+            const hasPending = pendingOut.length > 0 || pendingIn.length > 0;
+
             return (
-              <div key={a.id} style={{ background: t.card, borderRadius: 16, boxShadow: t.cs, borderLeft: `4px solid ${a.type === "depository" ? "#4ECDC4" : a.type === "credit" ? "#FF6B6B" : "#6C5CE7"}`, overflow: "hidden" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 14, padding: "16px 20px" }}>
-                  <div style={{ fontSize: 22 }}>{acctIcon(a.type)}</div>
+              <div key={a.id} style={{ background: t.card, borderRadius: 20, boxShadow: t.cs, overflow: "hidden" }}>
+                {/* Account header */}
+                <div style={{ display: "flex", alignItems: "center", gap: 14, padding: "18px 22px" }}>
+                  <div style={{ fontSize: 24 }}>{acctIcon(a.type)}</div>
                   <div style={{ flex: 1 }}>
-                    <div style={{ fontWeight: 700, color: t.text, fontSize: 14 }}>{a.name}</div>
+                    <div style={{ fontWeight: 700, color: t.text, fontSize: 15 }}>{a.name}</div>
                     <div style={{ fontSize: 11, color: t.sub, marginTop: 2 }}>{a.institution} · {a.subtype} · ••••{a.mask}</div>
                   </div>
-                  <div style={{ textAlign: "right" }}>
-                    <div style={{ fontWeight: 800, fontSize: 18, color: t.text, fontFamily: "'Fredoka'" }}>{formatMoney(a.balanceCurrent)}</div>
-                    {a.balanceAvailable !== a.balanceCurrent && a.balanceAvailable > 0 && (
-                      <div style={{ fontSize: 11, color: t.sub }}>{formatMoney(a.balanceAvailable)} available</div>
-                    )}
-                  </div>
                 </div>
-                {/* Pending & projected balance */}
-                {pendingTxns.length > 0 && (
-                  <div style={{ padding: "10px 20px 14px", borderTop: `1px solid ${t.border}`, background: t.prog }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-                      <span style={{ fontSize: 12, fontWeight: 700, color: "#FDCB6E" }}>⏳ {pendingTxns.length} pending transaction{pendingTxns.length > 1 ? "s" : ""}</span>
-                      <span style={{ fontSize: 12, fontWeight: 700, color: "#FDCB6E" }}>-{formatMoney(Math.abs(pendingTotal))}</span>
-                    </div>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                      <span style={{ fontSize: 12, fontWeight: 600, color: t.sub }}>Balance after pending</span>
-                      <span style={{ fontSize: 14, fontWeight: 800, color: projectedBalance >= 0 ? "#4ECDC4" : "#FF6B6B", fontFamily: "'Fredoka'" }}>{formatMoney(projectedBalance)}</span>
-                    </div>
+
+                {/* Balance breakdown */}
+                <div style={{ padding: "0 22px 18px" }}>
+                  {/* Current balance - big number */}
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+                    <span style={{ fontSize: 13, fontWeight: 600, color: t.sub }}>Current Balance</span>
+                    <span style={{ fontSize: 26, fontWeight: 800, color: t.text, fontFamily: "'Fredoka'" }}>{formatMoney(a.balanceCurrent)}</span>
                   </div>
-                )}
+
+                  {hasPending && (
+                    <>
+                      {/* Divider */}
+                      <div style={{ height: 1, background: t.border, margin: "0 0 12px" }} />
+
+                      {/* Pending money out */}
+                      {pendingOut.length > 0 && (
+                        <div style={{ marginBottom: 8 }}>
+                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+                            <span style={{ fontSize: 12, fontWeight: 700, color: "#FF6B6B" }}>💸 Money Out (Pending)</span>
+                            <span style={{ fontSize: 14, fontWeight: 800, color: "#FF6B6B", fontFamily: "'Fredoka'" }}>-{formatMoney(pendingOutTotal)}</span>
+                          </div>
+                          {pendingOut.map(tx => (
+                            <div key={tx.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "5px 12px", marginBottom: 3, background: "#FF6B6B08", borderRadius: 8 }}>
+                              <span style={{ fontSize: 12, color: t.sub, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1, marginRight: 8 }}>{tx.name}</span>
+                              <span style={{ fontSize: 12, fontWeight: 700, color: "#FF6B6B", flexShrink: 0 }}>-{formatMoney(tx.amount)}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Pending money in */}
+                      {pendingIn.length > 0 && (
+                        <div style={{ marginBottom: 8 }}>
+                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+                            <span style={{ fontSize: 12, fontWeight: 700, color: "#4ECDC4" }}>💵 Money In (Pending)</span>
+                            <span style={{ fontSize: 14, fontWeight: 800, color: "#4ECDC4", fontFamily: "'Fredoka'" }}>+{formatMoney(pendingInTotal)}</span>
+                          </div>
+                          {pendingIn.map(tx => (
+                            <div key={tx.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "5px 12px", marginBottom: 3, background: "#4ECDC408", borderRadius: 8 }}>
+                              <span style={{ fontSize: 12, color: t.sub, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1, marginRight: 8 }}>{tx.name}</span>
+                              <span style={{ fontSize: 12, fontWeight: 700, color: "#4ECDC4", flexShrink: 0 }}>+{formatMoney(Math.abs(tx.amount))}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Divider */}
+                      <div style={{ height: 1, background: t.border, margin: "4px 0 12px" }} />
+
+                      {/* Projected balance */}
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 14px", background: projectedBalance >= 0 ? "#4ECDC410" : "#FF6B6B10", borderRadius: 12 }}>
+                        <div>
+                          <span style={{ fontSize: 13, fontWeight: 700, color: t.text }}>Balance After Pending</span>
+                          <div style={{ fontSize: 10, color: t.sub, marginTop: 1 }}>When all pending transactions clear</div>
+                        </div>
+                        <span style={{ fontSize: 22, fontWeight: 800, color: projectedBalance >= 0 ? "#4ECDC4" : "#FF6B6B", fontFamily: "'Fredoka'" }}>{formatMoney(projectedBalance)}</span>
+                      </div>
+                    </>
+                  )}
+
+                  {!hasPending && a.balanceAvailable !== a.balanceCurrent && a.balanceAvailable > 0 && (
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 0" }}>
+                      <span style={{ fontSize: 12, color: t.sub }}>Available</span>
+                      <span style={{ fontSize: 14, fontWeight: 700, color: "#4ECDC4", fontFamily: "'Fredoka'" }}>{formatMoney(a.balanceAvailable)}</span>
+                    </div>
+                  )}
+
+                  {!hasPending && (
+                    <div style={{ fontSize: 11, color: t.muted, marginTop: 6 }}>No pending transactions — balance is current</div>
+                  )}
+                </div>
               </div>
             );
           })}
