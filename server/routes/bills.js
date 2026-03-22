@@ -7,6 +7,10 @@ router.use(authMiddleware);
 
 router.get("/", async (req, res) => {
   try {
+    // Check if we need to reset bills for a new month
+    if (req.checkMonthlyReset) {
+      await req.checkMonthlyReset(req.user.id);
+    }
     const { rows } = await pool.query("SELECT * FROM bills WHERE user_id = $1 ORDER BY due_date ASC", [req.user.id]);
     res.json(rows.map(r => ({ id: r.id, name: r.name, amount: parseFloat(r.amount), dueDate: r.due_date, category: r.category, isPaid: r.is_paid, isRecurring: r.is_recurring, reminder: r.reminder })));
   } catch (err) { console.error("GET /bills error:", err); res.status(500).json({ error: "Failed to fetch bills" }); }

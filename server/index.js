@@ -19,6 +19,12 @@ const PORT = process.env.PORT || 3001;
 app.use(cors());
 app.use(express.json());
 
+// Make checkMonthlyReset available to routes
+app.use((req, res, next) => {
+  req.checkMonthlyReset = checkMonthlyReset;
+  next();
+});
+
 // Routes
 app.use("/api/auth", authRouter);
 app.use("/api/bills", billsRouter);
@@ -195,6 +201,7 @@ async function initDB() {
     // Migrations for existing databases
     const migrations = [
       "ALTER TABLE users ADD COLUMN IF NOT EXISTS calendar_token VARCHAR(255) UNIQUE",
+      "ALTER TABLE users ADD COLUMN IF NOT EXISTS last_reset_month VARCHAR(10)",
     ];
     for (const sql of migrations) {
       try { await pool.query(sql); } catch (e) { /* column may already exist */ }
@@ -203,6 +210,36 @@ async function initDB() {
     console.log("✅ Database tables ready");
   } catch (err) {
     console.error("⚠️  Database init warning:", err.message);
+  }
+}
+
+// ─── Auto-reset recurring bills at start of new month ───
+async function checkMonthlyReset(userId) {
+  try {
+    const now = new Date();
+    const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+
+    const { rows } = await pool.query("SELECT last_reset_month FROM users WHERE id = $1", [userId]);
+    const lastReset = rows[0]?.last_reset_month;
+
+    if (lastReset !== currentMonth) {
+      // New month! Reset all recurring bills to unpaid
+      await pool.query(
+        "UPDATE bills SET is_paid = false, updated_at = NOW() WHERE user_id = $1 AND is_recurring = true",
+        [userId]
+      );
+      // Update the user's last reset month
+      await pool.query(
+        "UPDATE users SET last_reset_month = $1 WHERE id = $2",
+        [currentMonth, userId]
+      );
+      console.log(`🔄 Monthly reset for user ${userId} — bills reset for ${currentMonth}`);
+      return true;
+    }
+    return false;
+  } catch (err) {
+    console.error("Monthly reset error:", err.message);
+    return false;
   }
 }
 
