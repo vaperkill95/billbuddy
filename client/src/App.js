@@ -212,34 +212,90 @@ function BillRow({ bill, onToggle, onDelete, t }) {
   );
 }
 
-function CalendarView({ bills, t }) {
+function CalendarView({ bills, t, onMoveBill }) {
   const [cm, setCm] = useState(new Date().getMonth());
   const [cy, setCy] = useState(new Date().getFullYear());
+  const [dragBill, setDragBill] = useState(null);
+  const [dragOverDay, setDragOverDay] = useState(null);
+  const [toast, setToast] = useState(null);
   const dim = getDaysInMonth(cy, cm), fd = getFirstDayOfMonth(cy, cm);
   const now = new Date(), isCur = cm === now.getMonth() && cy === now.getFullYear();
   const cells = []; for (let i = 0; i < fd; i++) cells.push(null); for (let d = 1; d <= dim; d++) cells.push(d);
   const dayTotal = (day) => bills.filter(b => b.dueDate === day).reduce((s, b) => s + b.amount, 0);
 
+  const handleDragStart = (e, bill) => {
+    setDragBill(bill);
+    e.dataTransfer.effectAllowed = "move";
+    e.dataTransfer.setData("text/plain", bill.id);
+  };
+
+  const handleDragOver = (e, day) => {
+    if (!day || !dragBill) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+    setDragOverDay(day);
+  };
+
+  const handleDragLeave = () => {
+    setDragOverDay(null);
+  };
+
+  const handleDrop = async (e, day) => {
+    e.preventDefault();
+    setDragOverDay(null);
+    if (!dragBill || !day || day === dragBill.dueDate) { setDragBill(null); return; }
+    const oldDay = dragBill.dueDate;
+    onMoveBill(dragBill.id, day);
+    setToast(`Moved "${dragBill.name}" from the ${oldDay}th → ${day}th`);
+    setTimeout(() => setToast(null), 3000);
+    setDragBill(null);
+  };
+
+  const handleDragEnd = () => {
+    setDragBill(null);
+    setDragOverDay(null);
+  };
+
   return (
     <div style={{ background: t.card, borderRadius: 20, padding: 28, boxShadow: t.cs }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
         <button onClick={() => { if (cm === 0) { setCm(11); setCy(cy - 1); } else setCm(cm - 1); }} style={{ background: t.pill, border: "none", borderRadius: 10, width: 36, height: 36, cursor: "pointer", fontSize: 16, fontWeight: 700, color: t.text }}>‹</button>
         <div style={{ fontWeight: 800, fontSize: 18, fontFamily: "'Fredoka', sans-serif", color: t.text }}>{MONTHS[cm]} {cy}</div>
         <button onClick={() => { if (cm === 11) { setCm(0); setCy(cy + 1); } else setCm(cm + 1); }} style={{ background: t.pill, border: "none", borderRadius: 10, width: 36, height: 36, cursor: "pointer", fontSize: 16, fontWeight: 700, color: t.text }}>›</button>
       </div>
+      <div style={{ fontSize: 11, color: t.muted, textAlign: "center", marginBottom: 14 }}>💡 Drag a bill to a different day to change its due date</div>
+
+      {/* Toast notification */}
+      {toast && (
+        <div style={{
+          background: "linear-gradient(135deg, #4ECDC4, #45B7D1)", color: "white",
+          padding: "10px 18px", borderRadius: 12, fontWeight: 700, fontSize: 13,
+          marginBottom: 12, textAlign: "center",
+          boxShadow: "0 4px 16px rgba(78,205,196,0.3)",
+        }}>✅ {toast}</div>
+      )}
+
       <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 4 }}>
         {["Sun","Mon","Tue","Wed","Thu","Fri","Sat"].map(d => <div key={d} style={{ textAlign: "center", fontSize: 11, fontWeight: 700, color: t.muted, padding: "4px 0" }}>{d}</div>)}
         {cells.map((day, i) => {
           const db = day ? bills.filter(b => b.dueDate === day) : [];
           const isT = isCur && day === now.getDate();
           const total = dayTotal(day);
+          const isDropTarget = dragOverDay === day && dragBill && day !== dragBill.dueDate;
           return (
-            <div key={i} style={{
-              minHeight: 80, borderRadius: 10, padding: "4px 5px",
-              background: isT ? t.today : day ? t.cell : "transparent",
-              border: isT ? "2px solid #6C5CE7" : "2px solid transparent",
-              overflow: "hidden",
-            }}>
+            <div
+              key={i}
+              onDragOver={e => handleDragOver(e, day)}
+              onDragLeave={handleDragLeave}
+              onDrop={e => handleDrop(e, day)}
+              style={{
+                minHeight: 80, borderRadius: 10, padding: "4px 5px",
+                background: isDropTarget ? "#6C5CE720" : isT ? t.today : day ? t.cell : "transparent",
+                border: isDropTarget ? "2px dashed #6C5CE7" : isT ? "2px solid #6C5CE7" : "2px solid transparent",
+                overflow: "hidden",
+                transition: "background 0.15s, border 0.15s",
+              }}
+            >
               {day && <>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 3 }}>
                   <div style={{ fontSize: 12, fontWeight: isT ? 800 : 600, color: isT ? "#6C5CE7" : t.sub }}>{day}</div>
@@ -247,12 +303,20 @@ function CalendarView({ bills, t }) {
                 </div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
                   {db.slice(0, 3).map(b => (
-                    <div key={b.id} style={{
-                      display: "flex", alignItems: "center", gap: 3,
-                      padding: "2px 4px", borderRadius: 4,
-                      background: b.isPaid ? "#4ECDC415" : getCatColor(b.category) + "18",
-                      opacity: b.isPaid ? 0.5 : 1,
-                    }}>
+                    <div
+                      key={b.id}
+                      draggable
+                      onDragStart={e => handleDragStart(e, b)}
+                      onDragEnd={handleDragEnd}
+                      style={{
+                        display: "flex", alignItems: "center", gap: 3,
+                        padding: "2px 4px", borderRadius: 4,
+                        background: dragBill?.id === b.id ? "#6C5CE730" : b.isPaid ? "#4ECDC415" : getCatColor(b.category) + "18",
+                        opacity: dragBill?.id === b.id ? 0.4 : b.isPaid ? 0.5 : 1,
+                        cursor: "grab",
+                        transition: "opacity 0.15s",
+                      }}
+                    >
                       <div style={{ width: 4, height: 4, borderRadius: 2, background: b.isPaid ? "#4ECDC4" : getCatColor(b.category), flexShrink: 0 }} />
                       <div style={{ fontSize: 9, fontWeight: 600, color: t.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1, textDecoration: b.isPaid ? "line-through" : "none" }}>{b.name}</div>
                       <div style={{ fontSize: 8, fontWeight: 700, color: t.sub, flexShrink: 0 }}>{formatMoney(b.amount)}</div>
@@ -899,6 +963,11 @@ export default function App() {
     try { await api.updateBill(id, { reminder: val }); } catch {}
   };
 
+  const moveBillDate = async (id, newDay) => {
+    setBills(p => p.map(b => b.id === id ? { ...b, dueDate: newDay } : b));
+    try { await api.updateBill(id, { dueDate: newDay }); } catch (err) { console.error("Move bill error:", err); }
+  };
+
   // Not logged in → show auth
   if (!user) return <AuthPage onAuth={handleAuth} t={t} />;
 
@@ -974,7 +1043,7 @@ export default function App() {
               </div>
             </div>
           )}
-          {tab === "calendar" && <CalendarView bills={bills} t={t} />}
+          {tab === "calendar" && <CalendarView bills={bills} t={t} onMoveBill={moveBillDate} />}
           {tab === "cards" && <CreditCardsView t={t} />}
           {tab === "insights" && <AIInsights t={t} />}
           {tab === "charts" && <SpendingChart bills={bills} t={t} />}
