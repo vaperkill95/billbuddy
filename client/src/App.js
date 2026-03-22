@@ -189,10 +189,38 @@ function StatCard({ label, value, sub, color, icon, t }) {
 }
 
 function BillRow({ bill, onToggle, onDelete, t }) {
-  const d = bill.dueDate - new Date().getDate();
-  const over = d < 0 && !bill.isPaid, soon = d >= 0 && d <= 3 && !bill.isPaid;
+  const now = new Date();
+  const today = now.getDate();
+  const currentMonth = now.getMonth();
+  const currentYear = now.getFullYear();
+
+  // Calculate days until due, accounting for paid status
+  let daysUntilDue;
+  let nextDueLabel;
+
+  if (bill.isPaid) {
+    // Bill is paid this month — show next month's due date
+    const nextMonth = currentMonth === 11 ? 0 : currentMonth + 1;
+    const nextYear = currentMonth === 11 ? currentYear + 1 : currentYear;
+    const nextDue = new Date(nextYear, nextMonth, bill.dueDate);
+    daysUntilDue = Math.ceil((nextDue - now) / (1000 * 60 * 60 * 24));
+    nextDueLabel = `Next: ${MONTHS[nextMonth]} ${bill.dueDate}th`;
+  } else if (bill.dueDate < today) {
+    // Due date has passed this month and NOT paid — this is actually overdue
+    daysUntilDue = bill.dueDate - today; // negative = overdue
+    nextDueLabel = null;
+  } else {
+    // Due date is still upcoming this month and not paid
+    daysUntilDue = bill.dueDate - today;
+    nextDueLabel = null;
+  }
+
+  const isOverdue = daysUntilDue < 0 && !bill.isPaid;
+  const isDueSoon = !bill.isPaid && daysUntilDue >= 0 && daysUntilDue <= 3;
+  const daysAbs = Math.abs(daysUntilDue);
+
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 14, padding: "14px 18px", background: bill.isPaid ? t.rowPaid : over ? t.rowOver : t.rowBg, borderRadius: 16, boxShadow: t.cs, borderLeft: `4px solid ${getCatColor(bill.category)}` }}>
+    <div style={{ display: "flex", alignItems: "center", gap: 14, padding: "14px 18px", background: bill.isPaid ? t.rowPaid : isOverdue ? t.rowOver : t.rowBg, borderRadius: 16, boxShadow: t.cs, borderLeft: `4px solid ${getCatColor(bill.category)}` }}>
       <button onClick={() => onToggle(bill)} style={{ width: 26, height: 26, borderRadius: 8, border: bill.isPaid ? "none" : `2px solid ${t.border}`, background: bill.isPaid ? "#4ECDC4" : "transparent", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: "white", fontSize: 13, fontWeight: 700, flexShrink: 0 }}>{bill.isPaid && "✓"}</button>
       <div style={{ fontSize: 20, flexShrink: 0 }}>{getCatIcon(bill.category)}</div>
       <div style={{ flex: 1, minWidth: 0 }}>
@@ -205,7 +233,13 @@ function BillRow({ bill, onToggle, onDelete, t }) {
       </div>
       <div style={{ textAlign: "right", flexShrink: 0 }}>
         <div style={{ fontWeight: 800, fontSize: 15, color: bill.isPaid ? "#4ECDC4" : t.text, fontFamily: "'Fredoka', sans-serif" }}>{formatMoney(bill.amount)}</div>
-        {!bill.isPaid && <div style={{ fontSize: 11, fontWeight: 700, marginTop: 2, color: over ? "#FF6B6B" : soon ? "#FDCB6E" : "#4ECDC4" }}>{over ? "OVERDUE" : soon ? `Due in ${d}d` : `${d}d left`}</div>}
+        {bill.isPaid ? (
+          <div style={{ fontSize: 11, fontWeight: 700, marginTop: 2, color: "#6C5CE7" }}>{nextDueLabel}</div>
+        ) : (
+          <div style={{ fontSize: 11, fontWeight: 700, marginTop: 2, color: isOverdue ? "#FF6B6B" : isDueSoon ? "#FDCB6E" : "#4ECDC4" }}>
+            {isOverdue ? `OVERDUE ${daysAbs}d` : isDueSoon ? `Due in ${daysUntilDue}d` : daysUntilDue === 0 ? "Due today" : `${daysUntilDue}d left`}
+          </div>
+        )}
       </div>
       <button onClick={() => onDelete(bill.id)} style={{ width: 26, height: 26, borderRadius: 8, border: "none", background: "#FFF0F0", cursor: "pointer", color: "#FF6B6B", fontSize: 14, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, opacity: 0.6 }} onMouseEnter={e => e.currentTarget.style.opacity = 1} onMouseLeave={e => e.currentTarget.style.opacity = 0.6}>×</button>
     </div>
