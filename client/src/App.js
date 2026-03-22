@@ -178,12 +178,12 @@ function AuthPage({ onAuth, t }) {
 // ─── Dashboard Components ───
 function StatCard({ label, value, sub, color, icon, t }) {
   return (
-    <div style={{ background: t.card, borderRadius: 20, padding: "22px 26px", boxShadow: t.cs, flex: 1, minWidth: 170, position: "relative", overflow: "hidden" }}>
-      <div style={{ position: "absolute", top: -20, right: -20, width: 80, height: 80, borderRadius: "50%", background: color + "20" }} />
-      <div style={{ fontSize: 26, marginBottom: 4 }}>{icon}</div>
-      <div style={{ fontSize: 11, color: t.sub, fontWeight: 600, letterSpacing: 0.5, textTransform: "uppercase", marginBottom: 4 }}>{label}</div>
-      <div style={{ fontSize: 24, fontWeight: 800, color: t.text, fontFamily: "'Fredoka', sans-serif" }}>{value}</div>
-      {sub && <div style={{ fontSize: 12, color, fontWeight: 600, marginTop: 2 }}>{sub}</div>}
+    <div style={{ background: t.card, borderRadius: 16, padding: "16px 18px", boxShadow: t.cs, flex: 1, minWidth: 0, position: "relative", overflow: "hidden" }}>
+      <div style={{ position: "absolute", top: -15, right: -15, width: 60, height: 60, borderRadius: "50%", background: color + "15" }} />
+      <div style={{ fontSize: 20, marginBottom: 3 }}>{icon}</div>
+      <div style={{ fontSize: 10, color: t.sub, fontWeight: 600, letterSpacing: 0.5, textTransform: "uppercase", marginBottom: 2 }}>{label}</div>
+      <div style={{ fontSize: 20, fontWeight: 800, color: t.text, fontFamily: "'Fredoka', sans-serif" }}>{value}</div>
+      {sub && <div style={{ fontSize: 11, color, fontWeight: 600, marginTop: 1 }}>{sub}</div>}
     </div>
   );
 }
@@ -1801,68 +1801,96 @@ export default function App() {
   const totalUnpaid = totalMonthly - totalPaid;
   const paidCount = bills.filter(b => b.isPaid).length;
 
-  const tabs = [
-    { key: "dashboard", label: "Dashboard", icon: "📊" }, { key: "calendar", label: "Calendar", icon: "📅" },
-    { key: "bank", label: "Bank", icon: "🏦" }, { key: "income", label: "Income", icon: "💰" },
-    { key: "cards", label: "Credit Cards", icon: "💳" }, { key: "insights", label: "AI Insights", icon: "🤖" },
+  // Primary tabs for bottom nav (most used), rest go in "More" menu
+  const mainTabs = [
+    { key: "dashboard", label: "Home", icon: "📊" },
+    { key: "bank", label: "Bank", icon: "🏦" },
+    { key: "cards", label: "Cards", icon: "💳" },
+    { key: "calendar", label: "Calendar", icon: "📅" },
+    { key: "more", label: "More", icon: "☰" },
+  ];
+  const moreTabs = [
+    { key: "income", label: "Income", icon: "💰" },
+    { key: "insights", label: "AI Insights", icon: "🤖" },
     { key: "charts", label: "Charts", icon: "📈" },
-    { key: "history", label: "History", icon: "📜" }, { key: "reminders", label: "Reminders", icon: "🔔" },
+    { key: "history", label: "History", icon: "📜" },
+    { key: "reminders", label: "Reminders", icon: "🔔" },
   ];
 
+  const [showMore, setShowMore] = useState(false);
+  const isMoreTab = moreTabs.some(mt => mt.key === tab);
+  const activeTabLabel = [...mainTabs, ...moreTabs].find(tb => tb.key === tab)?.label || "Home";
+
   return (
-    <div style={{ fontFamily: "'DM Sans', sans-serif", minHeight: "100vh", background: t.bg, transition: "background 0.4s" }}>
-      <style>{`select option { background: ${t.card}; color: ${t.text}; }`}</style>
-      {/* Header */}
-      <div style={{ background: t.header, padding: "28px 28px 56px", borderRadius: "0 0 36px 36px", position: "relative", overflow: "hidden" }}>
-        <div style={{ position: "absolute", top: -40, right: -40, width: 150, height: 150, borderRadius: "50%", background: t.bubble }} />
+    <div style={{ fontFamily: "'DM Sans', sans-serif", minHeight: "100vh", background: t.bg, transition: "background 0.4s", paddingBottom: 80 }}>
+      <style>{`
+        select option { background: ${t.card}; color: ${t.text}; }
+        @media (min-width: 768px) {
+          .bb-mobile-only { display: none !important; }
+          .bb-desktop-only { display: flex !important; }
+          .bb-bottom-nav { display: none !important; }
+          .bb-content { padding-bottom: 40px !important; }
+        }
+        @media (max-width: 767px) {
+          .bb-mobile-only { display: flex !important; }
+          .bb-desktop-only { display: none !important; }
+          .bb-bottom-nav { display: flex !important; }
+        }
+      `}</style>
+
+      {/* Header - compact on mobile */}
+      <div style={{ background: t.header, padding: "20px 16px 48px", borderRadius: "0 0 28px 28px", position: "relative", overflow: "hidden" }}>
+        <div style={{ position: "absolute", top: -40, right: -40, width: 120, height: 120, borderRadius: "50%", background: t.bubble }} />
         <div style={{ position: "relative", maxWidth: 960, margin: "0 auto" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <div>
-              <h1 style={{ margin: 0, fontFamily: "'Fredoka'", fontSize: 30, color: "white", fontWeight: 700 }}>💸 BillBuddy</h1>
-              <div style={{ color: "rgba(255,255,255,0.8)", fontSize: 13, marginTop: 4 }}>Hey, {user.name}!</div>
+              <h1 style={{ margin: 0, fontFamily: "'Fredoka'", fontSize: 24, color: "white", fontWeight: 700 }}>💸 BillBuddy</h1>
+              <div style={{ color: "rgba(255,255,255,0.8)", fontSize: 12, marginTop: 2 }}>Hey, {user.name}!</div>
             </div>
-            <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-              <button onClick={() => setDark(!dark)} style={{ width: 48, height: 28, borderRadius: 14, border: "none", cursor: "pointer", background: dark ? "#4ECDC4" : "rgba(255,255,255,0.25)", display: "flex", alignItems: "center", padding: "0 3px" }}>
-                <div style={{ width: 22, height: 22, borderRadius: 11, background: "white", boxShadow: "0 2px 6px rgba(0,0,0,0.2)", transform: dark ? "translateX(20px)" : "translateX(0)", transition: "transform 0.3s", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12 }}>{dark ? "🌙" : "☀️"}</div>
+            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+              <button onClick={() => setDark(!dark)} style={{ width: 40, height: 24, borderRadius: 12, border: "none", cursor: "pointer", background: dark ? "#4ECDC4" : "rgba(255,255,255,0.25)", display: "flex", alignItems: "center", padding: "0 2px" }}>
+                <div style={{ width: 20, height: 20, borderRadius: 10, background: "white", boxShadow: "0 2px 4px rgba(0,0,0,0.2)", transform: dark ? "translateX(16px)" : "translateX(0)", transition: "transform 0.3s", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10 }}>{dark ? "🌙" : "☀️"}</div>
               </button>
-              <button onClick={() => setShowAdd(true)} style={{ padding: "10px 20px", borderRadius: 14, border: "none", background: "rgba(255,255,255,0.2)", color: "white", cursor: "pointer", fontWeight: 700, fontSize: 13, display: "flex", alignItems: "center", gap: 6, fontFamily: "'DM Sans'" }}><span style={{ fontSize: 16 }}>+</span> Add Bill</button>
-              <button onClick={handleLogout} style={{ padding: "10px 16px", borderRadius: 14, border: "none", background: "rgba(255,255,255,0.15)", color: "rgba(255,255,255,0.9)", cursor: "pointer", fontWeight: 700, fontSize: 12, fontFamily: "'DM Sans'" }}>Sign Out</button>
+              <button onClick={() => setShowAdd(true)} style={{ padding: "8px 14px", borderRadius: 12, border: "none", background: "rgba(255,255,255,0.2)", color: "white", cursor: "pointer", fontWeight: 700, fontSize: 12, display: "flex", alignItems: "center", gap: 4, fontFamily: "'DM Sans'" }}>+ Add</button>
+              <button onClick={handleLogout} style={{ padding: "8px 12px", borderRadius: 12, border: "none", background: "rgba(255,255,255,0.12)", color: "rgba(255,255,255,0.8)", cursor: "pointer", fontWeight: 700, fontSize: 11, fontFamily: "'DM Sans'" }}>Out</button>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Nav */}
-      <div style={{ maxWidth: 960, margin: "-28px auto 0", padding: "0 12px", display: "flex", justifyContent: "center", position: "relative", zIndex: 10 }}>
+      {/* Desktop Nav (hidden on mobile) */}
+      <div className="bb-desktop-only" style={{ display: "none", maxWidth: 960, margin: "-24px auto 0", padding: "0 12px", justifyContent: "center", position: "relative", zIndex: 10 }}>
         <div style={{ display: "inline-flex", gap: 3, background: t.tab, borderRadius: 16, padding: 5, boxShadow: t.tabS, flexWrap: "wrap", justifyContent: "center" }}>
-          {tabs.map(tb => <button key={tb.key} onClick={() => setTab(tb.key)} style={{ padding: "9px 14px", borderRadius: 12, border: "none", background: tab === tb.key ? "linear-gradient(135deg, #6C5CE7, #A29BFE)" : "transparent", color: tab === tb.key ? "white" : t.sub, cursor: "pointer", fontWeight: 700, fontSize: 12, display: "flex", alignItems: "center", gap: 5, fontFamily: "'DM Sans'", whiteSpace: "nowrap" }}>{tb.icon} {tb.label}</button>)}
+          {[...mainTabs.filter(t => t.key !== "more"), ...moreTabs].map(tb => (
+            <button key={tb.key} onClick={() => setTab(tb.key)} style={{ padding: "9px 14px", borderRadius: 12, border: "none", background: tab === tb.key ? "linear-gradient(135deg, #6C5CE7, #A29BFE)" : "transparent", color: tab === tb.key ? "white" : t.sub, cursor: "pointer", fontWeight: 700, fontSize: 12, display: "flex", alignItems: "center", gap: 5, fontFamily: "'DM Sans'", whiteSpace: "nowrap" }}>{tb.icon} {tb.label}</button>
+          ))}
         </div>
       </div>
 
       {/* Content */}
-      <div style={{ maxWidth: 960, margin: "20px auto", padding: "0 16px 40px" }}>
+      <div className="bb-content" style={{ maxWidth: 960, margin: "16px auto", padding: "0 12px", paddingBottom: 90 }}>
         {loading && !bills.length ? (
           <div style={{ textAlign: "center", padding: 60 }}><div style={{ fontSize: 48 }}>💸</div><div style={{ marginTop: 12, fontWeight: 700, color: t.text, fontFamily: "'Fredoka'" }}>Loading your bills...</div></div>
         ) : (<>
           {tab === "dashboard" && (
-            <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
-              <div style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 10 }}>
                 <StatCard label="Total Monthly" value={formatMoney(totalMonthly)} icon="📋" color="#6C5CE7" t={t} />
-                <StatCard label="Paid" value={formatMoney(totalPaid)} sub={`${paidCount} of ${bills.length} bills`} icon="✅" color="#4ECDC4" t={t} />
-                <StatCard label="Remaining" value={formatMoney(totalUnpaid)} sub={`${bills.length - paidCount} bills left`} icon="⏳" color="#FF6B6B" t={t} />
+                <StatCard label="Paid" value={formatMoney(totalPaid)} sub={`${paidCount}/${bills.length} bills`} icon="✅" color="#4ECDC4" t={t} />
+                <StatCard label="Remaining" value={formatMoney(totalUnpaid)} sub={`${bills.length - paidCount} left`} icon="⏳" color="#FF6B6B" t={t} />
               </div>
-              <div style={{ background: t.card, borderRadius: 20, padding: "18px 24px", boxShadow: t.cs }}>
-                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
-                  <span style={{ fontWeight: 700, color: t.text, fontSize: 14 }}>Monthly Progress</span>
-                  <span style={{ fontWeight: 800, color: "#6C5CE7", fontFamily: "'Fredoka'" }}>{totalMonthly > 0 ? Math.round((totalPaid / totalMonthly) * 100) : 0}%</span>
+              <div style={{ background: t.card, borderRadius: 16, padding: "14px 18px", boxShadow: t.cs }}>
+                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
+                  <span style={{ fontWeight: 700, color: t.text, fontSize: 13 }}>Monthly Progress</span>
+                  <span style={{ fontWeight: 800, color: "#6C5CE7", fontFamily: "'Fredoka'", fontSize: 13 }}>{totalMonthly > 0 ? Math.round((totalPaid / totalMonthly) * 100) : 0}%</span>
                 </div>
-                <div style={{ height: 12, background: t.prog, borderRadius: 6, overflow: "hidden" }}>
-                  <div style={{ height: "100%", borderRadius: 6, background: "linear-gradient(90deg, #4ECDC4, #6C5CE7)", width: `${totalMonthly > 0 ? (totalPaid / totalMonthly) * 100 : 0}%`, transition: "width 0.5s" }} />
+                <div style={{ height: 10, background: t.prog, borderRadius: 5, overflow: "hidden" }}>
+                  <div style={{ height: "100%", borderRadius: 5, background: "linear-gradient(90deg, #4ECDC4, #6C5CE7)", width: `${totalMonthly > 0 ? (totalPaid / totalMonthly) * 100 : 0}%`, transition: "width 0.5s" }} />
                 </div>
               </div>
               <div>
-                <h3 style={{ fontFamily: "'Fredoka'", color: t.text, margin: "0 0 12px", fontSize: 18 }}>Your Bills</h3>
-                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                <h3 style={{ fontFamily: "'Fredoka'", color: t.text, margin: "0 0 10px", fontSize: 17 }}>Your Bills</h3>
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                   {bills.sort((a, b) => a.dueDate - b.dueDate).map(b => <BillRow key={b.id} bill={b} onToggle={togglePaid} onDelete={deleteBill} t={t} />)}
                   {!bills.length && <div style={{ textAlign: "center", padding: 40, color: t.sub }}>No bills yet — add one to get started!</div>}
                 </div>
@@ -1879,6 +1907,54 @@ export default function App() {
           {tab === "reminders" && <RemindersView bills={bills} onUpdate={updateReminder} t={t} />}
         </>)}
       </div>
+
+      {/* More Menu Overlay */}
+      {showMore && (
+        <div style={{ position: "fixed", inset: 0, background: t.over, zIndex: 998, backdropFilter: "blur(4px)" }} onClick={() => setShowMore(false)}>
+          <div style={{ position: "fixed", bottom: 70, left: 12, right: 12, background: t.card, borderRadius: 20, padding: 8, boxShadow: "0 -8px 40px rgba(0,0,0,0.2)", zIndex: 999 }} onClick={e => e.stopPropagation()}>
+            {moreTabs.map(mt => (
+              <button key={mt.key} onClick={() => { setTab(mt.key); setShowMore(false); }} style={{
+                display: "flex", alignItems: "center", gap: 12, width: "100%", padding: "14px 18px",
+                borderRadius: 14, border: "none", background: tab === mt.key ? "#6C5CE715" : "transparent",
+                color: tab === mt.key ? "#6C5CE7" : t.text, cursor: "pointer", fontWeight: 600, fontSize: 15,
+                fontFamily: "'DM Sans'", textAlign: "left",
+              }}>
+                <span style={{ fontSize: 20 }}>{mt.icon}</span>
+                {mt.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Bottom Navigation (mobile only) */}
+      <div className="bb-bottom-nav" style={{
+        display: "none", position: "fixed", bottom: 0, left: 0, right: 0,
+        background: t.card, borderTop: `1px solid ${t.border}`,
+        padding: "6px 8px 10px", paddingBottom: "max(10px, env(safe-area-inset-bottom))",
+        justifyContent: "space-around", alignItems: "center", zIndex: 100,
+        boxShadow: "0 -4px 20px rgba(0,0,0,0.08)",
+      }}>
+        {mainTabs.map(tb => {
+          const isActive = tb.key === "more" ? (showMore || isMoreTab) : tab === tb.key;
+          return (
+            <button key={tb.key} onClick={() => {
+              if (tb.key === "more") { setShowMore(!showMore); }
+              else { setTab(tb.key); setShowMore(false); }
+            }} style={{
+              display: "flex", flexDirection: "column", alignItems: "center", gap: 2,
+              background: "none", border: "none", cursor: "pointer", padding: "4px 12px",
+              color: isActive ? "#6C5CE7" : t.sub, transition: "color 0.2s",
+              minWidth: 50,
+            }}>
+              <span style={{ fontSize: 22, lineHeight: 1 }}>{tb.icon}</span>
+              <span style={{ fontSize: 10, fontWeight: 700, fontFamily: "'DM Sans'" }}>{tb.label}</span>
+              {isActive && <div style={{ width: 20, height: 3, borderRadius: 2, background: "#6C5CE7", marginTop: 1 }} />}
+            </button>
+          );
+        })}
+      </div>
+
       {showAdd && <AddBillModal onClose={() => setShowAdd(false)} onAdd={addBill} t={t} />}
     </div>
   );
