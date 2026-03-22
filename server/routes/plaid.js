@@ -192,7 +192,7 @@ router.get("/transactions", async (req, res) => {
       id: r.id, transactionId: r.transaction_id, name: r.name,
       amount: parseFloat(r.amount), date: r.date.toISOString().split("T")[0],
       category: r.category, pending: r.pending,
-      accountName: r.account_name, mask: r.mask, institution: r.institution_name,
+      accountId: r.account_id, accountName: r.account_name, mask: r.mask, institution: r.institution_name,
     })));
   } catch (err) { res.status(500).json({ error: "Failed to fetch transactions" }); }
 });

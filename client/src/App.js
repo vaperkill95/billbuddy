@@ -791,21 +791,41 @@ function BankAccountsView({ t }) {
       {/* Accounts list */}
       {view === "overview" && (
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-          {accounts.map(a => (
-            <div key={a.id} style={{ display: "flex", alignItems: "center", gap: 14, padding: "16px 20px", background: t.card, borderRadius: 16, boxShadow: t.cs, borderLeft: `4px solid ${a.type === "depository" ? "#4ECDC4" : a.type === "credit" ? "#FF6B6B" : "#6C5CE7"}` }}>
-              <div style={{ fontSize: 22 }}>{acctIcon(a.type)}</div>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontWeight: 700, color: t.text, fontSize: 14 }}>{a.name}</div>
-                <div style={{ fontSize: 11, color: t.sub, marginTop: 2 }}>{a.institution} · {a.subtype} · ••••{a.mask}</div>
-              </div>
-              <div style={{ textAlign: "right" }}>
-                <div style={{ fontWeight: 800, fontSize: 18, color: t.text, fontFamily: "'Fredoka'" }}>{formatMoney(a.balanceCurrent)}</div>
-                {a.balanceAvailable !== a.balanceCurrent && a.balanceAvailable > 0 && (
-                  <div style={{ fontSize: 11, color: t.sub }}>{formatMoney(a.balanceAvailable)} available</div>
+          {accounts.map(a => {
+            const pendingTxns = transactions.filter(tx => tx.pending && tx.accountId === a.accountId);
+            const pendingTotal = pendingTxns.reduce((s, tx) => s + tx.amount, 0);
+            const projectedBalance = a.balanceCurrent - pendingTotal;
+            return (
+              <div key={a.id} style={{ background: t.card, borderRadius: 16, boxShadow: t.cs, borderLeft: `4px solid ${a.type === "depository" ? "#4ECDC4" : a.type === "credit" ? "#FF6B6B" : "#6C5CE7"}`, overflow: "hidden" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 14, padding: "16px 20px" }}>
+                  <div style={{ fontSize: 22 }}>{acctIcon(a.type)}</div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontWeight: 700, color: t.text, fontSize: 14 }}>{a.name}</div>
+                    <div style={{ fontSize: 11, color: t.sub, marginTop: 2 }}>{a.institution} · {a.subtype} · ••••{a.mask}</div>
+                  </div>
+                  <div style={{ textAlign: "right" }}>
+                    <div style={{ fontWeight: 800, fontSize: 18, color: t.text, fontFamily: "'Fredoka'" }}>{formatMoney(a.balanceCurrent)}</div>
+                    {a.balanceAvailable !== a.balanceCurrent && a.balanceAvailable > 0 && (
+                      <div style={{ fontSize: 11, color: t.sub }}>{formatMoney(a.balanceAvailable)} available</div>
+                    )}
+                  </div>
+                </div>
+                {/* Pending & projected balance */}
+                {pendingTxns.length > 0 && (
+                  <div style={{ padding: "10px 20px 14px", borderTop: `1px solid ${t.border}`, background: t.prog }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+                      <span style={{ fontSize: 12, fontWeight: 700, color: "#FDCB6E" }}>⏳ {pendingTxns.length} pending transaction{pendingTxns.length > 1 ? "s" : ""}</span>
+                      <span style={{ fontSize: 12, fontWeight: 700, color: "#FDCB6E" }}>-{formatMoney(Math.abs(pendingTotal))}</span>
+                    </div>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                      <span style={{ fontSize: 12, fontWeight: 600, color: t.sub }}>Balance after pending</span>
+                      <span style={{ fontSize: 14, fontWeight: 800, color: projectedBalance >= 0 ? "#4ECDC4" : "#FF6B6B", fontFamily: "'Fredoka'" }}>{formatMoney(projectedBalance)}</span>
+                    </div>
+                  </div>
                 )}
               </div>
-            </div>
-          ))}
+            );
+          })}
           {!accounts.length && (
             <div style={{ background: t.card, borderRadius: 20, padding: "40px 28px", boxShadow: t.cs, textAlign: "center" }}>
               <div style={{ fontSize: 48, marginBottom: 12 }}>🏦</div>
@@ -818,30 +838,79 @@ function BankAccountsView({ t }) {
       )}
 
       {/* Transactions */}
-      {view === "transactions" && (
-        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-          <div style={{ display: "flex", gap: 8 }}>
-            {[7, 14, 30, 60].map(d => (
-              <button key={d} onClick={() => { setTxnDays(d); api.getBankTransactions(d).then(setTransactions); }} style={{ padding: "6px 14px", borderRadius: 8, border: "none", background: txnDays === d ? "linear-gradient(135deg, #6C5CE7, #A29BFE)" : t.pill, color: txnDays === d ? "white" : t.sub, cursor: "pointer", fontWeight: 700, fontSize: 11, fontFamily: "'DM Sans'" }}>{d}d</button>
-            ))}
-          </div>
-          {transactions.map(txn => (
-            <div key={txn.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 16px", background: t.card, borderRadius: 14, boxShadow: t.cs }}>
-              <div style={{ width: 36, height: 36, borderRadius: 10, background: txn.amount > 0 ? "#FF6B6B15" : "#4ECDC415", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, flexShrink: 0 }}>
-                {txn.amount > 0 ? "💸" : "💵"}
-              </div>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontWeight: 600, color: t.text, fontSize: 13, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{txn.name}</div>
-                <div style={{ fontSize: 11, color: t.sub, marginTop: 1 }}>{txn.date} · {txn.accountName} ••••{txn.mask}{txn.pending ? " · Pending" : ""}</div>
-              </div>
-              <div style={{ fontWeight: 800, fontSize: 14, color: txn.amount > 0 ? "#FF6B6B" : "#4ECDC4", fontFamily: "'Fredoka'", flexShrink: 0 }}>
-                {txn.amount > 0 ? "-" : "+"}{formatMoney(Math.abs(txn.amount))}
+      {view === "transactions" && (() => {
+        const pending = transactions.filter(tx => tx.pending);
+        const completed = transactions.filter(tx => !tx.pending);
+        const pendingTotal = pending.reduce((s, tx) => s + tx.amount, 0);
+
+        const TxnRow = ({ txn }) => (
+          <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 16px", background: t.card, borderRadius: 14, boxShadow: t.cs, opacity: txn.pending ? 0.75 : 1 }}>
+            <div style={{ width: 36, height: 36, borderRadius: 10, background: txn.amount > 0 ? "#FF6B6B15" : "#4ECDC415", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, flexShrink: 0 }}>
+              {txn.pending ? "⏳" : txn.amount > 0 ? "💸" : "💵"}
+            </div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontWeight: 600, color: t.text, fontSize: 13, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{txn.name}</div>
+              <div style={{ fontSize: 11, color: t.sub, marginTop: 1 }}>
+                {txn.date} · {txn.accountName} ••••{txn.mask}
+                {txn.category && txn.category !== "Other" && <span style={{ marginLeft: 6, background: t.pill, padding: "1px 6px", borderRadius: 4, fontSize: 10, fontWeight: 600 }}>{txn.category}</span>}
               </div>
             </div>
-          ))}
-          {!transactions.length && <div style={{ textAlign: "center", padding: 40, color: t.sub }}>No transactions yet. Hit "Sync" to import from your bank.</div>}
-        </div>
-      )}
+            <div style={{ textAlign: "right", flexShrink: 0 }}>
+              <div style={{ fontWeight: 800, fontSize: 14, color: txn.amount > 0 ? "#FF6B6B" : "#4ECDC4", fontFamily: "'Fredoka'" }}>
+                {txn.amount > 0 ? "-" : "+"}{formatMoney(Math.abs(txn.amount))}
+              </div>
+              {txn.pending && <div style={{ fontSize: 9, fontWeight: 700, color: "#FDCB6E", marginTop: 1 }}>PENDING</div>}
+            </div>
+          </div>
+        );
+
+        return (
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            {/* Time filter */}
+            <div style={{ display: "flex", gap: 8 }}>
+              {[7, 14, 30, 60].map(d => (
+                <button key={d} onClick={() => { setTxnDays(d); api.getBankTransactions(d).then(setTransactions); }} style={{ padding: "6px 14px", borderRadius: 8, border: "none", background: txnDays === d ? "linear-gradient(135deg, #6C5CE7, #A29BFE)" : t.pill, color: txnDays === d ? "white" : t.sub, cursor: "pointer", fontWeight: 700, fontSize: 11, fontFamily: "'DM Sans'" }}>{d}d</button>
+              ))}
+            </div>
+
+            {/* Pending section */}
+            {pending.length > 0 && (
+              <>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 4px" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <span style={{ fontSize: 16 }}>⏳</span>
+                    <span style={{ fontWeight: 700, color: "#FDCB6E", fontSize: 14 }}>Pending ({pending.length})</span>
+                  </div>
+                  <span style={{ fontWeight: 700, color: "#FDCB6E", fontSize: 13 }}>{formatMoney(Math.abs(pendingTotal))}</span>
+                </div>
+                {pending.map(txn => <TxnRow key={txn.id} txn={txn} />)}
+
+                {/* Divider */}
+                <div style={{ display: "flex", alignItems: "center", gap: 12, margin: "4px 0" }}>
+                  <div style={{ flex: 1, height: 1, background: t.border }} />
+                  <span style={{ fontSize: 11, color: t.muted, fontWeight: 600 }}>COMPLETED</span>
+                  <div style={{ flex: 1, height: 1, background: t.border }} />
+                </div>
+              </>
+            )}
+
+            {/* Completed section */}
+            {completed.length > 0 && (
+              <>
+                {!pending.length && (
+                  <div style={{ padding: "4px", display: "flex", alignItems: "center", gap: 8 }}>
+                    <span style={{ fontSize: 16 }}>✅</span>
+                    <span style={{ fontWeight: 700, color: "#4ECDC4", fontSize: 14 }}>Completed ({completed.length})</span>
+                  </div>
+                )}
+                {completed.map(txn => <TxnRow key={txn.id} txn={txn} />)}
+              </>
+            )}
+
+            {!transactions.length && <div style={{ textAlign: "center", padding: 40, color: t.sub }}>No transactions yet. Hit "Sync" to import from your bank.</div>}
+          </div>
+        );
+      })()}
 
       {/* Connected banks management */}
       {view === "banks" && (
