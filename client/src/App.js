@@ -644,6 +644,225 @@ function AIInsights({ t }) {
   );
 }
 
+function BankAccountsView({ t }) {
+  const [accounts, setAccounts] = useState([]);
+  const [transactions, setTransactions] = useState([]);
+  const [summary, setSummary] = useState(null);
+  const [items, setItems] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [syncing, setSyncing] = useState(false);
+  const [view, setView] = useState("overview");
+  const [txnDays, setTxnDays] = useState(30);
+
+  const loadData = async () => {
+    try {
+      const [accts, sum, itms] = await Promise.all([
+        api.getBankAccounts(), api.getBankSummary(), api.getPlaidItems()
+      ]);
+      setAccounts(accts); setSummary(sum); setItems(itms);
+      if (accts.length > 0) {
+        const txns = await api.getBankTransactions(txnDays);
+        setTransactions(txns);
+      }
+    } catch (err) { console.error(err); }
+    finally { setLoading(false); }
+  };
+
+  useEffect(() => { loadData(); }, []);
+
+  const connectBank = async () => {
+    try {
+      const { linkToken } = await api.createLinkToken();
+      const handler = window.Plaid.create({
+        token: linkToken,
+        onSuccess: async (publicToken, metadata) => {
+          try {
+            await api.exchangePlaidToken(publicToken, metadata.institution);
+            loadData();
+          } catch (err) { console.error("Exchange error:", err); }
+        },
+        onExit: (err) => { if (err) console.error("Plaid Link exit:", err); },
+      });
+      handler.open();
+    } catch (err) { console.error("Link token error:", err); }
+  };
+
+  const syncAll = async () => {
+    setSyncing(true);
+    try {
+      await api.syncBalances();
+      await api.syncTransactions();
+      await loadData();
+    } catch (err) { console.error(err); }
+    finally { setSyncing(false); }
+  };
+
+  const disconnectBank = async (itemId) => {
+    try { await api.disconnectBank(itemId); loadData(); } catch (err) { console.error(err); }
+  };
+
+  const acctIcon = (type) => ({ depository: "🏦", credit: "💳", loan: "📋", investment: "📈" }[type] || "🏦");
+
+  if (loading) return <div style={{ textAlign: "center", padding: 60, color: t.sub }}>Loading bank accounts...</div>;
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+      {/* Header */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <div style={{ fontSize: 32 }}>🏦</div>
+          <div>
+            <h3 style={{ fontFamily: "'Fredoka'", color: t.text, margin: 0, fontSize: 20 }}>Bank Accounts</h3>
+            <p style={{ margin: "2px 0 0", fontSize: 13, color: t.sub }}>
+              {items.length > 0 ? `${items.length} bank${items.length > 1 ? "s" : ""} connected` : "Connect your bank to see balances & transactions"}
+            </p>
+          </div>
+        </div>
+        <div style={{ display: "flex", gap: 8 }}>
+          {accounts.length > 0 && (
+            <button onClick={syncAll} disabled={syncing} style={{ padding: "8px 16px", borderRadius: 12, border: "none", background: t.pill, color: t.sub, cursor: "pointer", fontWeight: 700, fontSize: 12, fontFamily: "'DM Sans'" }}>
+              {syncing ? "Syncing..." : "🔄 Sync"}
+            </button>
+          )}
+          <button onClick={connectBank} style={{ padding: "8px 16px", borderRadius: 12, border: "none", background: "linear-gradient(135deg, #6C5CE7, #A29BFE)", color: "white", cursor: "pointer", fontWeight: 700, fontSize: 12, fontFamily: "'DM Sans'" }}>
+            + Connect Bank
+          </button>
+        </div>
+      </div>
+
+      {/* Summary cards */}
+      {summary && accounts.length > 0 && (
+        <div style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
+          {[
+            ["Total Balance", formatMoney(summary.totalBalance), "#4ECDC4"],
+            ["Checking", formatMoney(summary.totalChecking), "#6C5CE7"],
+            ["Savings", formatMoney(summary.totalSavings), "#45B7D1"],
+          ].filter(([, v]) => v !== "$0.00").map(([label, value, color]) => (
+            <div key={label} style={{ background: t.card, borderRadius: 16, padding: "16px 22px", boxShadow: t.cs, flex: 1, minWidth: 140 }}>
+              <div style={{ fontSize: 11, color: t.sub, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5 }}>{label}</div>
+              <div style={{ fontSize: 22, fontWeight: 800, color, fontFamily: "'Fredoka'", marginTop: 2 }}>{value}</div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* 30-day flow */}
+      {summary && summary.thirtyDaySpending > 0 && (
+        <div style={{ background: t.card, borderRadius: 16, padding: "18px 22px", boxShadow: t.cs }}>
+          <div style={{ fontWeight: 700, color: t.text, fontSize: 14, marginBottom: 10 }}>📊 Last 30 Days</div>
+          <div style={{ display: "flex", gap: 20, flexWrap: "wrap" }}>
+            <div>
+              <div style={{ fontSize: 11, color: t.sub }}>Money In</div>
+              <div style={{ fontSize: 20, fontWeight: 800, color: "#4ECDC4", fontFamily: "'Fredoka'" }}>+{formatMoney(summary.thirtyDayIncome)}</div>
+            </div>
+            <div>
+              <div style={{ fontSize: 11, color: t.sub }}>Money Out</div>
+              <div style={{ fontSize: 20, fontWeight: 800, color: "#FF6B6B", fontFamily: "'Fredoka'" }}>-{formatMoney(summary.thirtyDaySpending)}</div>
+            </div>
+            <div>
+              <div style={{ fontSize: 11, color: t.sub }}>Net</div>
+              <div style={{ fontSize: 20, fontWeight: 800, color: summary.netFlow >= 0 ? "#4ECDC4" : "#FF6B6B", fontFamily: "'Fredoka'" }}>{summary.netFlow >= 0 ? "+" : ""}{formatMoney(summary.netFlow)}</div>
+            </div>
+          </div>
+          {/* Category breakdown */}
+          {summary.spendingByCategory?.length > 0 && (
+            <div style={{ marginTop: 14 }}>
+              <div style={{ fontSize: 12, color: t.sub, fontWeight: 600, marginBottom: 8 }}>Top Spending Categories</div>
+              {summary.spendingByCategory.slice(0, 5).map((c, i) => (
+                <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "4px 0" }}>
+                  <span style={{ fontSize: 13, color: t.text }}>{c.category}</span>
+                  <span style={{ fontSize: 13, fontWeight: 700, color: t.text }}>{formatMoney(c.total)}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* View toggle */}
+      {accounts.length > 0 && (
+        <div style={{ display: "flex", gap: 4, background: t.pill, borderRadius: 12, padding: 4, alignSelf: "flex-start" }}>
+          {[["overview", "🏦 Accounts"], ["transactions", "📋 Transactions"], ["banks", "⚙️ Connected Banks"]].map(([k, l]) => (
+            <button key={k} onClick={() => setView(k)} style={{ padding: "8px 16px", borderRadius: 10, border: "none", background: view === k ? "linear-gradient(135deg, #6C5CE7, #A29BFE)" : "transparent", color: view === k ? "white" : t.sub, cursor: "pointer", fontWeight: 700, fontSize: 12, fontFamily: "'DM Sans'" }}>{l}</button>
+          ))}
+        </div>
+      )}
+
+      {/* Accounts list */}
+      {view === "overview" && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          {accounts.map(a => (
+            <div key={a.id} style={{ display: "flex", alignItems: "center", gap: 14, padding: "16px 20px", background: t.card, borderRadius: 16, boxShadow: t.cs, borderLeft: `4px solid ${a.type === "depository" ? "#4ECDC4" : a.type === "credit" ? "#FF6B6B" : "#6C5CE7"}` }}>
+              <div style={{ fontSize: 22 }}>{acctIcon(a.type)}</div>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontWeight: 700, color: t.text, fontSize: 14 }}>{a.name}</div>
+                <div style={{ fontSize: 11, color: t.sub, marginTop: 2 }}>{a.institution} · {a.subtype} · ••••{a.mask}</div>
+              </div>
+              <div style={{ textAlign: "right" }}>
+                <div style={{ fontWeight: 800, fontSize: 18, color: t.text, fontFamily: "'Fredoka'" }}>{formatMoney(a.balanceCurrent)}</div>
+                {a.balanceAvailable !== a.balanceCurrent && a.balanceAvailable > 0 && (
+                  <div style={{ fontSize: 11, color: t.sub }}>{formatMoney(a.balanceAvailable)} available</div>
+                )}
+              </div>
+            </div>
+          ))}
+          {!accounts.length && (
+            <div style={{ background: t.card, borderRadius: 20, padding: "40px 28px", boxShadow: t.cs, textAlign: "center" }}>
+              <div style={{ fontSize: 48, marginBottom: 12 }}>🏦</div>
+              <div style={{ fontWeight: 700, color: t.text, fontSize: 16, fontFamily: "'Fredoka'", marginBottom: 6 }}>No Banks Connected</div>
+              <div style={{ fontSize: 13, color: t.sub, lineHeight: 1.6, marginBottom: 16 }}>Connect your bank to see balances, track spending, and auto-import transactions.</div>
+              <button onClick={connectBank} style={{ padding: "12px 32px", borderRadius: 14, border: "none", background: "linear-gradient(135deg, #6C5CE7, #A29BFE)", color: "white", cursor: "pointer", fontWeight: 700, fontSize: 14, fontFamily: "'DM Sans'" }}>🔗 Connect Your Bank</button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Transactions */}
+      {view === "transactions" && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          <div style={{ display: "flex", gap: 8 }}>
+            {[7, 14, 30, 60].map(d => (
+              <button key={d} onClick={() => { setTxnDays(d); api.getBankTransactions(d).then(setTransactions); }} style={{ padding: "6px 14px", borderRadius: 8, border: "none", background: txnDays === d ? "linear-gradient(135deg, #6C5CE7, #A29BFE)" : t.pill, color: txnDays === d ? "white" : t.sub, cursor: "pointer", fontWeight: 700, fontSize: 11, fontFamily: "'DM Sans'" }}>{d}d</button>
+            ))}
+          </div>
+          {transactions.map(txn => (
+            <div key={txn.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 16px", background: t.card, borderRadius: 14, boxShadow: t.cs }}>
+              <div style={{ width: 36, height: 36, borderRadius: 10, background: txn.amount > 0 ? "#FF6B6B15" : "#4ECDC415", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, flexShrink: 0 }}>
+                {txn.amount > 0 ? "💸" : "💵"}
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontWeight: 600, color: t.text, fontSize: 13, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{txn.name}</div>
+                <div style={{ fontSize: 11, color: t.sub, marginTop: 1 }}>{txn.date} · {txn.accountName} ••••{txn.mask}{txn.pending ? " · Pending" : ""}</div>
+              </div>
+              <div style={{ fontWeight: 800, fontSize: 14, color: txn.amount > 0 ? "#FF6B6B" : "#4ECDC4", fontFamily: "'Fredoka'", flexShrink: 0 }}>
+                {txn.amount > 0 ? "-" : "+"}{formatMoney(Math.abs(txn.amount))}
+              </div>
+            </div>
+          ))}
+          {!transactions.length && <div style={{ textAlign: "center", padding: 40, color: t.sub }}>No transactions yet. Hit "Sync" to import from your bank.</div>}
+        </div>
+      )}
+
+      {/* Connected banks management */}
+      {view === "banks" && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          {items.map(item => (
+            <div key={item.id} style={{ display: "flex", alignItems: "center", gap: 14, padding: "16px 20px", background: t.card, borderRadius: 16, boxShadow: t.cs }}>
+              <div style={{ fontSize: 22 }}>🏦</div>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontWeight: 700, color: t.text, fontSize: 14 }}>{item.institutionName}</div>
+                <div style={{ fontSize: 11, color: t.sub, marginTop: 2 }}>Connected {new Date(item.connectedAt).toLocaleDateString()}</div>
+              </div>
+              <button onClick={() => disconnectBank(item.id)} style={{ padding: "8px 16px", borderRadius: 10, border: `1px solid #FF6B6B`, background: "transparent", color: "#FF6B6B", cursor: "pointer", fontWeight: 700, fontSize: 12, fontFamily: "'DM Sans'" }}>Disconnect</button>
+            </div>
+          ))}
+          <button onClick={connectBank} style={{ padding: "14px", borderRadius: 14, border: `2px dashed ${t.border}`, background: "transparent", color: t.sub, cursor: "pointer", fontWeight: 700, fontSize: 14, fontFamily: "'DM Sans'" }}>+ Connect Another Bank</button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function IncomeView({ t }) {
   const [sources, setSources] = useState([]);
   const [entries, setEntries] = useState([]);
@@ -1385,8 +1604,9 @@ export default function App() {
 
   const tabs = [
     { key: "dashboard", label: "Dashboard", icon: "📊" }, { key: "calendar", label: "Calendar", icon: "📅" },
-    { key: "income", label: "Income", icon: "💰" }, { key: "cards", label: "Credit Cards", icon: "💳" },
-    { key: "insights", label: "AI Insights", icon: "🤖" }, { key: "charts", label: "Charts", icon: "📈" },
+    { key: "bank", label: "Bank", icon: "🏦" }, { key: "income", label: "Income", icon: "💰" },
+    { key: "cards", label: "Credit Cards", icon: "💳" }, { key: "insights", label: "AI Insights", icon: "🤖" },
+    { key: "charts", label: "Charts", icon: "📈" },
     { key: "history", label: "History", icon: "📜" }, { key: "reminders", label: "Reminders", icon: "🔔" },
   ];
 
@@ -1451,6 +1671,7 @@ export default function App() {
             </div>
           )}
           {tab === "calendar" && <CalendarView bills={bills} t={t} onMoveBill={moveBillDate} />}
+          {tab === "bank" && <BankAccountsView t={t} />}
           {tab === "income" && <IncomeView t={t} />}
           {tab === "cards" && <CreditCardsView t={t} />}
           {tab === "insights" && <AIInsights t={t} />}

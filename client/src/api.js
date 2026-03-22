@@ -88,6 +88,17 @@ export const api = {
   getCalendarToken: () => request("/calendar/token", { method: "POST" }),
   resetCalendarToken: () => request("/calendar/token/reset", { method: "POST" }),
 
+  // Plaid / Bank Accounts
+  createLinkToken: () => request("/plaid/create-link-token", { method: "POST" }),
+  exchangePlaidToken: (publicToken, institution) => request("/plaid/exchange-token", { method: "POST", body: JSON.stringify({ publicToken, institution }) }),
+  getBankAccounts: () => request("/plaid/accounts"),
+  syncBalances: () => request("/plaid/sync-balances", { method: "POST" }),
+  syncTransactions: () => request("/plaid/sync-transactions", { method: "POST" }),
+  getBankTransactions: (days) => request(`/plaid/transactions?days=${days || 30}`),
+  getBankSummary: () => request("/plaid/summary"),
+  getPlaidItems: () => request("/plaid/items"),
+  disconnectBank: (itemId) => request(`/plaid/disconnect/${itemId}`, { method: "DELETE" }),
+
   // Helpers
   getToken, setToken, clearToken, getUser, setUser,
 };

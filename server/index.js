@@ -10,6 +10,7 @@ const insightsRouter = require("./routes/insights");
 const cardsRouter = require("./routes/cards");
 const incomeRouter = require("./routes/income");
 const calendarRouter = require("./routes/calendar");
+const plaidRouter = require("./routes/plaid");
 const pool = require("./db/pool");
 
 const app = express();
@@ -26,6 +27,7 @@ app.use("/api/insights", insightsRouter);
 app.use("/api/cards", cardsRouter);
 app.use("/api/income", incomeRouter);
 app.use("/api/calendar", calendarRouter);
+app.use("/api/plaid", plaidRouter);
 
 app.get("/api/health", async (req, res) => {
   try {
@@ -143,9 +145,54 @@ async function initDB() {
       CREATE INDEX IF NOT EXISTS idx_income_sources_user ON income_sources(user_id);
       CREATE INDEX IF NOT EXISTS idx_income_entries_user ON income_entries(user_id);
       CREATE INDEX IF NOT EXISTS idx_income_entries_date ON income_entries(received_date);
+
+      CREATE TABLE IF NOT EXISTS plaid_items (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        access_token TEXT NOT NULL,
+        item_id VARCHAR(255) NOT NULL,
+        institution_name VARCHAR(255),
+        institution_id VARCHAR(255),
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+      );
+
+      CREATE TABLE IF NOT EXISTS bank_accounts (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        plaid_item_id INTEGER REFERENCES plaid_items(id) ON DELETE CASCADE,
+        account_id VARCHAR(255) UNIQUE NOT NULL,
+        name VARCHAR(255) NOT NULL,
+        official_name VARCHAR(255),
+        account_type VARCHAR(50),
+        account_subtype VARCHAR(50),
+        balance_current DECIMAL(12, 2) DEFAULT 0,
+        balance_available DECIMAL(12, 2) DEFAULT 0,
+        mask VARCHAR(10),
+        last_synced TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+      );
+
+      CREATE TABLE IF NOT EXISTS bank_transactions (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        account_id VARCHAR(255) NOT NULL,
+        transaction_id VARCHAR(255) UNIQUE NOT NULL,
+        name VARCHAR(255) NOT NULL,
+        amount DECIMAL(12, 2) NOT NULL,
+        date DATE NOT NULL,
+        category VARCHAR(255),
+        pending BOOLEAN DEFAULT false,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_plaid_items_user ON plaid_items(user_id);
+      CREATE INDEX IF NOT EXISTS idx_bank_accounts_user ON bank_accounts(user_id);
+      CREATE INDEX IF NOT EXISTS idx_bank_transactions_user ON bank_transactions(user_id);
+      CREATE INDEX IF NOT EXISTS idx_bank_transactions_date ON bank_transactions(date);
+      CREATE INDEX IF NOT EXISTS idx_bank_transactions_tid ON bank_transactions(transaction_id);
     `);
 
-    // Migrations for existing databases - add columns that may not exist
+    // Migrations for existing databases
     const migrations = [
       "ALTER TABLE users ADD COLUMN IF NOT EXISTS calendar_token VARCHAR(255) UNIQUE",
     ];
