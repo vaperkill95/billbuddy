@@ -98,6 +98,7 @@ export const api = {
   getBankSummary: () => request("/plaid/summary"),
   getPlaidItems: () => request("/plaid/items"),
   disconnectBank: (itemId) => request(`/plaid/disconnect/${itemId}`, { method: "DELETE" }),
+  smartSync: () => request("/plaid/smart-sync", { method: "POST" }),
 
   // Helpers
   getToken, setToken, clearToken, getUser, setUser,

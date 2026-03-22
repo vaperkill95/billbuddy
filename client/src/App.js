@@ -721,12 +721,16 @@ function BankAccountsView({ t }) {
     } catch (err) { console.error("Link token error:", err); }
   };
 
+  const [syncResult, setSyncResult] = useState(null);
+
   const syncAll = async () => {
     setSyncing(true);
+    setSyncResult(null);
     try {
-      await api.syncBalances();
-      await api.syncTransactions();
+      const result = await api.smartSync();
+      setSyncResult(result);
       await loadData();
+      setTimeout(() => setSyncResult(null), 5000);
     } catch (err) { console.error(err); }
     finally { setSyncing(false); }
   };
@@ -763,6 +767,16 @@ function BankAccountsView({ t }) {
           </button>
         </div>
       </div>
+
+      {/* Sync result toast */}
+      {syncResult && (
+        <div style={{ background: "linear-gradient(135deg, #4ECDC4, #45B7D1)", color: "white", padding: "12px 20px", borderRadius: 14, fontWeight: 600, fontSize: 13, boxShadow: "0 4px 16px rgba(78,205,196,0.3)" }}>
+          ✅ Synced: {syncResult.balancesUpdated} balance{syncResult.balancesUpdated !== 1 ? "s" : ""} updated
+          {syncResult.billsMatched > 0 && ` · ${syncResult.billsMatched} bill${syncResult.billsMatched !== 1 ? "s" : ""} auto-matched`}
+          {syncResult.incomeDetected > 0 && ` · ${syncResult.incomeDetected} income deposit${syncResult.incomeDetected !== 1 ? "s" : ""} detected`}
+          {syncResult.cardsUpdated > 0 && ` · ${syncResult.cardsUpdated} credit card${syncResult.cardsUpdated !== 1 ? "s" : ""} updated`}
+        </div>
+      )}
 
       {/* Summary cards */}
       {summary && accounts.length > 0 && (
@@ -1660,6 +1674,30 @@ export default function App() {
   }, [user]);
 
   useEffect(() => { loadData(); }, [loadData]);
+
+  // Auto smart sync on load - syncs bank data, matches bills, detects income
+  const [lastSync, setLastSync] = useState(null);
+  useEffect(() => {
+    if (!user) return;
+    const runSync = async () => {
+      try {
+        const result = await api.smartSync();
+        setLastSync(new Date());
+        // If anything was matched/detected, reload bill data
+        if (result.billsMatched > 0 || result.incomeDetected > 0 || result.cardsUpdated > 0) {
+          const [b, h, m] = await Promise.all([api.getBills(), api.getHistory(), api.getHistoryMonths()]);
+          setBills(b); setHistory(h); setHMonths(m);
+        }
+        if (result.billsMatched > 0) console.log(`✅ Auto-matched ${result.billsMatched} bill payment(s)`);
+        if (result.incomeDetected > 0) console.log(`💵 Auto-detected ${result.incomeDetected} income deposit(s)`);
+      } catch (err) { /* silently fail - user may not have bank connected */ }
+    };
+    // Sync on load
+    runSync();
+    // Sync every 15 minutes while app is open
+    const interval = setInterval(runSync, 15 * 60 * 1000);
+    return () => clearInterval(interval);
+  }, [user]);
 
   const handleAuth = (u) => { setUser(u); };
   const handleLogout = () => { api.clearToken(); setUser(null); setBills([]); setHistory([]); };

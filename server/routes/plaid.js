@@ -288,4 +288,16 @@ router.get("/items", async (req, res) => {
   } catch (err) { res.status(500).json({ error: "Failed to fetch items" }); }
 });
 
+// POST /api/plaid/smart-sync - Run full smart sync (auto-match bills, detect income, update cards)
+router.post("/smart-sync", async (req, res) => {
+  try {
+    const { syncUserData } = require("../services/smartSync");
+    const results = await syncUserData(req.user.id);
+    res.json({ success: true, ...results });
+  } catch (err) {
+    console.error("Smart sync error:", err);
+    res.status(500).json({ error: "Failed to sync" });
+  }
+});
+
 module.exports = router;
