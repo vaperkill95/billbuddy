@@ -3253,13 +3253,320 @@ function SpendingView({ t }) {
   );
 }
 
+function AISpendingInsightsView({ t }) {
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  const load = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await api.getSpendingInsights();
+      setData(res);
+    } catch (err) {
+      console.error("Spending insights error:", err);
+      setError("Couldn't load AI spending insights. Try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { load(); }, []);
+
+  const F = "'Plus Jakarta Sans', 'Outfit', sans-serif";
+  const H = "'Outfit', 'Plus Jakarta Sans', sans-serif";
+
+  if (loading) return (
+    <div style={{ textAlign: "center", padding: 60 }}>
+      <div style={{ fontSize: 40, marginBottom: 12, animation: "pulse 1.5s ease-in-out infinite" }}>🧠</div>
+      <div style={{ fontWeight: 700, color: t.text, fontSize: 16, fontFamily: H, marginBottom: 6 }}>Analyzing your spending...</div>
+      <div style={{ fontSize: 13, color: t.sub, lineHeight: 1.6 }}>AI is reviewing your transactions, bills, and accounts to find personalized savings tips.</div>
+      <style>{`@keyframes pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.15); } }`}</style>
+    </div>
+  );
+
+  if (error) return (
+    <div style={{ textAlign: "center", padding: 40 }}>
+      <div style={{ fontSize: 32, marginBottom: 8 }}>⚠️</div>
+      <div style={{ fontWeight: 700, color: t.text, fontSize: 14, marginBottom: 8 }}>{error}</div>
+      <button onClick={load} style={{ padding: "8px 20px", borderRadius: 10, border: "none", background: "#6C5CE7", color: "white", cursor: "pointer", fontWeight: 700, fontSize: 12, fontFamily: F }}>Try Again</button>
+    </div>
+  );
+
+  if (!data) return null;
+
+  const { insights, summary } = data;
+  const totalPotentialSavings = summary?.potentialSavings || insights?.reduce((s, i) => s + (i.savings || 0), 0) || 0;
+  const spendChange = (summary?.thisMonthSpend || 0) - (summary?.lastMonthSpend || 0);
+  const spendUp = spendChange > 0;
+
+  const typeConfig = {
+    warning: { color: "#EF4444", bg: t.priH, icon: "⚠️", label: "Warning" },
+    tip: { color: "#6C5CE7", bg: t.tag, icon: "💡", label: "Tip" },
+    positive: { color: "#10B981", bg: t.priL, icon: "✅", label: "Great" },
+    goal: { color: "#F59E0B", bg: t.priM, icon: "🎯", label: "Goal" },
+  };
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <div style={{ fontSize: 28 }}>🧠</div>
+          <div>
+            <h3 style={{ fontFamily: H, color: t.text, margin: 0, fontSize: 18, fontWeight: 700 }}>AI Spending Tips</h3>
+            <p style={{ margin: "2px 0 0", fontSize: 12, color: t.sub }}>Smart analysis of your real spending</p>
+          </div>
+        </div>
+        <button onClick={load} disabled={loading} style={{ padding: "7px 16px", borderRadius: 10, border: "none", background: loading ? t.pill : "#6C5CE7", color: loading ? t.sub : "white", cursor: loading ? "default" : "pointer", fontWeight: 700, fontSize: 11, fontFamily: F }}>{loading ? "Analyzing..." : "🔄 Refresh"}</button>
+      </div>
+      {summary && (
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 6 }}>
+          <div style={{ background: t.card, borderRadius: 10, padding: "10px 12px", boxShadow: t.cs }}>
+            <div style={{ fontSize: 9, color: t.sub, fontWeight: 600, textTransform: "uppercase" }}>This Month</div>
+            <div style={{ fontSize: 16, fontWeight: 800, color: t.text, fontFamily: H }}>{formatMoney(summary.thisMonthSpend || 0)}</div>
+            <div style={{ fontSize: 10, color: spendUp ? "#EF4444" : "#10B981", fontWeight: 600 }}>{spendUp ? "▲" : "▼"} {formatMoney(Math.abs(spendChange))} vs last</div>
+          </div>
+          <div style={{ background: t.card, borderRadius: 10, padding: "10px 12px", boxShadow: t.cs }}>
+            <div style={{ fontSize: 9, color: t.sub, fontWeight: 600, textTransform: "uppercase" }}>CC Debt</div>
+            <div style={{ fontSize: 16, fontWeight: 800, color: (summary.debt || 0) > 0 ? "#EF4444" : t.text, fontFamily: H }}>{formatMoney(summary.debt || 0)}</div>
+          </div>
+          <div style={{ background: t.card, borderRadius: 10, padding: "10px 12px", boxShadow: t.cs }}>
+            <div style={{ fontSize: 9, color: t.sub, fontWeight: 600, textTransform: "uppercase" }}>Can Save</div>
+            <div style={{ fontSize: 16, fontWeight: 800, color: "#10B981", fontFamily: H }}>{formatMoney(totalPotentialSavings)}/mo</div>
+          </div>
+        </div>
+      )}
+      {insights && insights.map((item, i) => {
+        const cfg = typeConfig[item.type] || typeConfig.tip;
+        return (
+          <div key={i} style={{ background: t.card, borderRadius: 14, padding: "16px 20px", boxShadow: t.cs, borderLeft: `4px solid ${cfg.color}` }}>
+            <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
+              <div style={{ fontSize: 24, flexShrink: 0 }}>{cfg.icon}</div>
+              <div style={{ flex: 1 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+                  <div style={{ fontWeight: 700, color: t.text, fontSize: 14 }}>{item.title}</div>
+                  <div style={{ fontSize: 9, fontWeight: 700, padding: "2px 8px", borderRadius: 6, textTransform: "uppercase", background: cfg.bg, color: cfg.color }}>{cfg.label}</div>
+                </div>
+                <div style={{ fontSize: 13, color: t.sub, lineHeight: 1.6 }}>{item.insight}</div>
+                {item.savings > 0 && (
+                  <div style={{ marginTop: 8, fontSize: 11, fontWeight: 700, color: "#10B981", background: t.priL, display: "inline-block", padding: "3px 10px", borderRadius: 6 }}>💰 Save ~{formatMoney(item.savings)}/month</div>
+                )}
+              </div>
+            </div>
+          </div>
+        );
+      })}
+      <div style={{ textAlign: "center", fontSize: 11, color: t.muted, marginTop: 4 }}>AI insights based on your real transactions and account data</div>
+    </div>
+  );
+}
+
+function FinancialGoalsView({ t }) {
+  const [goals, setGoals] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [showAdd, setShowAdd] = useState(false);
+  const [contributeId, setContributeId] = useState(null);
+  const [contributeAmt, setContributeAmt] = useState("");
+  const [form, setForm] = useState({ name: "", goalType: "savings", icon: "🎯", targetAmount: "", currentAmount: "0", monthlyContribution: "", targetDate: "" });
+
+  const F = "'Plus Jakarta Sans', 'Outfit', sans-serif";
+  const H = "'Outfit', 'Plus Jakarta Sans', sans-serif";
+
+  const load = async () => {
+    try {
+      const data = await api.getGoals();
+      setGoals(data);
+    } catch (err) {
+      console.error("Goals error:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { load(); }, []);
+
+  const handleCreate = async () => {
+    if (!form.name || !form.targetAmount) return;
+    try {
+      await api.createGoal({
+        name: form.name, goalType: form.goalType, icon: form.icon,
+        targetAmount: parseFloat(form.targetAmount),
+        currentAmount: parseFloat(form.currentAmount) || 0,
+        monthlyContribution: parseFloat(form.monthlyContribution) || 0,
+        targetDate: form.targetDate || null,
+      });
+      setShowAdd(false);
+      setForm({ name: "", goalType: "savings", icon: "🎯", targetAmount: "", currentAmount: "0", monthlyContribution: "", targetDate: "" });
+      load();
+    } catch (err) { console.error("Create goal error:", err); }
+  };
+
+  const handleContribute = async () => {
+    if (!contributeAmt || parseFloat(contributeAmt) <= 0) return;
+    try {
+      await api.contributeToGoal(contributeId, parseFloat(contributeAmt));
+      setContributeId(null); setContributeAmt(""); load();
+    } catch (err) { console.error("Contribute error:", err); }
+  };
+
+  const handleDelete = async (id) => {
+    try { await api.deleteGoal(id); load(); } catch (err) { console.error("Delete goal error:", err); }
+  };
+
+  const goalIcons = ["🎯", "🏠", "✈️", "🚗", "💍", "🎓", "💰", "🏖️", "📱", "🛡️", "👶", "💪"];
+  const goalTypes = [
+    { value: "savings", label: "Savings" }, { value: "emergency", label: "Emergency Fund" },
+    { value: "debt", label: "Debt Payoff" }, { value: "purchase", label: "Purchase" },
+    { value: "investment", label: "Investment" }, { value: "other", label: "Other" },
+  ];
+
+  if (loading) return <div style={{ textAlign: "center", padding: 60, color: t.sub }}>Loading goals...</div>;
+
+  const activeGoals = goals.filter(g => g.status !== "completed");
+  const completedGoals = goals.filter(g => g.status === "completed");
+  const totalTarget = goals.reduce((s, g) => s + g.targetAmount, 0);
+  const totalSaved = goals.reduce((s, g) => s + g.currentAmount, 0);
+  const overallPct = totalTarget > 0 ? Math.round((totalSaved / totalTarget) * 100) : 0;
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <div style={{ fontSize: 28 }}>🎯</div>
+          <div>
+            <h3 style={{ fontFamily: H, color: t.text, margin: 0, fontSize: 18, fontWeight: 700 }}>Financial Goals</h3>
+            <p style={{ margin: "2px 0 0", fontSize: 12, color: t.sub }}>{goals.length} goal{goals.length !== 1 ? "s" : ""} tracked</p>
+          </div>
+        </div>
+        <button onClick={() => setShowAdd(true)} style={{ padding: "7px 14px", borderRadius: 10, border: "none", background: "#6C5CE7", color: "white", cursor: "pointer", fontWeight: 700, fontSize: 11, fontFamily: F, display: "flex", alignItems: "center", gap: 4 }}><span style={{ fontSize: 14, lineHeight: 1 }}>+</span> Goal</button>
+      </div>
+      {goals.length > 0 && (
+        <div style={{ background: t.card, borderRadius: 12, padding: "14px 18px", boxShadow: t.cs }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+            <div>
+              <div style={{ fontSize: 9, color: t.sub, fontWeight: 600, textTransform: "uppercase" }}>Total Progress</div>
+              <div style={{ fontSize: 22, fontWeight: 800, color: t.text, fontFamily: H }}>{formatMoney(totalSaved)} <span style={{ fontSize: 13, color: t.sub, fontWeight: 500 }}>/ {formatMoney(totalTarget)}</span></div>
+            </div>
+            <div style={{ width: 48, height: 48, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", background: `conic-gradient(#6C5CE7 ${overallPct * 3.6}deg, ${t.prog} 0deg)`, fontSize: 12, fontWeight: 800, color: t.text, fontFamily: H }}>
+              <div style={{ width: 38, height: 38, borderRadius: "50%", background: t.card, display: "flex", alignItems: "center", justifyContent: "center" }}>{overallPct}%</div>
+            </div>
+          </div>
+          <div style={{ height: 6, borderRadius: 3, background: t.prog, overflow: "hidden" }}>
+            <div style={{ height: "100%", borderRadius: 3, background: "linear-gradient(90deg, #6C5CE7, #a78bfa)", width: Math.min(overallPct, 100) + "%", transition: "width 0.5s ease" }} />
+          </div>
+        </div>
+      )}
+      {goals.length === 0 && !showAdd && (
+        <div style={{ textAlign: "center", padding: 40 }}>
+          <div style={{ fontSize: 40, marginBottom: 8 }}>🎯</div>
+          <div style={{ fontWeight: 700, color: t.text, fontSize: 14, marginBottom: 4 }}>No goals yet</div>
+          <div style={{ fontSize: 12, color: t.sub, marginBottom: 16 }}>Set savings targets and track your progress</div>
+          <button onClick={() => setShowAdd(true)} style={{ padding: "10px 24px", borderRadius: 10, border: "none", background: "#6C5CE7", color: "white", cursor: "pointer", fontWeight: 700, fontSize: 12, fontFamily: F }}>Create Your First Goal</button>
+        </div>
+      )}
+      {showAdd && (
+        <div style={{ background: t.card, borderRadius: 14, padding: "18px 20px", boxShadow: t.cs, border: `1px solid ${t.border}` }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+            <div style={{ fontWeight: 700, color: t.text, fontSize: 14, fontFamily: H }}>New Goal</div>
+            <button onClick={() => setShowAdd(false)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 18, color: t.sub }}>✕</button>
+          </div>
+          <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginBottom: 12 }}>
+            {goalIcons.map(icon => (
+              <button key={icon} onClick={() => setForm(f => ({ ...f, icon }))} style={{ width: 34, height: 34, borderRadius: 8, border: form.icon === icon ? "2px solid #6C5CE7" : `1px solid ${t.border}`, background: form.icon === icon ? t.tag : t.input, cursor: "pointer", fontSize: 16, display: "flex", alignItems: "center", justifyContent: "center" }}>{icon}</button>
+            ))}
+          </div>
+          <input placeholder="Goal name (e.g. Emergency Fund)" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} style={{ width: "100%", padding: "10px 14px", borderRadius: 10, border: `1px solid ${t.border}`, background: t.input, color: t.text, fontSize: 13, fontFamily: F, marginBottom: 8, boxSizing: "border-box" }} />
+          <select value={form.goalType} onChange={e => setForm(f => ({ ...f, goalType: e.target.value }))} style={{ width: "100%", padding: "10px 14px", borderRadius: 10, border: `1px solid ${t.border}`, background: t.input, color: t.text, fontSize: 13, fontFamily: F, marginBottom: 8, boxSizing: "border-box" }}>
+            {goalTypes.map(gt => <option key={gt.value} value={gt.value}>{gt.label}</option>)}
+          </select>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 8 }}>
+            <input type="number" placeholder="Target amount" value={form.targetAmount} onChange={e => setForm(f => ({ ...f, targetAmount: e.target.value }))} style={{ padding: "10px 14px", borderRadius: 10, border: `1px solid ${t.border}`, background: t.input, color: t.text, fontSize: 13, fontFamily: F, boxSizing: "border-box" }} />
+            <input type="number" placeholder="Already saved" value={form.currentAmount} onChange={e => setForm(f => ({ ...f, currentAmount: e.target.value }))} style={{ padding: "10px 14px", borderRadius: 10, border: `1px solid ${t.border}`, background: t.input, color: t.text, fontSize: 13, fontFamily: F, boxSizing: "border-box" }} />
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 14 }}>
+            <input type="number" placeholder="Monthly contribution" value={form.monthlyContribution} onChange={e => setForm(f => ({ ...f, monthlyContribution: e.target.value }))} style={{ padding: "10px 14px", borderRadius: 10, border: `1px solid ${t.border}`, background: t.input, color: t.text, fontSize: 13, fontFamily: F, boxSizing: "border-box" }} />
+            <input type="date" placeholder="Target date" value={form.targetDate} onChange={e => setForm(f => ({ ...f, targetDate: e.target.value }))} style={{ padding: "10px 14px", borderRadius: 10, border: `1px solid ${t.border}`, background: t.input, color: t.text, fontSize: 13, fontFamily: F, boxSizing: "border-box" }} />
+          </div>
+          <button onClick={handleCreate} style={{ width: "100%", padding: "12px", borderRadius: 10, border: "none", background: "#6C5CE7", color: "white", cursor: "pointer", fontWeight: 700, fontSize: 13, fontFamily: F }}>Create Goal</button>
+        </div>
+      )}
+      {activeGoals.map(goal => (
+        <div key={goal.id} style={{ background: t.card, borderRadius: 14, padding: "16px 20px", boxShadow: t.cs }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 10 }}>
+            <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+              <div style={{ fontSize: 24 }}>{goal.icon}</div>
+              <div>
+                <div style={{ fontWeight: 700, color: t.text, fontSize: 14 }}>{goal.name}</div>
+                <div style={{ fontSize: 11, color: t.sub }}>{goal.type ? goal.type.charAt(0).toUpperCase() + goal.type.slice(1) : "Savings"}{goal.monthsToGo ? ` · ~${goal.monthsToGo} months left` : ""}</div>
+              </div>
+            </div>
+            <div style={{ display: "flex", gap: 4 }}>
+              <button onClick={() => { setContributeId(contributeId === goal.id ? null : goal.id); setContributeAmt(""); }} style={{ padding: "5px 10px", borderRadius: 6, border: `1px solid ${t.border}`, background: contributeId === goal.id ? "#6C5CE7" : t.cardAlt, color: contributeId === goal.id ? "white" : t.sub, cursor: "pointer", fontWeight: 700, fontSize: 10, fontFamily: F }}>+ Add</button>
+              <button onClick={() => handleDelete(goal.id)} style={{ padding: "5px 8px", borderRadius: 6, border: `1px solid ${t.border}`, background: t.cardAlt, color: "#EF4444", cursor: "pointer", fontSize: 10 }}>✕</button>
+            </div>
+          </div>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 6 }}>
+            <div style={{ fontSize: 18, fontWeight: 800, color: t.text, fontFamily: H }}>{formatMoney(goal.currentAmount)}</div>
+            <div style={{ fontSize: 12, color: t.sub }}>{formatMoney(goal.targetAmount)}</div>
+          </div>
+          <div style={{ height: 8, borderRadius: 4, background: t.prog, overflow: "hidden", marginBottom: 6 }}>
+            <div style={{ height: "100%", borderRadius: 4, transition: "width 0.5s ease", width: Math.min(goal.pct, 100) + "%", background: goal.status === "overdue" ? "linear-gradient(90deg, #EF4444, #f87171)" : "linear-gradient(90deg, #6C5CE7, #a78bfa)" }} />
+          </div>
+          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10 }}>
+            <span style={{ color: goal.status === "overdue" ? "#EF4444" : "#10B981", fontWeight: 700 }}>{goal.pct}% complete</span>
+            <span style={{ color: t.sub }}>{formatMoney(goal.remaining)} remaining</span>
+          </div>
+          {contributeId === goal.id && (
+            <div style={{ display: "flex", gap: 8, marginTop: 10, paddingTop: 10, borderTop: `1px solid ${t.border}` }}>
+              <input type="number" placeholder="Amount" value={contributeAmt} onChange={e => setContributeAmt(e.target.value)} style={{ flex: 1, padding: "8px 12px", borderRadius: 8, border: `1px solid ${t.border}`, background: t.input, color: t.text, fontSize: 13, fontFamily: F }} />
+              <button onClick={handleContribute} style={{ padding: "8px 16px", borderRadius: 8, border: "none", background: "#6C5CE7", color: "white", cursor: "pointer", fontWeight: 700, fontSize: 12, fontFamily: F }}>Add</button>
+            </div>
+          )}
+          {(goal.targetDate || goal.projectedDate) && (
+            <div style={{ display: "flex", gap: 12, marginTop: 8, fontSize: 10, color: t.sub }}>
+              {goal.targetDate && <span>🗓️ Target: {goal.targetDate}</span>}
+              {goal.projectedDate && <span>📈 Projected: {goal.projectedDate}</span>}
+            </div>
+          )}
+        </div>
+      ))}
+      {completedGoals.length > 0 && (
+        <>
+          <div style={{ fontSize: 13, fontWeight: 700, color: t.sub, marginTop: 6 }}>🎉 Completed</div>
+          {completedGoals.map(goal => (
+            <div key={goal.id} style={{ background: t.card, borderRadius: 14, padding: "14px 18px", boxShadow: t.cs, borderLeft: "4px solid #10B981", opacity: 0.8 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+                  <div style={{ fontSize: 20 }}>{goal.icon}</div>
+                  <div>
+                    <div style={{ fontWeight: 700, color: t.text, fontSize: 13 }}>{goal.name}</div>
+                    <div style={{ fontSize: 11, color: "#10B981", fontWeight: 600 }}>✅ {formatMoney(goal.targetAmount)} achieved!</div>
+                  </div>
+                </div>
+                <button onClick={() => handleDelete(goal.id)} style={{ padding: "4px 8px", borderRadius: 6, border: `1px solid ${t.border}`, background: t.cardAlt, color: t.sub, cursor: "pointer", fontSize: 10 }}>✕</button>
+              </div>
+            </div>
+          ))}
+        </>
+      )}
+    </div>
+  );
+}
+
 function SettingsTab({ bills, history, hMonths, hFilter, setHFilter, onUpdateReminder, t }) {
   const [subTab, setSubTab] = useState("spending");
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
       <div style={{ display: "flex", gap: 3, background: t.pill, borderRadius: 12, padding: 3, alignSelf: "stretch", flexWrap: "wrap" }}>
-        {[["spending", "💰 Spending"], ["forecast", "📈 Forecast"], ["savings", "🐷 Savings"], ["negotiate", "📞 Negotiate"], ["subs", "🔍 Subs"], ["activity", "📋 Activity"], ["alerts", "🔔 Alerts"], ["reminders", "⏰ Reminders"], ["history", "📜 History"], ["charts", "📊 Charts"]].map(([k, l]) => (
-          <button key={k} onClick={() => setSubTab(k)} style={{ padding: "6px 10px", borderRadius: 8, border: "none", background: subTab === k ? "#6C5CE7" : "transparent", color: subTab === k ? "white" : t.sub, cursor: "pointer", fontWeight: 700, fontSize: 10, fontFamily: "'Plus Jakarta Sans', sans-serif" }}>{l}</button>
+        {[["spending", "💰 Spending"], ["forecast", "📈 Forecast"], ["savings", "🐷 Savings"], ["negotiate", "🤝 Negotiate"], ["subs", "📺 Subs"], ["activity", "📋 Activity"], ["alerts", "🔔 Alerts"], ["reminders", "⏰ Reminders"], ["history", "📜 History"], ["charts", "📊 Charts"], ["aitips", "🧠 AI Tips"], ["goals", "🎯 Goals"]].map(([k, l]) => (
+          <button key={k} onClick={() => setSubTab(k)} style={{
+            padding: "6px 10px", borderRadius: 8, border: "none",
+            background: subTab === k ? "#6C5CE7" : "transparent",
+            color: subTab === k ? "white" : t.sub,
+            cursor: "pointer", fontWeight: 700, fontSize: 10,
+            fontFamily: "'Plus Jakarta Sans', sans-serif"
+          }}>{l}</button>
         ))}
       </div>
       {subTab === "spending" && <SpendingView t={t} />}
@@ -3272,10 +3579,11 @@ function SettingsTab({ bills, history, hMonths, hFilter, setHFilter, onUpdateRem
       {subTab === "reminders" && <RemindersView bills={bills} onUpdate={onUpdateReminder} t={t} />}
       {subTab === "history" && <HistoryView history={history} months={hMonths} filter={hFilter} setFilter={setHFilter} t={t} />}
       {subTab === "charts" && <SpendingChart bills={bills} t={t} />}
+      {subTab === "aitips" && <AISpendingInsightsView t={t} />}
+      {subTab === "goals" && <FinancialGoalsView t={t} />}
     </div>
   );
 }
-
 // ─── Main App ───
 export default function App() {
   const [user, setUser] = useState(api.getUser());
