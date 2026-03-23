@@ -2028,29 +2028,34 @@ function CreditCardsView({ t }) {
         </div>
       )}
 
-      {/* Summary stats */}
+      {/* Overview card — balance + available + utilization */}
       {cards.length > 0 && (
-        <div style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
-          <div style={{ background: t.card, borderRadius: 16, padding: "16px 22px", boxShadow: t.cs, flex: 1, minWidth: 140 }}>
-            <div style={{ fontSize: 11, color: t.sub, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5 }}>Total Debt</div>
-            <div style={{ fontSize: 22, fontWeight: 800, color: "#EF4444", fontFamily: "'Outfit', sans-serif", marginTop: 2 }}>{formatMoney(totalDebt)}</div>
+        <div style={{ background: t.card, borderRadius: 12, padding: "16px 18px", boxShadow: t.cs }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 10 }}>
+            <div>
+              <div style={{ fontSize: 11, color: t.sub, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.3 }}>Total Owed</div>
+              <div style={{ fontSize: 26, fontWeight: 800, color: t.text, fontFamily: "'Outfit', sans-serif", letterSpacing: -0.5 }}>{formatMoney(totalDebt)}</div>
+            </div>
+            <div style={{ textAlign: "right" }}>
+              <div style={{ fontSize: 11, color: t.sub, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.3 }}>Available</div>
+              <div style={{ fontSize: 18, fontWeight: 700, color: "#10B981", fontFamily: "'Outfit', sans-serif" }}>{formatMoney(totalLimit - totalDebt)}</div>
+            </div>
           </div>
-          <div style={{ background: t.card, borderRadius: 16, padding: "16px 22px", boxShadow: t.cs, flex: 1, minWidth: 140 }}>
-            <div style={{ fontSize: 11, color: t.sub, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5 }}>Min Payments</div>
-            <div style={{ fontSize: 22, fontWeight: 800, color: t.text, fontFamily: "'Outfit', sans-serif", marginTop: 2 }}>{formatMoney(totalMin)}/mo</div>
+          <div style={{ height: 6, background: t.prog, borderRadius: 3, overflow: "hidden", marginBottom: 6 }}>
+            <div style={{ height: "100%", borderRadius: 3, background: utilization > 50 ? "#EF4444" : utilization > 30 ? "#F59E0B" : "#10B981", width: `${Math.min(utilization, 100)}%`, transition: "width 0.5s" }} />
           </div>
-          <div style={{ background: t.card, borderRadius: 16, padding: "16px 22px", boxShadow: t.cs, flex: 1, minWidth: 140 }}>
-            <div style={{ fontSize: 11, color: t.sub, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5 }}>Utilization</div>
-            <div style={{ fontSize: 22, fontWeight: 800, color: utilization > 30 ? "#EF4444" : "#10B981", fontFamily: "'Outfit', sans-serif", marginTop: 2 }}>{utilization.toFixed(0)}%</div>
+          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11 }}>
+            <span style={{ color: t.sub }}>{utilization.toFixed(0)}% of {formatMoney(totalLimit)} limit</span>
+            <span style={{ color: t.sub }}>Min due: {formatMoney(totalMin)}/mo</span>
           </div>
         </div>
       )}
 
-      {/* View toggle */}
-      {cards.length > 1 && (
-        <div style={{ display: "flex", gap: 4, background: t.pill, borderRadius: 12, padding: 4, alignSelf: "flex-start" }}>
-          {[["cards", "💳 Cards"], ["strategy", "🎯 Payoff Strategy"]].map(([k, l]) => (
-            <button key={k} onClick={() => setView(k)} style={{ padding: "8px 16px", borderRadius: 10, border: "none", background: view === k ? "#6C5CE7" : "transparent", color: view === k ? "white" : t.sub, cursor: "pointer", fontWeight: 700, fontSize: 12, fontFamily: "'Plus Jakarta Sans', sans-serif" }}>{l}</button>
+      {/* View toggle — 3 tabs now */}
+      {cards.length > 0 && (
+        <div style={{ display: "flex", gap: 3, background: t.cardAlt || t.pill, borderRadius: 10, padding: 3 }}>
+          {[["cards", "💳 Cards"], ["transactions", "📋 Transactions"], ["strategy", "📊 Payoff"]].map(([k, l]) => (
+            <button key={k} onClick={() => setView(k)} style={{ flex: 1, padding: "7px 10px", borderRadius: 8, border: "none", background: view === k ? "#6C5CE7" : "transparent", color: view === k ? "white" : t.sub, cursor: "pointer", fontWeight: 600, fontSize: 11, fontFamily: "'Plus Jakarta Sans', sans-serif" }}>{l}</button>
           ))}
         </div>
       )}
@@ -2129,6 +2134,51 @@ function CreditCardsView({ t }) {
           {!cards.length && <div style={{ textAlign: "center", padding: 40, color: t.sub }}>No credit cards yet — add one to start tracking your debt.</div>}
         </div>
       )}
+
+      {/* Transactions view — credit card transactions from Plaid */}
+      {view === "transactions" && (() => {
+        // Try to get credit card transactions from bank transactions
+        const CreditTxnList = () => {
+          const [txns, setTxns] = useState([]);
+          const [txnLoading, setTxnLoading] = useState(true);
+          useEffect(() => {
+            (async () => {
+              try {
+                const accts = await api.getBankAccounts();
+                const creditAcctIds = accts.filter(a => a.type === "credit").map(a => a.accountId);
+                if (creditAcctIds.length > 0) {
+                  const allTxns = await api.getBankTransactions(30);
+                  setTxns(allTxns.filter(tx => creditAcctIds.includes(tx.accountId)));
+                }
+              } catch (err) { console.error(err); }
+              finally { setTxnLoading(false); }
+            })();
+          }, []);
+
+          if (txnLoading) return <div style={{ textAlign: "center", padding: 30, color: t.sub, fontSize: 13 }}>Loading transactions...</div>;
+          if (!txns.length) return (
+            <div style={{ textAlign: "center", padding: 30, color: t.sub, fontSize: 13 }}>
+              <div style={{ fontSize: 24, marginBottom: 8 }}>📋</div>
+              Connect your credit card issuer through Plaid to see transactions here.
+            </div>
+          );
+          return txns.map(tx => (
+            <div key={tx.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", background: t.card, borderRadius: 10, boxShadow: t.cs, marginBottom: 4 }}>
+              <div style={{ width: 32, height: 32, borderRadius: 8, background: tx.amount > 0 ? "#EF444410" : "#10B98110", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, flexShrink: 0 }}>
+                {tx.pending ? "⏳" : tx.amount > 0 ? "💸" : "💵"}
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 13, fontWeight: 600, color: t.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{tx.name}</div>
+                <div style={{ fontSize: 11, color: t.sub }}>{tx.date} · {tx.accountName}{tx.pending ? " · Pending" : ""}</div>
+              </div>
+              <div style={{ fontWeight: 700, fontSize: 13, color: tx.amount > 0 ? "#EF4444" : "#10B981", fontFamily: "'Outfit', sans-serif", flexShrink: 0 }}>
+                {tx.amount > 0 ? "-" : "+"}{formatMoney(Math.abs(tx.amount))}
+              </div>
+            </div>
+          ));
+        };
+        return <div style={{ display: "flex", flexDirection: "column", gap: 4 }}><CreditTxnList /></div>;
+      })()}
 
       {/* Strategy view */}
       {view === "strategy" && strategy && (
