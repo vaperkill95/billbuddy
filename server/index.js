@@ -51,6 +51,9 @@ app.use("/api/savings", require("./routes/savings"));
 app.use("/api/spending", require("./routes/spending"));
 app.use("/api/spending-insights", require("./routes/spendingInsights"));
 app.use("/api/goals", require("./routes/goals"));
+app.use("/api/credit", require("./routes/credit"));
+app.use("/api/smart-savings", require("./routes/smartSavings"));
+app.use("/api/cancel-helper", require("./routes/cancelHelper"));
 
 app.get("/api/health", async (req, res) => {
   try {
@@ -360,6 +363,8 @@ async function initDB() {
       `);
     } catch (e) {}
 
+    // Credit score history table
+    try { await pool.query(`CREATE TABLE IF NOT EXISTS credit_scores (id SERIAL PRIMARY KEY, user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE, score INTEGER NOT NULL, grade VARCHAR(20), checked_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()); CREATE INDEX IF NOT EXISTS idx_credit_scores_user ON credit_scores(user_id);`); } catch (e) {}
     console.log("â Database tables ready");
   } catch (err) {
     console.error("â ï¸  Database init warning:", err.message);
@@ -402,5 +407,6 @@ initDB().then(() => {
     console.log(`   Health: http://localhost:${PORT}/api/health\n`);
   });
 });
+
 
 
