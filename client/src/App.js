@@ -3799,6 +3799,8 @@ export default function App() {
     try { await api.updateBill(id, { dueDate: newDay }); } catch {}
   };
 
+  const [showMore, setShowMore] = useState(false);
+
   if (!user) return <AuthPage key="auth" onAuth={handleAuth} t={t} />;
 
   const totalMonthly = bills.reduce((s, b) => s + b.amount, 0);
@@ -3817,7 +3819,6 @@ export default function App() {
 
   const tabEmojis = { dashboard: "📊", money: "🏦", calendar: "📅", insights: "🤖", more: "⚙️" };
 
-  const [showMore, setShowMore] = useState(false);
   const F = "'Plus Jakarta Sans', 'Outfit', sans-serif";
   const H = "'Outfit', 'Plus Jakarta Sans', sans-serif";
 
