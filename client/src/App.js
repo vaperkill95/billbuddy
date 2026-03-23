@@ -84,6 +84,8 @@ function AuthPage({ onAuth, t }) {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const onAuthRef = useRef(onAuth);
+  onAuthRef.current = onAuth;
 
   useEffect(() => {
     if (!GOOGLE_CLIENT_ID) return;
@@ -94,7 +96,16 @@ function AuthPage({ onAuth, t }) {
     script.onload = () => {
       window.google?.accounts?.id?.initialize({
         client_id: GOOGLE_CLIENT_ID,
-        callback: handleGoogleResponse,
+        callback: async (response) => {
+          try {
+            const data = await api.googleLogin(response.credential);
+            api.setToken(data.token);
+            api.setUser(data.user);
+            onAuthRef.current(data.user);
+          } catch (err) {
+            console.error("Google auth error:", err);
+          }
+        },
       });
       window.google?.accounts?.id?.renderButton(
         document.getElementById("google-btn"),
@@ -104,19 +115,6 @@ function AuthPage({ onAuth, t }) {
     document.head.appendChild(script);
     return () => { try { document.head.removeChild(script); } catch(e){} };
   }, []);
-
-  const handleGoogleResponse = async (response) => {
-    try {
-      setLoading(true);
-      setError("");
-      const data = await api.googleLogin(response.credential);
-      api.setToken(data.token);
-      api.setUser(data.user);
-      onAuth(data.user);
-    } catch (err) {
-      setError(err.message);
-    } finally { setLoading(false); }
-  };
 
   const handleSubmit = async () => {
     setError("");
@@ -3055,8 +3053,24 @@ export default function App() {
     return () => clearInterval(interval);
   }, [user]);
 
-  const handleAuth = (u) => { setUser(u); };
-  const handleLogout = () => { api.clearToken(); setUser(null); setBills([]); setHistory([]); setDash(null); };
+  const handleAuth = (u) => {
+    setUser(u);
+    setTab("dashboard");
+    setBills([]);
+    setHistory([]);
+    setHMonths([]);
+    setDash(null);
+    setLoading(false);
+  };
+  const handleLogout = () => {
+    api.clearToken();
+    setUser(null);
+    setBills([]);
+    setHistory([]);
+    setHMonths([]);
+    setDash(null);
+    setTab("dashboard");
+  };
 
   const togglePaid = async (bill) => {
     const np = !bill.isPaid;
@@ -3097,7 +3111,7 @@ export default function App() {
     try { await api.updateBill(id, { dueDate: newDay }); } catch {}
   };
 
-  if (!user) return <AuthPage onAuth={handleAuth} t={t} />;
+  if (!user) return <AuthPage key="auth" onAuth={handleAuth} t={t} />;
 
   const totalMonthly = bills.reduce((s, b) => s + b.amount, 0);
   const totalPaid = bills.filter(b => b.isPaid).reduce((s, b) => s + b.amount, 0);
@@ -3174,7 +3188,7 @@ export default function App() {
       </div>
 
       {/* Content */}
-      <div className="bb-animate" key={tab} style={{ maxWidth: 960, margin: "12px auto 0", padding: "0 16px", paddingBottom: 90 }}>
+      <div style={{ maxWidth: 960, margin: "12px auto 0", padding: "0 16px", paddingBottom: 90 }}>
         {loading && !bills.length ? (
           <div style={{ textAlign: "center", padding: 80 }}>
             <div style={{ width: 48, height: 48, borderRadius: 12, background: "#6C5CE7", display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 24 }}>💸</div>
