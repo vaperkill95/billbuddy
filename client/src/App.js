@@ -1785,16 +1785,21 @@ function UnifiedDashboard({ dash, bills, t, onToggle, onDelete, onGoTo }) {
       )}
 
       {/* Quick stats row */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
         <div style={{ background: t.card, borderRadius: 14, padding: "14px 16px", boxShadow: t.cs }}>
-          <div style={{ fontSize: 10, color: t.sub, fontWeight: 600, textTransform: "uppercase" }}>Bills Due</div>
-          <div style={{ fontSize: 20, fontWeight: 800, color: t.text, fontFamily: "'Fredoka'" }}>{formatMoney(dash.totalUnpaid)}</div>
-          <div style={{ fontSize: 11, color: "#6C5CE7", fontWeight: 600 }}>{dash.totalBills - dash.paidCount} remaining</div>
+          <div style={{ fontSize: 10, color: t.sub, fontWeight: 600, textTransform: "uppercase" }}>Monthly Bills</div>
+          <div style={{ fontSize: 18, fontWeight: 800, color: "#6C5CE7", fontFamily: "'Fredoka'" }}>{formatMoney(dash.totalMonthlyBills)}</div>
+          <div style={{ fontSize: 11, color: t.sub, fontWeight: 600 }}>{dash.totalBills} total</div>
         </div>
         <div style={{ background: t.card, borderRadius: 14, padding: "14px 16px", boxShadow: t.cs }}>
-          <div style={{ fontSize: 10, color: t.sub, fontWeight: 600, textTransform: "uppercase" }}>After Bills</div>
-          <div style={{ fontSize: 20, fontWeight: 800, color: dash.leftoverFromBank >= 0 ? "#4ECDC4" : "#FF6B6B", fontFamily: "'Fredoka'" }}>{dash.accountCount > 0 ? formatMoney(dash.leftoverFromBank) : formatMoney(dash.leftoverEstimated)}</div>
-          <div style={{ fontSize: 11, color: t.sub, fontWeight: 600 }}>you'll have left</div>
+          <div style={{ fontSize: 10, color: t.sub, fontWeight: 600, textTransform: "uppercase" }}>Still Owed</div>
+          <div style={{ fontSize: 18, fontWeight: 800, color: dash.totalUnpaid > 0 ? "#FF6B6B" : "#4ECDC4", fontFamily: "'Fredoka'" }}>{formatMoney(dash.totalUnpaid)}</div>
+          <div style={{ fontSize: 11, color: t.sub, fontWeight: 600 }}>{dash.totalBills - dash.paidCount} unpaid</div>
+        </div>
+        <div style={{ background: t.card, borderRadius: 14, padding: "14px 16px", boxShadow: t.cs }}>
+          <div style={{ fontSize: 10, color: t.sub, fontWeight: 600, textTransform: "uppercase" }}>Left Over</div>
+          <div style={{ fontSize: 18, fontWeight: 800, color: dash.leftoverFromBank >= 0 ? "#4ECDC4" : "#FF6B6B", fontFamily: "'Fredoka'" }}>{dash.accountCount > 0 ? formatMoney(dash.leftoverFromBank) : formatMoney(dash.leftoverEstimated)}</div>
+          <div style={{ fontSize: 11, color: t.sub, fontWeight: 600 }}>after bills</div>
         </div>
       </div>
 
