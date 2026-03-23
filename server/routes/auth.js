@@ -141,7 +141,7 @@ router.post("/google", async (req, res) => {
 });
 
 // GET /api/auth/me - Get current user from token
-router.get("/me", (req, res) => {
+router.get("/me", async (req, res) => {
   const header = req.headers.authorization;
   if (!header || !header.startsWith("Bearer ")) {
     return res.status(401).json({ error: "Not authenticated" });
