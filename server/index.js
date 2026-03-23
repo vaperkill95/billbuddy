@@ -22,7 +22,8 @@ const app = express();
 const PORT = process.env.PORT || 3001;
 
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: "2mb" }));
+app.set("trust proxy", 1);
 
 // Make checkMonthlyReset available to routes
 app.use((req, res, next) => {
@@ -48,11 +49,26 @@ app.use("/api/subscriptions", require("./routes/subscriptions"));
 app.use("/api/activity", require("./routes/activity"));
 app.use("/api/savings", require("./routes/savings"));
 app.use("/api/spending", require("./routes/spending"));
+app.use("/api/spending", require("./routes/spending"));
 
 app.get("/api/health", async (req, res) => {
   try {
+    const dbStart = Date.now();
     await pool.query("SELECT 1");
-    res.json({ status: "ok", database: "connected", timestamp: new Date().toISOString() });
+    const dbLatency = Date.now() - dbStart;
+    const stats = pool.getStats ? pool.getStats() : {};
+    const memUsage = process.memoryUsage();
+    res.json({
+      status: "ok", uptime: Math.round(process.uptime()),
+      database: { connected: true, latency: dbLatency + "ms" },
+      pool: { total: stats.totalCount || 0, idle: stats.idleCount || 0, waiting: stats.waitingCount || 0, queries: stats.totalQueries || 0, errors: stats.errors || 0, slowQueries: stats.slowQueries || 0 },
+      memory: { heapUsed: Math.round(memUsage.heapUsed / 1024 / 1024) + "MB", rss: Math.round(memUsage.rss / 1024 / 1024) + "MB" },
+      timestamp: new Date().toISOString(),
+    });
+  } catch (err) {
+    res.status(500).json({ status: "error", database: { connected: false, error: err.message } });
+  }
+});
   } catch (err) {
     res.status(500).json({ status: "error", database: "disconnected", error: err.message });
   }
@@ -253,6 +269,19 @@ async function initDB() {
       CREATE INDEX IF NOT EXISTS idx_household_members_user ON household_members(user_id);
       CREATE INDEX IF NOT EXISTS idx_household_bills_hh ON household_bills(household_id);
       CREATE INDEX IF NOT EXISTS idx_household_splits_user ON household_splits(user_id);
+
+      -- Performance indexes
+      CREATE INDEX IF NOT EXISTS idx_bills_user_paid ON bills(user_id, is_paid);
+      CREATE INDEX IF NOT EXISTS idx_bills_due ON bills(user_id, due_date);
+      CREATE INDEX IF NOT EXISTS idx_bank_transactions_user_date ON bank_transactions(user_id, date DESC);
+      CREATE INDEX IF NOT EXISTS idx_bank_transactions_acct ON bank_transactions(account_id, date DESC);
+      CREATE INDEX IF NOT EXISTS idx_bank_transactions_pending ON bank_transactions(user_id, pending, date DESC);
+      CREATE INDEX IF NOT EXISTS idx_bank_accounts_acct_id ON bank_accounts(account_id, user_id);
+      CREATE INDEX IF NOT EXISTS idx_credit_cards_user ON credit_cards(user_id);
+      CREATE INDEX IF NOT EXISTS idx_payment_history_user_month ON payment_history(user_id, month);
+      CREATE INDEX IF NOT EXISTS idx_income_entries_user_date ON income_entries(user_id, received_date DESC);
+      CREATE INDEX IF NOT EXISTS idx_household_members_hh ON household_members(household_id);
+      CREATE INDEX IF NOT EXISTS idx_household_splits_bill ON household_splits(household_bill_id);
     `);
 
     // Migrations for existing databases
@@ -314,13 +343,13 @@ async function initDB() {
       `);
     } catch (e) { /* already exists */ }
 
-    console.log("✅ Database tables ready");
+    console.log("â Database tables ready");
   } catch (err) {
-    console.error("⚠️  Database init warning:", err.message);
+    console.error("â ï¸  Database init warning:", err.message);
   }
 }
 
-// ─── Auto-reset recurring bills at start of new month ───
+// âââ Auto-reset recurring bills at start of new month âââ
 async function checkMonthlyReset(userId) {
   try {
     const now = new Date();
@@ -340,7 +369,7 @@ async function checkMonthlyReset(userId) {
         "UPDATE users SET last_reset_month = $1 WHERE id = $2",
         [currentMonth, userId]
       );
-      console.log(`🔄 Monthly reset for user ${userId} — bills reset for ${currentMonth}`);
+      console.log(`ð Monthly reset for user ${userId} â bills reset for ${currentMonth}`);
       return true;
     }
     return false;
@@ -352,7 +381,8 @@ async function checkMonthlyReset(userId) {
 
 initDB().then(() => {
   app.listen(PORT, () => {
-    console.log(`\n🚀 BillBuddy server running on port ${PORT}`);
+    console.log(`\nð BillBuddy server running on port ${PORT}`);
     console.log(`   Health: http://localhost:${PORT}/api/health\n`);
   });
 });
+
