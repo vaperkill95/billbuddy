@@ -1884,6 +1884,8 @@ function CreditCardsView({ t }) {
   const [loading, setLoading] = useState(true);
   const [view, setView] = useState("cards"); // cards | strategy
   const [plaidCards, setPlaidCards] = useState([]);
+  const [syncing, setSyncing] = useState(false);
+  const [lastSynced, setLastSynced] = useState(null);
 
   const loadCards = async () => {
     try {
@@ -1909,6 +1911,16 @@ function CreditCardsView({ t }) {
   };
 
   useEffect(() => { loadCards(); }, []);
+
+  const syncCards = async () => {
+    setSyncing(true);
+    try {
+      await api.smartSync();
+      await loadCards();
+      setLastSynced(new Date());
+    } catch (err) { console.error(err); }
+    finally { setSyncing(false); }
+  };
 
   const connectBank = async () => {
     try {
@@ -2014,19 +2026,22 @@ function CreditCardsView({ t }) {
   if (loading) return <div style={{ textAlign: "center", padding: 60, color: t.sub }}>Loading cards...</div>;
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
       {/* Header */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <div style={{ fontSize: 32 }}>💳</div>
-          <div>
-            <h3 style={{ fontFamily: "'Outfit', sans-serif", color: t.text, margin: 0, fontSize: 20 }}>Credit Cards</h3>
-            <p style={{ margin: "2px 0 0", fontSize: 13, color: t.sub }}>Track balances, payments & payoff goals</p>
-          </div>
+        <div>
+          <h3 style={{ fontFamily: "'Outfit', sans-serif", color: t.text, margin: 0, fontSize: 18, fontWeight: 700 }}>Credit Cards</h3>
+          <p style={{ margin: "2px 0 0", fontSize: 12, color: t.sub }}>
+            {cards.length} card{cards.length !== 1 ? "s" : ""}
+            {lastSynced && <span> · Synced {lastSynced.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}</span>}
+          </p>
         </div>
-        <div style={{ display: "flex", gap: 8 }}>
-          <button onClick={connectBank} style={{ padding: "8px 14px", borderRadius: 12, border: `2px solid ${t.border}`, background: "transparent", color: t.sub, cursor: "pointer", fontWeight: 700, fontSize: 11, fontFamily: "'Plus Jakarta Sans', sans-serif" }}>🔗 Connect via Bank</button>
-          <button onClick={() => setShowAddCard(true)} style={{ padding: "8px 14px", borderRadius: 12, border: "none", background: "#6C5CE7", color: "white", cursor: "pointer", fontWeight: 700, fontSize: 12, fontFamily: "'Plus Jakarta Sans', sans-serif" }}>+ Add Manual</button>
+        <div style={{ display: "flex", gap: 6 }}>
+          <button onClick={syncCards} disabled={syncing} style={{ padding: "7px 12px", borderRadius: 8, border: `1px solid ${t.border}`, background: "transparent", color: t.sub, cursor: "pointer", fontWeight: 600, fontSize: 11, fontFamily: "'Plus Jakarta Sans', sans-serif", opacity: syncing ? 0.6 : 1 }}>
+            {syncing ? "⟳ Syncing..." : "🔄 Sync"}
+          </button>
+          <button onClick={connectBank} style={{ padding: "7px 12px", borderRadius: 8, border: `1px solid ${t.border}`, background: "transparent", color: t.sub, cursor: "pointer", fontWeight: 600, fontSize: 11, fontFamily: "'Plus Jakarta Sans', sans-serif" }}>🔗 Connect</button>
+          <button onClick={() => setShowAddCard(true)} style={{ padding: "7px 12px", borderRadius: 8, border: "none", background: "#6C5CE7", color: "white", cursor: "pointer", fontWeight: 700, fontSize: 11, fontFamily: "'Plus Jakarta Sans', sans-serif" }}>+ Add</button>
         </div>
       </div>
 
