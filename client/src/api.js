@@ -64,6 +64,9 @@ export const api = {
   // AI Insights
   getInsights: () => request("/insights", { method: "POST" }),
 
+  // Dashboard
+  getDashboard: () => request("/dashboard"),
+
   // Credit Cards
   getCards: () => request("/cards"),
   createCard: (card) => request("/cards", { method: "POST", body: JSON.stringify(card) }),

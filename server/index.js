@@ -11,6 +11,7 @@ const cardsRouter = require("./routes/cards");
 const incomeRouter = require("./routes/income");
 const calendarRouter = require("./routes/calendar");
 const plaidRouter = require("./routes/plaid");
+const dashboardRouter = require("./routes/dashboard");
 const pool = require("./db/pool");
 
 const app = express();
@@ -34,6 +35,7 @@ app.use("/api/cards", cardsRouter);
 app.use("/api/income", incomeRouter);
 app.use("/api/calendar", calendarRouter);
 app.use("/api/plaid", plaidRouter);
+app.use("/api/dashboard", dashboardRouter);
 
 app.get("/api/health", async (req, res) => {
   try {

@@ -1717,6 +1717,174 @@ function AddBillModal({ onClose, onAdd, t }) {
   );
 }
 
+// ─── Onboarding Wizard ───
+function OnboardingWizard({ steps, t, onGoTo }) {
+  const done = steps.filter(s => s.done).length;
+  const total = steps.length;
+  if (done >= total) return null;
+
+  const icons = { bills: "📋", bank: "🏦", income: "💰" };
+  const actions = { bills: "dashboard", bank: "money", income: "money" };
+
+  return (
+    <div style={{ background: t.card, borderRadius: 16, padding: "18px 20px", boxShadow: t.cs, borderLeft: "4px solid #6C5CE7" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+        <div style={{ fontWeight: 700, color: t.text, fontSize: 15 }}>🚀 Get Started</div>
+        <div style={{ fontSize: 12, fontWeight: 700, color: "#6C5CE7" }}>{done}/{total}</div>
+      </div>
+      <div style={{ height: 6, background: t.prog, borderRadius: 3, marginBottom: 14, overflow: "hidden" }}>
+        <div style={{ height: "100%", borderRadius: 3, background: "linear-gradient(90deg, #4ECDC4, #6C5CE7)", width: `${(done / total) * 100}%`, transition: "width 0.5s" }} />
+      </div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        {steps.map(s => (
+          <div key={s.key} onClick={() => !s.done && onGoTo(actions[s.key])} style={{
+            display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 10,
+            background: s.done ? "#4ECDC410" : t.prog, cursor: s.done ? "default" : "pointer",
+          }}>
+            <div style={{ width: 24, height: 24, borderRadius: 8, background: s.done ? "#4ECDC4" : t.border, color: "white", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 700 }}>{s.done ? "✓" : icons[s.key]}</div>
+            <span style={{ fontSize: 13, fontWeight: 600, color: s.done ? t.sub : t.text, textDecoration: s.done ? "line-through" : "none" }}>{s.label}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ─── Unified Dashboard ───
+function UnifiedDashboard({ dash, bills, t, onToggle, onDelete, onGoTo }) {
+  if (!dash) return null;
+  const getCatIcon2 = n => CATEGORIES.find(c => c.name === n)?.icon || "📋";
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+      {/* Onboarding */}
+      {!dash.onboardingComplete && <OnboardingWizard steps={dash.onboardingSteps} t={t} onGoTo={onGoTo} />}
+
+      {/* Bank balance hero */}
+      {dash.accountCount > 0 && (
+        <div style={{ background: t.card, borderRadius: 16, padding: "18px 20px", boxShadow: t.cs }}>
+          <div style={{ fontSize: 11, color: t.sub, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5 }}>Bank Balance</div>
+          <div style={{ fontSize: 28, fontWeight: 800, color: "#4ECDC4", fontFamily: "'Fredoka'", margin: "4px 0" }}>{formatMoney(dash.totalBankBalance)}</div>
+          <div style={{ display: "flex", gap: 16, fontSize: 12, color: t.sub }}>
+            {dash.totalCardDebt > 0 && <span>💳 {formatMoney(dash.totalCardDebt)} debt</span>}
+            <span>💰 {formatMoney(dash.incomeThisMonth)} earned this month</span>
+          </div>
+        </div>
+      )}
+
+      {/* Quick stats row */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+        <div style={{ background: t.card, borderRadius: 14, padding: "14px 16px", boxShadow: t.cs }}>
+          <div style={{ fontSize: 10, color: t.sub, fontWeight: 600, textTransform: "uppercase" }}>Bills Due</div>
+          <div style={{ fontSize: 20, fontWeight: 800, color: t.text, fontFamily: "'Fredoka'" }}>{formatMoney(dash.totalUnpaid)}</div>
+          <div style={{ fontSize: 11, color: "#6C5CE7", fontWeight: 600 }}>{dash.totalBills - dash.paidCount} remaining</div>
+        </div>
+        <div style={{ background: t.card, borderRadius: 14, padding: "14px 16px", boxShadow: t.cs }}>
+          <div style={{ fontSize: 10, color: t.sub, fontWeight: 600, textTransform: "uppercase" }}>After Bills</div>
+          <div style={{ fontSize: 20, fontWeight: 800, color: dash.leftoverFromBank >= 0 ? "#4ECDC4" : "#FF6B6B", fontFamily: "'Fredoka'" }}>{dash.accountCount > 0 ? formatMoney(dash.leftoverFromBank) : formatMoney(dash.leftoverEstimated)}</div>
+          <div style={{ fontSize: 11, color: t.sub, fontWeight: 600 }}>you'll have left</div>
+        </div>
+      </div>
+
+      {/* Progress */}
+      <div style={{ background: t.card, borderRadius: 14, padding: "14px 18px", boxShadow: t.cs }}>
+        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
+          <span style={{ fontWeight: 700, color: t.text, fontSize: 13 }}>Monthly Progress</span>
+          <span style={{ fontWeight: 800, color: "#6C5CE7", fontFamily: "'Fredoka'", fontSize: 13 }}>{dash.totalMonthlyBills > 0 ? Math.round((dash.totalPaid / dash.totalMonthlyBills) * 100) : 0}%</span>
+        </div>
+        <div style={{ height: 8, background: t.prog, borderRadius: 4, overflow: "hidden" }}>
+          <div style={{ height: "100%", borderRadius: 4, background: "linear-gradient(90deg, #4ECDC4, #6C5CE7)", width: `${dash.totalMonthlyBills > 0 ? (dash.totalPaid / dash.totalMonthlyBills) * 100 : 0}%`, transition: "width 0.5s" }} />
+        </div>
+      </div>
+
+      {/* Overdue alert */}
+      {dash.overdue.length > 0 && (
+        <div style={{ background: "#FF6B6B15", borderRadius: 14, padding: "14px 18px", borderLeft: "4px solid #FF6B6B" }}>
+          <div style={{ fontWeight: 700, color: "#FF6B6B", fontSize: 13, marginBottom: 8 }}>⚠️ {dash.overdue.length} Overdue</div>
+          {dash.overdue.map(b => (
+            <div key={b.id} style={{ display: "flex", justifyContent: "space-between", padding: "4px 0", fontSize: 13 }}>
+              <span style={{ color: t.text }}>{getCatIcon2(b.category)} {b.name}</span>
+              <span style={{ fontWeight: 700, color: "#FF6B6B" }}>{formatMoney(b.amount)}</span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Upcoming this week */}
+      {dash.upcoming.length > 0 && (
+        <div style={{ background: t.card, borderRadius: 14, padding: "14px 18px", boxShadow: t.cs }}>
+          <div style={{ fontWeight: 700, color: t.text, fontSize: 13, marginBottom: 10 }}>📅 Due This Week</div>
+          {dash.upcoming.map(b => (
+            <div key={b.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "6px 0", borderBottom: `1px solid ${t.border}` }}>
+              <div>
+                <span style={{ fontSize: 13, fontWeight: 600, color: t.text }}>{getCatIcon2(b.category)} {b.name}</span>
+                <span style={{ fontSize: 11, color: t.sub, marginLeft: 8 }}>{b.daysUntil === 0 ? "Today" : `in ${b.daysUntil}d`}</span>
+              </div>
+              <span style={{ fontWeight: 700, color: t.text, fontSize: 13 }}>{formatMoney(b.amount)}</span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* All bills */}
+      <div>
+        <h3 style={{ fontFamily: "'Fredoka'", color: t.text, margin: "4px 0 10px", fontSize: 16 }}>All Bills</h3>
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          {bills.sort((a, b) => a.dueDate - b.dueDate).map(b => <BillRow key={b.id} bill={b} onToggle={onToggle} onDelete={onDelete} t={t} />)}
+          {!bills.length && <div style={{ textAlign: "center", padding: 30, color: t.sub, fontSize: 13 }}>No bills yet — tap "+ Add" to get started</div>}
+        </div>
+      </div>
+
+      {/* Recent activity */}
+      {dash.recentActivity.length > 0 && (
+        <div style={{ background: t.card, borderRadius: 14, padding: "14px 18px", boxShadow: t.cs }}>
+          <div style={{ fontWeight: 700, color: t.text, fontSize: 13, marginBottom: 10 }}>🕐 Recent Activity</div>
+          {dash.recentActivity.map(a => (
+            <div key={a.id} style={{ display: "flex", justifyContent: "space-between", padding: "5px 0", fontSize: 12, borderBottom: `1px solid ${t.border}` }}>
+              <span style={{ color: t.sub }}>{a.status === "on-time" ? "✅" : "⚠️"} {a.billName} · {a.paidDate}</span>
+              <span style={{ fontWeight: 700, color: t.text }}>{formatMoney(a.amount)}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Money Tab (Bank + Cards + Income combined) ───
+function MoneyTab({ t }) {
+  const [subTab, setSubTab] = useState("bank");
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+      <div style={{ display: "flex", gap: 4, background: t.pill, borderRadius: 12, padding: 4, alignSelf: "flex-start" }}>
+        {[["bank", "🏦 Bank"], ["cards", "💳 Cards"], ["income", "💰 Income"]].map(([k, l]) => (
+          <button key={k} onClick={() => setSubTab(k)} style={{ padding: "8px 14px", borderRadius: 10, border: "none", background: subTab === k ? "linear-gradient(135deg, #6C5CE7, #A29BFE)" : "transparent", color: subTab === k ? "white" : t.sub, cursor: "pointer", fontWeight: 700, fontSize: 12, fontFamily: "'DM Sans'" }}>{l}</button>
+        ))}
+      </div>
+      {subTab === "bank" && <BankAccountsView t={t} />}
+      {subTab === "cards" && <CreditCardsView t={t} />}
+      {subTab === "income" && <IncomeView t={t} />}
+    </div>
+  );
+}
+
+// ─── Settings Tab (History + Reminders + Charts combined) ───
+function SettingsTab({ bills, history, hMonths, hFilter, setHFilter, onUpdateReminder, t }) {
+  const [subTab, setSubTab] = useState("reminders");
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+      <div style={{ display: "flex", gap: 4, background: t.pill, borderRadius: 12, padding: 4, alignSelf: "flex-start", flexWrap: "wrap" }}>
+        {[["reminders", "🔔 Reminders"], ["history", "📜 History"], ["charts", "📈 Charts"]].map(([k, l]) => (
+          <button key={k} onClick={() => setSubTab(k)} style={{ padding: "8px 14px", borderRadius: 10, border: "none", background: subTab === k ? "linear-gradient(135deg, #6C5CE7, #A29BFE)" : "transparent", color: subTab === k ? "white" : t.sub, cursor: "pointer", fontWeight: 700, fontSize: 12, fontFamily: "'DM Sans'" }}>{l}</button>
+        ))}
+      </div>
+      {subTab === "reminders" && <RemindersView bills={bills} onUpdate={onUpdateReminder} t={t} />}
+      {subTab === "history" && <HistoryView history={history} months={hMonths} filter={hFilter} setFilter={setHFilter} t={t} />}
+      {subTab === "charts" && <SpendingChart bills={bills} t={t} />}
+    </div>
+  );
+}
+
 // ─── Main App ───
 export default function App() {
   const [user, setUser] = useState(api.getUser());
@@ -1724,6 +1892,7 @@ export default function App() {
   const [calCards, setCalCards] = useState([]);
   const [history, setHistory] = useState([]);
   const [hMonths, setHMonths] = useState([]);
+  const [dash, setDash] = useState(null);
   const [tab, setTab] = useState("dashboard");
   const [showAdd, setShowAdd] = useState(false);
   const [dark, setDark] = useState(false);
@@ -1736,9 +1905,10 @@ export default function App() {
     if (!user) return;
     try {
       setLoading(true);
-      const [b, h, m] = await Promise.all([api.getBills(), api.getHistory(), api.getHistoryMonths()]);
-      setBills(b); setHistory(h); setHMonths(m);
-      // Also fetch cards for calendar
+      const [b, h, m, d] = await Promise.all([
+        api.getBills(), api.getHistory(), api.getHistoryMonths(), api.getDashboard()
+      ]);
+      setBills(b); setHistory(h); setHMonths(m); setDash(d);
       try { const c = await api.getCards(); setCalCards(c); } catch(e) {}
     } catch (err) { console.error("Load error:", err); }
     finally { setLoading(false); }
@@ -1746,7 +1916,7 @@ export default function App() {
 
   useEffect(() => { loadData(); }, [loadData]);
 
-  // Auto smart sync on load - syncs bank data, matches bills, detects income
+  // Auto smart sync
   const [lastSync, setLastSync] = useState(null);
   useEffect(() => {
     if (!user) return;
@@ -1754,24 +1924,19 @@ export default function App() {
       try {
         const result = await api.smartSync();
         setLastSync(new Date());
-        // If anything was matched/detected, reload bill data
         if (result.billsMatched > 0 || result.incomeDetected > 0 || result.cardsUpdated > 0) {
-          const [b, h, m] = await Promise.all([api.getBills(), api.getHistory(), api.getHistoryMonths()]);
-          setBills(b); setHistory(h); setHMonths(m);
+          const [b, h, m, d] = await Promise.all([api.getBills(), api.getHistory(), api.getHistoryMonths(), api.getDashboard()]);
+          setBills(b); setHistory(h); setHMonths(m); setDash(d);
         }
-        if (result.billsMatched > 0) console.log(`✅ Auto-matched ${result.billsMatched} bill payment(s)`);
-        if (result.incomeDetected > 0) console.log(`💵 Auto-detected ${result.incomeDetected} income deposit(s)`);
-      } catch (err) { /* silently fail - user may not have bank connected */ }
+      } catch (err) { /* silently fail */ }
     };
-    // Sync on load
     runSync();
-    // Sync every 15 minutes while app is open
     const interval = setInterval(runSync, 15 * 60 * 1000);
     return () => clearInterval(interval);
   }, [user]);
 
   const handleAuth = (u) => { setUser(u); };
-  const handleLogout = () => { api.clearToken(); setUser(null); setBills([]); setHistory([]); };
+  const handleLogout = () => { api.clearToken(); setUser(null); setBills([]); setHistory([]); setDash(null); };
 
   const togglePaid = async (bill) => {
     const np = !bill.isPaid;
@@ -1780,20 +1945,20 @@ export default function App() {
       await api.updateBill(bill.id, { isPaid: np });
       if (np) {
         await api.recordPayment({ billName: bill.name, amount: bill.amount, category: bill.category, dueDate: bill.dueDate });
-        const [h, m] = await Promise.all([api.getHistory(), api.getHistoryMonths()]);
-        setHistory(h); setHMonths(m);
       }
+      const [h, m, d] = await Promise.all([api.getHistory(), api.getHistoryMonths(), api.getDashboard()]);
+      setHistory(h); setHMonths(m); setDash(d);
     } catch (err) { setBills(p => p.map(b => b.id === bill.id ? { ...b, isPaid: !np } : b)); }
   };
 
   const deleteBill = async (id) => {
     const prev = bills;
     setBills(p => p.filter(b => b.id !== id));
-    try { await api.deleteBill(id); } catch { setBills(prev); }
+    try { await api.deleteBill(id); const d = await api.getDashboard(); setDash(d); } catch { setBills(prev); }
   };
 
   const addBill = async (bill) => {
-    try { const c = await api.createBill(bill); setBills(p => [...p, c]); setShowAdd(false); } catch (err) { console.error(err); }
+    try { const c = await api.createBill(bill); setBills(p => [...p, c]); setShowAdd(false); const d = await api.getDashboard(); setDash(d); } catch (err) { console.error(err); }
   };
 
   const updateReminder = async (id, val) => {
@@ -1803,10 +1968,9 @@ export default function App() {
 
   const moveBillDate = async (id, newDay) => {
     setBills(p => p.map(b => b.id === id ? { ...b, dueDate: newDay } : b));
-    try { await api.updateBill(id, { dueDate: newDay }); } catch (err) { console.error("Move bill error:", err); }
+    try { await api.updateBill(id, { dueDate: newDay }); } catch {}
   };
 
-  // Not logged in → show auth
   if (!user) return <AuthPage onAuth={handleAuth} t={t} />;
 
   const totalMonthly = bills.reduce((s, b) => s + b.amount, 0);
@@ -1814,158 +1978,91 @@ export default function App() {
   const totalUnpaid = totalMonthly - totalPaid;
   const paidCount = bills.filter(b => b.isPaid).length;
 
-  // Primary tabs for bottom nav (most used), rest go in "More" menu
+  // 5-tab navigation
   const mainTabs = [
     { key: "dashboard", label: "Home", icon: "📊" },
-    { key: "bank", label: "Bank", icon: "🏦" },
-    { key: "cards", label: "Cards", icon: "💳" },
+    { key: "money", label: "Money", icon: "🏦" },
     { key: "calendar", label: "Calendar", icon: "📅" },
-    { key: "more", label: "More", icon: "☰" },
-  ];
-  const moreTabs = [
-    { key: "income", label: "Income", icon: "💰" },
-    { key: "insights", label: "AI Insights", icon: "🤖" },
-    { key: "charts", label: "Charts", icon: "📈" },
-    { key: "history", label: "History", icon: "📜" },
-    { key: "reminders", label: "Reminders", icon: "🔔" },
+    { key: "insights", label: "Insights", icon: "🤖" },
+    { key: "more", label: "More", icon: "⚙️" },
   ];
 
   const [showMore, setShowMore] = useState(false);
-  const isMoreTab = moreTabs.some(mt => mt.key === tab);
-  const activeTabLabel = [...mainTabs, ...moreTabs].find(tb => tb.key === tab)?.label || "Home";
 
   return (
     <div style={{ fontFamily: "'DM Sans', sans-serif", minHeight: "100vh", background: t.bg, transition: "background 0.4s", paddingBottom: 80 }}>
       <style>{`
         select option { background: ${t.card}; color: ${t.text}; }
         @media (min-width: 768px) {
-          .bb-mobile-only { display: none !important; }
-          .bb-desktop-only { display: flex !important; }
           .bb-bottom-nav { display: none !important; }
-          .bb-content { padding-bottom: 40px !important; }
+          .bb-desktop-nav { display: flex !important; }
         }
         @media (max-width: 767px) {
-          .bb-mobile-only { display: flex !important; }
-          .bb-desktop-only { display: none !important; }
           .bb-bottom-nav { display: flex !important; }
+          .bb-desktop-nav { display: none !important; }
         }
       `}</style>
 
-      {/* Header - compact on mobile */}
-      <div style={{ background: t.header, padding: "20px 16px 48px", borderRadius: "0 0 28px 28px", position: "relative", overflow: "hidden" }}>
-        <div style={{ position: "absolute", top: -40, right: -40, width: 120, height: 120, borderRadius: "50%", background: t.bubble }} />
-        <div style={{ position: "relative", maxWidth: 960, margin: "0 auto" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <div>
-              <h1 style={{ margin: 0, fontFamily: "'Fredoka'", fontSize: 24, color: "white", fontWeight: 700 }}>💸 BillBuddy</h1>
-              <div style={{ color: "rgba(255,255,255,0.8)", fontSize: 12, marginTop: 2 }}>Hey, {user.name}!</div>
-            </div>
-            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-              <button onClick={() => setDark(!dark)} style={{ width: 40, height: 24, borderRadius: 12, border: "none", cursor: "pointer", background: dark ? "#4ECDC4" : "rgba(255,255,255,0.25)", display: "flex", alignItems: "center", padding: "0 2px" }}>
-                <div style={{ width: 20, height: 20, borderRadius: 10, background: "white", boxShadow: "0 2px 4px rgba(0,0,0,0.2)", transform: dark ? "translateX(16px)" : "translateX(0)", transition: "transform 0.3s", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10 }}>{dark ? "🌙" : "☀️"}</div>
-              </button>
-              <button onClick={() => setShowAdd(true)} style={{ padding: "8px 14px", borderRadius: 12, border: "none", background: "rgba(255,255,255,0.2)", color: "white", cursor: "pointer", fontWeight: 700, fontSize: 12, display: "flex", alignItems: "center", gap: 4, fontFamily: "'DM Sans'" }}>+ Add</button>
-              <button onClick={handleLogout} style={{ padding: "8px 12px", borderRadius: 12, border: "none", background: "rgba(255,255,255,0.12)", color: "rgba(255,255,255,0.8)", cursor: "pointer", fontWeight: 700, fontSize: 11, fontFamily: "'DM Sans'" }}>Out</button>
-            </div>
+      {/* Header */}
+      <div style={{ background: t.header, padding: "18px 16px 44px", borderRadius: "0 0 24px 24px", position: "relative", overflow: "hidden" }}>
+        <div style={{ position: "absolute", top: -30, right: -30, width: 100, height: 100, borderRadius: "50%", background: t.bubble }} />
+        <div style={{ position: "relative", maxWidth: 960, margin: "0 auto", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <div>
+            <h1 style={{ margin: 0, fontFamily: "'Fredoka'", fontSize: 22, color: "white", fontWeight: 700 }}>💸 BillBuddy</h1>
+            <div style={{ color: "rgba(255,255,255,0.8)", fontSize: 11, marginTop: 2 }}>Hey, {user.name}!</div>
+          </div>
+          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <button onClick={() => setDark(!dark)} style={{ width: 36, height: 22, borderRadius: 11, border: "none", cursor: "pointer", background: dark ? "#4ECDC4" : "rgba(255,255,255,0.25)", display: "flex", alignItems: "center", padding: "0 2px" }}>
+              <div style={{ width: 18, height: 18, borderRadius: 9, background: "white", boxShadow: "0 1px 3px rgba(0,0,0,0.2)", transform: dark ? "translateX(14px)" : "translateX(0)", transition: "transform 0.3s", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 9 }}>{dark ? "🌙" : "☀️"}</div>
+            </button>
+            <button onClick={() => setShowAdd(true)} style={{ padding: "7px 14px", borderRadius: 10, border: "none", background: "rgba(255,255,255,0.2)", color: "white", cursor: "pointer", fontWeight: 700, fontSize: 12, fontFamily: "'DM Sans'" }}>+ Add</button>
+            <button onClick={handleLogout} style={{ padding: "7px 10px", borderRadius: 10, border: "none", background: "rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.7)", cursor: "pointer", fontWeight: 600, fontSize: 10, fontFamily: "'DM Sans'" }}>Sign Out</button>
           </div>
         </div>
       </div>
 
-      {/* Desktop Nav (hidden on mobile) */}
-      <div className="bb-desktop-only" style={{ display: "none", maxWidth: 960, margin: "-24px auto 0", padding: "0 12px", justifyContent: "center", position: "relative", zIndex: 10 }}>
-        <div style={{ display: "inline-flex", gap: 3, background: t.tab, borderRadius: 16, padding: 5, boxShadow: t.tabS, flexWrap: "wrap", justifyContent: "center" }}>
-          {[...mainTabs.filter(t => t.key !== "more"), ...moreTabs].map(tb => (
-            <button key={tb.key} onClick={() => setTab(tb.key)} style={{ padding: "9px 14px", borderRadius: 12, border: "none", background: tab === tb.key ? "linear-gradient(135deg, #6C5CE7, #A29BFE)" : "transparent", color: tab === tb.key ? "white" : t.sub, cursor: "pointer", fontWeight: 700, fontSize: 12, display: "flex", alignItems: "center", gap: 5, fontFamily: "'DM Sans'", whiteSpace: "nowrap" }}>{tb.icon} {tb.label}</button>
+      {/* Desktop Nav */}
+      <div className="bb-desktop-nav" style={{ display: "none", maxWidth: 960, margin: "-20px auto 0", padding: "0 12px", justifyContent: "center", position: "relative", zIndex: 10 }}>
+        <div style={{ display: "inline-flex", gap: 3, background: t.tab, borderRadius: 14, padding: 4, boxShadow: t.tabS }}>
+          {mainTabs.filter(tb => tb.key !== "more").map(tb => (
+            <button key={tb.key} onClick={() => setTab(tb.key)} style={{ padding: "8px 18px", borderRadius: 10, border: "none", background: tab === tb.key ? "linear-gradient(135deg, #6C5CE7, #A29BFE)" : "transparent", color: tab === tb.key ? "white" : t.sub, cursor: "pointer", fontWeight: 700, fontSize: 12, fontFamily: "'DM Sans'" }}>{tb.icon} {tb.label}</button>
           ))}
+          <button onClick={() => setTab("more")} style={{ padding: "8px 18px", borderRadius: 10, border: "none", background: tab === "more" ? "linear-gradient(135deg, #6C5CE7, #A29BFE)" : "transparent", color: tab === "more" ? "white" : t.sub, cursor: "pointer", fontWeight: 700, fontSize: 12, fontFamily: "'DM Sans'" }}>⚙️ More</button>
         </div>
       </div>
 
       {/* Content */}
-      <div className="bb-content" style={{ maxWidth: 960, margin: "16px auto", padding: "0 12px", paddingBottom: 90 }}>
+      <div style={{ maxWidth: 960, margin: "12px auto", padding: "0 12px", paddingBottom: 90 }}>
         {loading && !bills.length ? (
-          <div style={{ textAlign: "center", padding: 60 }}><div style={{ fontSize: 48 }}>💸</div><div style={{ marginTop: 12, fontWeight: 700, color: t.text, fontFamily: "'Fredoka'" }}>Loading your bills...</div></div>
+          <div style={{ textAlign: "center", padding: 60 }}><div style={{ fontSize: 48 }}>💸</div><div style={{ marginTop: 12, fontWeight: 700, color: t.text, fontFamily: "'Fredoka'" }}>Loading...</div></div>
         ) : (<>
-          {tab === "dashboard" && (
-            <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 10 }}>
-                <StatCard label="Total Monthly" value={formatMoney(totalMonthly)} icon="📋" color="#6C5CE7" t={t} />
-                <StatCard label="Paid" value={formatMoney(totalPaid)} sub={`${paidCount}/${bills.length} bills`} icon="✅" color="#4ECDC4" t={t} />
-                <StatCard label="Remaining" value={formatMoney(totalUnpaid)} sub={`${bills.length - paidCount} left`} icon="⏳" color="#FF6B6B" t={t} />
-              </div>
-              <div style={{ background: t.card, borderRadius: 16, padding: "14px 18px", boxShadow: t.cs }}>
-                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
-                  <span style={{ fontWeight: 700, color: t.text, fontSize: 13 }}>Monthly Progress</span>
-                  <span style={{ fontWeight: 800, color: "#6C5CE7", fontFamily: "'Fredoka'", fontSize: 13 }}>{totalMonthly > 0 ? Math.round((totalPaid / totalMonthly) * 100) : 0}%</span>
-                </div>
-                <div style={{ height: 10, background: t.prog, borderRadius: 5, overflow: "hidden" }}>
-                  <div style={{ height: "100%", borderRadius: 5, background: "linear-gradient(90deg, #4ECDC4, #6C5CE7)", width: `${totalMonthly > 0 ? (totalPaid / totalMonthly) * 100 : 0}%`, transition: "width 0.5s" }} />
-                </div>
-              </div>
-              <div>
-                <h3 style={{ fontFamily: "'Fredoka'", color: t.text, margin: "0 0 10px", fontSize: 17 }}>Your Bills</h3>
-                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                  {bills.sort((a, b) => a.dueDate - b.dueDate).map(b => <BillRow key={b.id} bill={b} onToggle={togglePaid} onDelete={deleteBill} t={t} />)}
-                  {!bills.length && <div style={{ textAlign: "center", padding: 40, color: t.sub }}>No bills yet — add one to get started!</div>}
-                </div>
-              </div>
-            </div>
-          )}
+          {tab === "dashboard" && <UnifiedDashboard dash={dash} bills={bills} t={t} onToggle={togglePaid} onDelete={deleteBill} onGoTo={setTab} />}
+          {tab === "money" && <MoneyTab t={t} />}
           {tab === "calendar" && <CalendarView bills={bills} cards={calCards} t={t} onMoveBill={moveBillDate} />}
-          {tab === "bank" && <BankAccountsView t={t} />}
-          {tab === "income" && <IncomeView t={t} />}
-          {tab === "cards" && <CreditCardsView t={t} />}
           {tab === "insights" && <AIInsights t={t} />}
-          {tab === "charts" && <SpendingChart bills={bills} t={t} />}
-          {tab === "history" && <HistoryView history={history} months={hMonths} filter={hFilter} setFilter={setHFilter} t={t} />}
-          {tab === "reminders" && <RemindersView bills={bills} onUpdate={updateReminder} t={t} />}
+          {tab === "more" && <SettingsTab bills={bills} history={history} hMonths={hMonths} hFilter={hFilter} setHFilter={setHFilter} onUpdateReminder={updateReminder} t={t} />}
         </>)}
       </div>
 
-      {/* More Menu Overlay */}
-      {showMore && (
-        <div style={{ position: "fixed", inset: 0, background: t.over, zIndex: 998, backdropFilter: "blur(4px)" }} onClick={() => setShowMore(false)}>
-          <div style={{ position: "fixed", bottom: 70, left: 12, right: 12, background: t.card, borderRadius: 20, padding: 8, boxShadow: "0 -8px 40px rgba(0,0,0,0.2)", zIndex: 999 }} onClick={e => e.stopPropagation()}>
-            {moreTabs.map(mt => (
-              <button key={mt.key} onClick={() => { setTab(mt.key); setShowMore(false); }} style={{
-                display: "flex", alignItems: "center", gap: 12, width: "100%", padding: "14px 18px",
-                borderRadius: 14, border: "none", background: tab === mt.key ? "#6C5CE715" : "transparent",
-                color: tab === mt.key ? "#6C5CE7" : t.text, cursor: "pointer", fontWeight: 600, fontSize: 15,
-                fontFamily: "'DM Sans'", textAlign: "left",
-              }}>
-                <span style={{ fontSize: 20 }}>{mt.icon}</span>
-                {mt.label}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Bottom Navigation (mobile only) */}
+      {/* Bottom Navigation (mobile) */}
       <div className="bb-bottom-nav" style={{
         display: "none", position: "fixed", bottom: 0, left: 0, right: 0,
         background: t.card, borderTop: `1px solid ${t.border}`,
-        padding: "6px 8px 10px", paddingBottom: "max(10px, env(safe-area-inset-bottom))",
+        padding: "6px 4px 8px", paddingBottom: "max(8px, env(safe-area-inset-bottom))",
         justifyContent: "space-around", alignItems: "center", zIndex: 100,
         boxShadow: "0 -4px 20px rgba(0,0,0,0.08)",
       }}>
-        {mainTabs.map(tb => {
-          const isActive = tb.key === "more" ? (showMore || isMoreTab) : tab === tb.key;
-          return (
-            <button key={tb.key} onClick={() => {
-              if (tb.key === "more") { setShowMore(!showMore); }
-              else { setTab(tb.key); setShowMore(false); }
-            }} style={{
-              display: "flex", flexDirection: "column", alignItems: "center", gap: 2,
-              background: "none", border: "none", cursor: "pointer", padding: "4px 12px",
-              color: isActive ? "#6C5CE7" : t.sub, transition: "color 0.2s",
-              minWidth: 50,
-            }}>
-              <span style={{ fontSize: 22, lineHeight: 1 }}>{tb.icon}</span>
-              <span style={{ fontSize: 10, fontWeight: 700, fontFamily: "'DM Sans'" }}>{tb.label}</span>
-              {isActive && <div style={{ width: 20, height: 3, borderRadius: 2, background: "#6C5CE7", marginTop: 1 }} />}
-            </button>
-          );
-        })}
+        {mainTabs.map(tb => (
+          <button key={tb.key} onClick={() => { setTab(tb.key); setShowMore(false); }} style={{
+            display: "flex", flexDirection: "column", alignItems: "center", gap: 1,
+            background: "none", border: "none", cursor: "pointer", padding: "4px 8px",
+            color: tab === tb.key ? "#6C5CE7" : t.sub, minWidth: 48,
+          }}>
+            <span style={{ fontSize: 20, lineHeight: 1 }}>{tb.icon}</span>
+            <span style={{ fontSize: 9, fontWeight: 700, fontFamily: "'DM Sans'" }}>{tb.label}</span>
+            {tab === tb.key && <div style={{ width: 16, height: 3, borderRadius: 2, background: "#6C5CE7" }} />}
+          </button>
+        ))}
       </div>
 
       {showAdd && <AddBillModal onClose={() => setShowAdd(false)} onAdd={addBill} t={t} />}
