@@ -1517,19 +1517,18 @@ function BankAccountsView({ t }) {
         const completed = filteredTxns.filter(tx => !tx.pending);
         const pendingTotal = pending.reduce((s, tx) => s + tx.amount, 0);
 
-        const TxnRow = ({ txn }) => {
+        const renderTxn = (txn) => {
           const acct = accounts.find(a => a.accountId === txn.accountId);
           const isCredit = acct?.type === "credit";
           return (
-            <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", background: t.card, borderRadius: 10, boxShadow: t.cs }}>
+            <div key={txn.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", background: t.card, borderRadius: 10, boxShadow: t.cs }}>
               <div style={{ width: 32, height: 32, borderRadius: 8, background: txn.pending ? "#F59E0B10" : txn.amount > 0 ? "#EF444410" : "#10B98110", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, flexShrink: 0 }}>
                 {txn.pending ? "⏳" : txn.amount > 0 ? "💸" : "💵"}
               </div>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontWeight: 600, color: t.text, fontSize: 13, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{txn.name}</div>
                 <div style={{ fontSize: 11, color: t.sub, marginTop: 1, display: "flex", alignItems: "center", gap: 4, flexWrap: "wrap" }}>
-                  <span>{txn.date}</span>
-                  <span>·</span>
+                  <span>{txn.date}</span><span>·</span>
                   <span style={{ display: "inline-flex", alignItems: "center", gap: 3 }}>
                     <span style={{ width: 6, height: 6, borderRadius: 3, background: isCredit ? "#EF4444" : "#10B981", flexShrink: 0 }} />
                     {txn.accountName} {txn.mask ? `••${txn.mask}` : ""}
@@ -1576,7 +1575,7 @@ function BankAccountsView({ t }) {
                   <span style={{ fontWeight: 700, color: "#F59E0B", fontSize: 13 }}>⏳ Pending ({pending.length})</span>
                   <span style={{ fontWeight: 700, color: "#F59E0B", fontSize: 12 }}>{formatMoney(Math.abs(pendingTotal))}</span>
                 </div>
-                {pending.map(txn => <TxnRow key={txn.id} txn={txn} />)}
+                {pending.map(renderTxn)}
                 <div style={{ display: "flex", alignItems: "center", gap: 10, margin: "2px 0" }}>
                   <div style={{ flex: 1, height: 1, background: t.border }} />
                   <span style={{ fontSize: 10, color: t.muted, fontWeight: 600 }}>COMPLETED</span>
@@ -1586,7 +1585,7 @@ function BankAccountsView({ t }) {
             )}
 
             {/* Completed section */}
-            {completed.map(txn => <TxnRow key={txn.id} txn={txn} />)}
+            {completed.map(renderTxn)}
 
             {!filteredTxns.length && <div style={{ textAlign: "center", padding: 30, color: t.sub, fontSize: 13 }}>No {acctFilter === "credit" ? "credit card" : acctFilter === "depository" ? "bank account" : ""} transactions found.</div>}
           </div>
@@ -1609,6 +1608,70 @@ function BankAccountsView({ t }) {
           <button onClick={connectBank} style={{ padding: "14px", borderRadius: 14, border: `2px dashed ${t.border}`, background: "transparent", color: t.sub, cursor: "pointer", fontWeight: 700, fontSize: 14, fontFamily: "'Plus Jakarta Sans', sans-serif" }}>+ Connect Another Bank</button>
         </div>
       )}
+    </div>
+  );
+}
+
+function AddSourceModal({ t, is, lb, onClose, onAdd }) {
+  const [n, setN] = useState(""); const [a, setA] = useState(""); const [f, setF] = useState("biweekly"); const [np, setNp] = useState(""); const [saving, setSaving] = useState(false);
+  const go = async () => { if (!n || !a) return; setSaving(true); await onAdd({ name: n, amount: parseFloat(a), frequency: f, nextPayDate: np || null }); setSaving(false); };
+  return (
+    <div style={{ position: "fixed", inset: 0, background: t.over, display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, backdropFilter: "blur(4px)" }} onClick={onClose}>
+      <div style={{ background: t.modal, borderRadius: 16, padding: "24px 20px", width: "92%", maxWidth: 400, boxShadow: "0 8px 32px rgba(0,0,0,0.12)" }} onClick={e => e.stopPropagation()}>
+        <h3 style={{ margin: "0 0 20px", fontFamily: "'Outfit', sans-serif", color: t.text, fontSize: 18 }}>Add Income Source</h3>
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          <div><label style={lb}>Source Name</label><input value={n} onChange={e => setN(e.target.value)} placeholder="e.g. Day Job, Freelance" style={is} /></div>
+          <div style={{ display: "flex", gap: 10 }}>
+            <div style={{ flex: 1 }}><label style={lb}>Amount ($)</label><input type="number" value={a} onChange={e => setA(e.target.value)} placeholder="2500" style={is} /></div>
+            <div style={{ flex: 1 }}><label style={lb}>Frequency</label>
+              <select value={f} onChange={e => setF(e.target.value)} style={{ ...is, cursor: "pointer" }}>
+                <option value="weekly">Weekly</option><option value="biweekly">Bi-Weekly</option>
+                <option value="semimonthly">Semi-Monthly</option><option value="monthly">Monthly</option><option value="yearly">Yearly</option>
+              </select>
+            </div>
+          </div>
+          <div><label style={lb}>Next Pay Date (optional)</label><input type="date" value={np} onChange={e => setNp(e.target.value)} style={is} /></div>
+          <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
+            <button onClick={onClose} style={{ flex: 1, padding: 12, borderRadius: 10, border: `1px solid ${t.border}`, background: "transparent", cursor: "pointer", fontWeight: 700, fontSize: 13, color: t.sub }}>Cancel</button>
+            <button onClick={go} disabled={saving} style={{ flex: 2, padding: 12, borderRadius: 10, border: "none", background: "#10B981", color: "white", cursor: "pointer", fontWeight: 700, fontSize: 13, opacity: saving ? 0.7 : 1 }}>{saving ? "Saving..." : "Add Source"}</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function LogIncomeModal({ t, is, lb, sources, onClose, onLog }) {
+  const [src, setSrc] = useState(sources.length > 0 ? sources[0].name : "");
+  const [srcId, setSrcId] = useState(sources.length > 0 ? sources[0].id : null);
+  const [a, setA] = useState(sources.length > 0 ? String(sources[0].amount) : "");
+  const [dt, setDt] = useState(new Date().toISOString().split("T")[0]);
+  const [saving, setSaving] = useState(false);
+  const pickSource = (s) => { setSrc(s.name); setSrcId(s.id); setA(String(s.amount)); };
+  const go = async () => { if (!src || !a) return; setSaving(true); await onLog({ sourceId: srcId, sourceName: src, amount: parseFloat(a), receivedDate: dt }); setSaving(false); };
+  return (
+    <div style={{ position: "fixed", inset: 0, background: t.over, display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, backdropFilter: "blur(4px)" }} onClick={onClose}>
+      <div style={{ background: t.modal, borderRadius: 16, padding: "24px 20px", width: "92%", maxWidth: 400, boxShadow: "0 8px 32px rgba(0,0,0,0.12)" }} onClick={e => e.stopPropagation()}>
+        <h3 style={{ margin: "0 0 20px", fontFamily: "'Outfit', sans-serif", color: t.text, fontSize: 18 }}>Log Income</h3>
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          {sources.length > 0 && (
+            <div><label style={lb}>Quick Select</label>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                {sources.map(s => <button key={s.id} onClick={() => pickSource(s)} style={{ padding: "6px 12px", borderRadius: 8, border: "1px solid", borderColor: srcId === s.id ? "#10B981" : t.border, background: srcId === s.id ? "#10B98115" : "transparent", cursor: "pointer", fontSize: 11, fontWeight: 700, color: srcId === s.id ? "#10B981" : t.sub }}>{s.name}</button>)}
+              </div>
+            </div>
+          )}
+          <div><label style={lb}>Source Name</label><input value={src} onChange={e => { setSrc(e.target.value); setSrcId(null); }} placeholder="e.g. Paycheck" style={is} /></div>
+          <div style={{ display: "flex", gap: 10 }}>
+            <div style={{ flex: 1 }}><label style={lb}>Amount ($)</label><input type="number" value={a} onChange={e => setA(e.target.value)} placeholder="2500" style={is} /></div>
+            <div style={{ flex: 1 }}><label style={lb}>Date</label><input type="date" value={dt} onChange={e => setDt(e.target.value)} style={is} /></div>
+          </div>
+          <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
+            <button onClick={onClose} style={{ flex: 1, padding: 12, borderRadius: 10, border: `1px solid ${t.border}`, background: "transparent", cursor: "pointer", fontWeight: 700, fontSize: 13, color: t.sub }}>Cancel</button>
+            <button onClick={go} disabled={saving} style={{ flex: 2, padding: 12, borderRadius: 10, border: "none", background: "#10B981", color: "white", cursor: "pointer", fontWeight: 700, fontSize: 13, opacity: saving ? 0.7 : 1 }}>{saving ? "Saving..." : "Log Income"}</button>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
@@ -1800,74 +1863,10 @@ function IncomeView({ t }) {
       )}
 
       {/* Add Source Modal */}
-      {showAddSource && (() => {
-        const Comp = () => {
-          const [n, setN] = useState(""); const [a, setA] = useState(""); const [f, setF] = useState("biweekly"); const [np, setNp] = useState(""); const [saving, setSaving] = useState(false);
-          const go = async () => { if (!n || !a) return; setSaving(true); await addSource({ name: n, amount: parseFloat(a), frequency: f, nextPayDate: np || null }); setSaving(false); };
-          return (
-            <div style={{ position: "fixed", inset: 0, background: t.over, display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, backdropFilter: "blur(4px)" }} onClick={() => setShowAddSource(false)}>
-              <div style={{ background: t.modal, borderRadius: 16, padding: "24px 20px", width: "92%", maxWidth: 400, boxShadow: "0 8px 32px rgba(0,0,0,0.12)" }} onClick={e => e.stopPropagation()}>
-                <h3 style={{ margin: "0 0 24px", fontFamily: "'Outfit', sans-serif", color: t.text, fontSize: 22 }}>💼 Add Income Source</h3>
-                <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-                  <div><label style={lb}>Source Name</label><input value={n} onChange={e => setN(e.target.value)} placeholder="e.g. Day Job, Freelance, Side Hustle" style={is} /></div>
-                  <div style={{ display: "flex", gap: 12 }}>
-                    <div style={{ flex: 1 }}><label style={lb}>Amount ($)</label><input type="number" value={a} onChange={e => setA(e.target.value)} placeholder="2500.00" style={is} /></div>
-                    <div style={{ flex: 1 }}><label style={lb}>Frequency</label>
-                      <select value={f} onChange={e => setF(e.target.value)} style={{ ...is, cursor: "pointer" }}>
-                        <option value="weekly">Weekly</option><option value="biweekly">Bi-Weekly</option>
-                        <option value="semimonthly">Semi-Monthly</option><option value="monthly">Monthly</option>
-                        <option value="yearly">Yearly</option>
-                      </select>
-                    </div>
-                  </div>
-                  <div><label style={lb}>Next Pay Date (optional)</label><input type="date" value={np} onChange={e => setNp(e.target.value)} style={is} /></div>
-                  <div style={{ display: "flex", gap: 12, marginTop: 8 }}>
-                    <button onClick={() => setShowAddSource(false)} style={{ flex: 1, padding: 14, borderRadius: 14, border: `2px solid ${t.border}`, background: t.card, cursor: "pointer", fontWeight: 700, fontSize: 14, color: t.sub, fontFamily: "'Plus Jakarta Sans', sans-serif" }}>Cancel</button>
-                    <button onClick={go} disabled={saving} style={{ flex: 2, padding: 14, borderRadius: 14, border: "none", background: "#10B981", color: "white", cursor: "pointer", fontWeight: 700, fontSize: 14, fontFamily: "'Plus Jakarta Sans', sans-serif", opacity: saving ? 0.7 : 1 }}>{saving ? "Saving..." : "Add Source"}</button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          );
-        };
-        return <Comp />;
-      })()}
+      {showAddSource && <AddSourceModal t={t} is={is} lb={lb} onClose={() => setShowAddSource(false)} onAdd={addSource} />}
 
       {/* Log Income Modal */}
-      {showLogIncome && (() => {
-        const Comp = () => {
-          const [src, setSrc] = useState(sources.length > 0 ? sources[0].name : ""); const [srcId, setSrcId] = useState(sources.length > 0 ? sources[0].id : null);
-          const [a, setA] = useState(sources.length > 0 ? String(sources[0].amount) : ""); const [dt, setDt] = useState(new Date().toISOString().split("T")[0]); const [saving, setSaving] = useState(false);
-          const pickSource = (s) => { setSrc(s.name); setSrcId(s.id); setA(String(s.amount)); };
-          const go = async () => { if (!src || !a) return; setSaving(true); await logEntry({ sourceId: srcId, sourceName: src, amount: parseFloat(a), receivedDate: dt }); setSaving(false); };
-          return (
-            <div style={{ position: "fixed", inset: 0, background: t.over, display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, backdropFilter: "blur(4px)" }} onClick={() => setShowLogIncome(false)}>
-              <div style={{ background: t.modal, borderRadius: 16, padding: "24px 20px", width: "92%", maxWidth: 400, boxShadow: "0 8px 32px rgba(0,0,0,0.12)" }} onClick={e => e.stopPropagation()}>
-                <h3 style={{ margin: "0 0 24px", fontFamily: "'Outfit', sans-serif", color: t.text, fontSize: 22 }}>💵 Log Income</h3>
-                <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-                  {sources.length > 0 && (
-                    <div><label style={lb}>Quick Select</label>
-                      <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-                        {sources.map(s => <button key={s.id} onClick={() => pickSource(s)} style={{ padding: "8px 14px", borderRadius: 10, border: "2px solid", borderColor: srcId === s.id ? "#10B981" : t.border, background: srcId === s.id ? "#10B98115" : "transparent", cursor: "pointer", fontSize: 12, fontWeight: 700, color: srcId === s.id ? "#10B981" : t.sub }}>{s.name}</button>)}
-                      </div>
-                    </div>
-                  )}
-                  <div><label style={lb}>Source Name</label><input value={src} onChange={e => { setSrc(e.target.value); setSrcId(null); }} placeholder="e.g. Paycheck" style={is} /></div>
-                  <div style={{ display: "flex", gap: 12 }}>
-                    <div style={{ flex: 1 }}><label style={lb}>Amount ($)</label><input type="number" value={a} onChange={e => setA(e.target.value)} placeholder="2500.00" style={is} /></div>
-                    <div style={{ flex: 1 }}><label style={lb}>Date Received</label><input type="date" value={dt} onChange={e => setDt(e.target.value)} style={is} /></div>
-                  </div>
-                  <div style={{ display: "flex", gap: 12, marginTop: 8 }}>
-                    <button onClick={() => setShowLogIncome(false)} style={{ flex: 1, padding: 14, borderRadius: 14, border: `2px solid ${t.border}`, background: t.card, cursor: "pointer", fontWeight: 700, fontSize: 14, color: t.sub, fontFamily: "'Plus Jakarta Sans', sans-serif" }}>Cancel</button>
-                    <button onClick={go} disabled={saving} style={{ flex: 2, padding: 14, borderRadius: 14, border: "none", background: "#10B981", color: "white", cursor: "pointer", fontWeight: 700, fontSize: 14, fontFamily: "'Plus Jakarta Sans', sans-serif", opacity: saving ? 0.7 : 1 }}>{saving ? "Saving..." : "Log Income"}</button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          );
-        };
-        return <Comp />;
-      })()}
+      {showLogIncome && <LogIncomeModal t={t} is={is} lb={lb} sources={sources} onClose={() => setShowLogIncome(false)} onLog={logEntry} />}
     </div>
   );
 }
@@ -1884,16 +1883,14 @@ function CreditCardsView({ t }) {
   const [plaidCards, setPlaidCards] = useState([]);
   const [syncing, setSyncing] = useState(false);
   const [lastSynced, setLastSynced] = useState(null);
+  const [cardTxns, setCardTxns] = useState([]);
+  const [cardTxnsLoading, setCardTxnsLoading] = useState(true);
 
   const loadCards = async () => {
     try {
       const c = await api.getCards();
       setCards(c);
-      if (c.length > 1) {
-        const s = await api.getDebtStrategy();
-        setStrategy(s);
-      }
-      // Also check for Plaid credit accounts not yet in cards
+      if (c.length > 1) { try { const s = await api.getDebtStrategy(); setStrategy(s); } catch {} }
       try {
         const accts = await api.getBankAccounts();
         const creditAccts = accts.filter(a => a.type === "credit");
@@ -1903,8 +1900,17 @@ function CreditCardsView({ t }) {
           (card.mask && pa.mask && card.mask === pa.mask)
         ));
         setPlaidCards(unlinked);
-      } catch {}
-    } catch (err) { console.error(err); }
+        // Load credit card transactions
+        if (creditAccts.length > 0) {
+          try {
+            const allTxns = await api.getBankTransactions(30);
+            const creditAcctIds = creditAccts.map(a => a.accountId);
+            setCardTxns(allTxns.filter(tx => creditAcctIds.includes(tx.accountId)));
+          } catch {}
+        }
+        setCardTxnsLoading(false);
+      } catch { setCardTxnsLoading(false); }
+    } catch (err) { console.error(err); setCardTxnsLoading(false); }
     finally { setLoading(false); }
   };
 
@@ -2167,34 +2173,12 @@ function CreditCardsView({ t }) {
       )}
 
       {/* Transactions view — credit card transactions from Plaid */}
-      {view === "transactions" && (() => {
-        // Try to get credit card transactions from bank transactions
-        const CreditTxnList = () => {
-          const [txns, setTxns] = useState([]);
-          const [txnLoading, setTxnLoading] = useState(true);
-          useEffect(() => {
-            (async () => {
-              try {
-                const accts = await api.getBankAccounts();
-                const creditAcctIds = accts.filter(a => a.type === "credit").map(a => a.accountId);
-                if (creditAcctIds.length > 0) {
-                  const allTxns = await api.getBankTransactions(30);
-                  setTxns(allTxns.filter(tx => creditAcctIds.includes(tx.accountId)));
-                }
-              } catch (err) { console.error(err); }
-              finally { setTxnLoading(false); }
-            })();
-          }, []);
-
-          if (txnLoading) return <div style={{ textAlign: "center", padding: 30, color: t.sub, fontSize: 13 }}>Loading transactions...</div>;
-          if (!txns.length) return (
-            <div style={{ textAlign: "center", padding: 30, color: t.sub, fontSize: 13 }}>
-              <div style={{ fontSize: 24, marginBottom: 8 }}>📋</div>
-              Connect your credit card issuer through Plaid to see transactions here.
-            </div>
-          );
-          return txns.map(tx => (
-            <div key={tx.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", background: t.card, borderRadius: 10, boxShadow: t.cs, marginBottom: 4 }}>
+      {view === "transactions" && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+          {cardTxnsLoading ? (
+            <div style={{ textAlign: "center", padding: 30, color: t.sub, fontSize: 13 }}>Loading transactions...</div>
+          ) : cardTxns.length > 0 ? cardTxns.map(tx => (
+            <div key={tx.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", background: t.card, borderRadius: 10, boxShadow: t.cs }}>
               <div style={{ width: 32, height: 32, borderRadius: 8, background: tx.amount > 0 ? "#EF444410" : "#10B98110", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, flexShrink: 0 }}>
                 {tx.pending ? "⏳" : tx.amount > 0 ? "💸" : "💵"}
               </div>
@@ -2206,10 +2190,14 @@ function CreditCardsView({ t }) {
                 {tx.amount > 0 ? "-" : "+"}{formatMoney(Math.abs(tx.amount))}
               </div>
             </div>
-          ));
-        };
-        return <div style={{ display: "flex", flexDirection: "column", gap: 4 }}><CreditTxnList /></div>;
-      })()}
+          )) : (
+            <div style={{ textAlign: "center", padding: 30, color: t.sub, fontSize: 13 }}>
+              <div style={{ fontSize: 24, marginBottom: 8 }}>📋</div>
+              Connect your credit card issuer through Plaid to see transactions here.
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Strategy view */}
       {view === "strategy" && strategy && (
