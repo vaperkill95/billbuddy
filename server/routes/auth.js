@@ -4,6 +4,12 @@ const router = express.Router();
 const pool = require("../db/pool");
 const { generateToken, JWT_SECRET } = require("../middleware/auth");
 const jwt = require("jsonwebtoken");
+const { authRateLimiter } = require("../middleware/rateLimit");
+
+// Rate limit auth endpoints
+router.use("/signup", authRateLimiter());
+router.use("/login", authRateLimiter());
+router.use("/google", authRateLimiter(20, 300000));
 
 // POST /api/auth/signup - Email + password registration
 router.post("/signup", async (req, res) => {
@@ -170,3 +176,4 @@ router.patch("/preferences", authMiddleware, async (req, res) => {
 });
 
 module.exports = router;
+
