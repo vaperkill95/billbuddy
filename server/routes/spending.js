@@ -123,10 +123,12 @@ router.get("/summary", async (req, res) => {
       c.changePct = c.prevTotal > 0 ? Math.round(((c.total - c.prevTotal) / c.prevTotal) * 100) : null;
     });
 
-    // Get budgets
-    const { rows: budgets } = await pool.query(
-      "SELECT * FROM spending_budgets WHERE user_id = $1", [req.user.id]
-    );
+    // Get budgets (table might not exist yet)
+    let budgets = [];
+    try {
+      const budgetRes = await pool.query("SELECT * FROM spending_budgets WHERE user_id = $1", [req.user.id]);
+      budgets = budgetRes.rows;
+    } catch (e) { /* table may not exist yet */ }
 
     res.json({
       totalSpent: Math.round(totalSpent * 100) / 100,
