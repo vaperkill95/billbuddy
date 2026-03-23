@@ -3554,12 +3554,111 @@ function FinancialGoalsView({ t }) {
   );
 }
 
+
+function HelpGuide({ t }) {
+  const [open, setOpen] = useState(null);
+  const F = "'Plus Jakarta Sans', sans-serif";
+  const H = "'Outfit', sans-serif";
+
+  const sections = [
+    { title: "Getting Started", icon: "🚀", items: [
+      { q: "How do I get started?", a: "1. Add your bills with the '+ Bill' button in the header. 2. Connect your bank in Money → Bank to auto-import transactions. 3. Add your income sources in Money → Income. Once your bank is connected, everything else happens automatically." },
+      { q: "Do I need to connect my bank?", a: "No — you can add bills manually and track credit cards without a bank connection. But connecting your bank unlocks automatic spending tracking, bill detection, and transaction categorization." },
+      { q: "Is my bank data safe?", a: "Yes. BillBuddy connects through Plaid — the same service used by Venmo, Cash App, and Robinhood. Your bank login credentials are never stored by BillBuddy." },
+    ]},
+    { title: "Navigation", icon: "🧭", items: [
+      { q: "What are the 5 main tabs?", a: "Home (dashboard overview), Money (bank, cards, income, household), Calendar (bill due dates), Insights (AI recommendations), and More (spending tracker, goals, forecasts, and all advanced features)." },
+      { q: "How do I switch dark/light mode?", a: "Tap the moon/sun icon in the top header bar. Your preference is saved to your account." },
+      { q: "How do I add a bill?", a: "Tap the '+ Bill' button in the header from any screen. Enter the name, amount, due date, category, and frequency." },
+    ]},
+    { title: "Home Dashboard", icon: "📊", items: [
+      { q: "What does 'Still Owed' mean?", a: "The total amount of unpaid bills remaining this month. As you check off bills, this number goes down." },
+      { q: "What does 'Left Over' mean?", a: "Your bank balance minus unpaid bills. This is what you have available after paying everything." },
+      { q: "Why does my bill show OVERDUE?", a: "The bill's due date has passed and it hasn't been marked as paid. Tap the checkmark to mark it paid. If you already paid it, the status will change to 'Next: [date]'." },
+      { q: "Do bills reset every month?", a: "Yes — all recurring bills automatically reset to unpaid at the start of each new month." },
+    ]},
+    { title: "Money Tab", icon: "🏦", items: [
+      { q: "How do I connect my bank?", a: "Go to Money → Bank → tap 'Connect Bank'. This opens Plaid where you log into your bank. Your checking, savings, and credit accounts are imported." },
+      { q: "How often does bank data sync?", a: "Automatically on every app load and every 15 minutes. You can also tap 'Sync' to force an immediate refresh." },
+      { q: "How do I filter transactions by account?", a: "In the Transactions view, use the filter tabs at the top: All, 🏦 Bank (checking/savings only), or 💳 Credit (credit cards only)." },
+      { q: "How do I track credit cards?", a: "Go to Money → Cards. Connect your credit card issuer through Plaid for auto-updates, or tap '+ Add' to enter one manually." },
+      { q: "What is Household vs Joint?", a: "Household is for roommates — split shared bills, keep finances private. Joint is for partners — see each other's banks, bills, cards, and transactions together with filter tabs." },
+    ]},
+    { title: "Calendar", icon: "📅", items: [
+      { q: "Can I move a bill's due date?", a: "Yes — drag and drop a bill to a different date on the calendar grid." },
+      { q: "How do I sync with my phone calendar?", a: "Go to More → Reminders and tap 'Subscribe to BillBuddy Calendar'. This creates a live calendar subscription in your phone's calendar app." },
+    ]},
+    { title: "Spending Tracker", icon: "💰", items: [
+      { q: "How does auto-categorization work?", a: "BillBuddy recognizes 200+ merchants and automatically sorts transactions: Shell → Gas, Walmart → Groceries, DoorDash → Eating Out, Amazon → Shopping, Netflix → Entertainment, etc." },
+      { q: "How do I set a spending budget?", a: "Go to More → Spending → Budgets tab. Tap '+ Budget', pick a category, and set a monthly limit. The progress bar fills up as you spend." },
+      { q: "What are the time periods?", a: "Switch between 7, 14, 30, 60, or 90 day views to see spending over different periods." },
+      { q: "What does the Trends view show?", a: "Spending by day of week (weekends highlighted in red) and a daily spending chart with your average marked." },
+    ]},
+    { title: "More Features", icon: "⚙️", items: [
+      { q: "What does AI Insights do?", a: "Analyzes your complete financial picture and gives 4-8 personalized recommendations with specific dollar amounts based on your real data." },
+      { q: "What is the Forecast?", a: "A 30-day projection of your bank balance showing upcoming bills (red) and income (green). Shows your lowest balance point and date." },
+      { q: "How does Bill Negotiation work?", a: "Finds bills you can negotiate (phone, internet, insurance, $100+/mo) and generates word-for-word phone scripts with opener, main ask, resistance handling, and escalation tactics." },
+      { q: "What is the Subscription Detector?", a: "Scans bank transactions for recurring charges not in your bills list. One-click 'Add as Bill' to start tracking them." },
+      { q: "What are Smart Alerts?", a: "Automatic warnings for: spending increases by category, unusually large transactions, untracked recurring charges, and low balance." },
+      { q: "What is the Activity Feed?", a: "Unified view of ALL transactions across all accounts. Filter by type (in/out/pending) and time range (7-90 days)." },
+    ]},
+    { title: "Account & Settings", icon: "👤", items: [
+      { q: "How do I sign out?", a: "Tap the arrow icon (↗) in the top right of the header." },
+      { q: "Can I use Google to sign in?", a: "Yes — tap 'Continue with Google' on the login screen." },
+      { q: "How do I change my bill reminders?", a: "Go to More → Reminders. Set each bill to: no reminder, day of, 1 day before, 3 days before, or 1 week before." },
+    ]},
+  ];
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+      <div>
+        <h3 style={{ fontFamily: H, color: t.text, margin: 0, fontSize: 18, fontWeight: 700 }}>Help & FAQ</h3>
+        <p style={{ margin: "2px 0 0", fontSize: 12, color: t.sub }}>Everything you need to know about BillBuddy</p>
+      </div>
+
+      {sections.map((sec, si) => (
+        <div key={si} style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 0" }}>
+            <span style={{ fontSize: 18 }}>{sec.icon}</span>
+            <span style={{ fontWeight: 700, color: t.text, fontSize: 14, fontFamily: H }}>{sec.title}</span>
+          </div>
+          {sec.items.map((item, qi) => {
+            const key = si + "-" + qi;
+            const isOpen = open === key;
+            return (
+              <div key={qi} onClick={() => setOpen(isOpen ? null : key)} style={{ background: t.card, borderRadius: 10, padding: "12px 16px", boxShadow: t.cs, cursor: "pointer" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <span style={{ fontWeight: 600, color: t.text, fontSize: 13, flex: 1 }}>{item.q}</span>
+                  <span style={{ fontSize: 12, color: t.sub, marginLeft: 8, transition: "transform 0.2s", transform: isOpen ? "rotate(180deg)" : "rotate(0)" }}>▼</span>
+                </div>
+                {isOpen && (
+                  <div style={{ marginTop: 8, paddingTop: 8, borderTop: "1px solid " + t.border, fontSize: 12, color: t.sub, lineHeight: 1.6 }}>
+                    {item.a}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      ))}
+
+      <div style={{ background: t.cardAlt, borderRadius: 10, padding: "14px 16px", textAlign: "center", marginTop: 8 }}>
+        <div style={{ fontSize: 14, marginBottom: 4 }}>💡</div>
+        <div style={{ fontWeight: 700, color: t.text, fontSize: 13, marginBottom: 4 }}>Pro Tips</div>
+        <div style={{ fontSize: 11, color: t.sub, lineHeight: 1.6 }}>
+          Connect your bank first — it unlocks 80% of BillBuddy's features. Check the Spending tab weekly. Use AI Tips monthly for personalized savings advice. Set up calendar sync so you never miss a due date.
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function SettingsTab({ bills, history, hMonths, hFilter, setHFilter, onUpdateReminder, t }) {
   const [subTab, setSubTab] = useState("spending");
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
       <div style={{ display: "flex", gap: 3, background: t.pill, borderRadius: 12, padding: 3, alignSelf: "stretch", flexWrap: "wrap" }}>
-        {[["spending", "💰 Spending"], ["forecast", "📈 Forecast"], ["savings", "🐷 Savings"], ["negotiate", "🤝 Negotiate"], ["subs", "📺 Subs"], ["activity", "📋 Activity"], ["alerts", "🔔 Alerts"], ["reminders", "⏰ Reminders"], ["history", "📜 History"], ["charts", "📊 Charts"], ["aitips", "🧠 AI Tips"], ["goals", "🎯 Goals"]].map(([k, l]) => (
+        {[["spending", "💰 Spending"], ["forecast", "📈 Forecast"], ["savings", "🐷 Savings"], ["negotiate", "🤝 Negotiate"], ["subs", "📺 Subs"], ["activity", "📋 Activity"], ["alerts", "🔔 Alerts"], ["reminders", "⏰ Reminders"], ["history", "📜 History"], ["charts", "📊 Charts"], ["help", "❓ Help"], ["aitips", "🧠 AI Tips"], ["goals", "🎯 Goals"]].map(([k, l]) => (
           <button key={k} onClick={() => setSubTab(k)} style={{
             padding: "6px 10px", borderRadius: 8, border: "none",
             background: subTab === k ? "#6C5CE7" : "transparent",
@@ -3579,6 +3678,7 @@ function SettingsTab({ bills, history, hMonths, hFilter, setHFilter, onUpdateRem
       {subTab === "reminders" && <RemindersView bills={bills} onUpdate={onUpdateReminder} t={t} />}
       {subTab === "history" && <HistoryView history={history} months={hMonths} filter={hFilter} setFilter={setHFilter} t={t} />}
       {subTab === "charts" && <SpendingChart bills={bills} t={t} />}
+      {subTab === "help" && <HelpGuide t={t} />}
       {subTab === "aitips" && <AISpendingInsightsView t={t} />}
       {subTab === "goals" && <FinancialGoalsView t={t} />}
     </div>
