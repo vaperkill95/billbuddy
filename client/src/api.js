@@ -164,6 +164,9 @@ export const api = {
   getCancelInfo: (name) => request("/cancel-helper/lookup?name=" + encodeURIComponent(name)),
   getCancelEmail: (name) => request("/cancel-helper/email-template?name=" + encodeURIComponent(name)),
 
+  // AI Advisor
+  askAdvisor: (message, history) => request("/advisor", { method: "POST", body: JSON.stringify({ message, history }) }),
+
   // Helpers
   getToken, setToken, clearToken, getUser, setUser,
 };
