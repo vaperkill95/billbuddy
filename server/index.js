@@ -54,6 +54,7 @@ app.use("/api/goals", require("./routes/goals"));
 app.use("/api/credit", require("./routes/credit"));
 app.use("/api/smart-savings", require("./routes/smartSavings"));
 app.use("/api/cancel-helper", require("./routes/cancelHelper"));
+app.use("/api/advisor", require("./routes/advisor"));
 
 app.get("/api/health", async (req, res) => {
   try {
