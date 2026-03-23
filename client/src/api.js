@@ -67,6 +67,24 @@ export const api = {
   // Dashboard
   getDashboard: () => request("/dashboard"),
 
+  // Forecast
+  getForecast: () => request("/forecast"),
+
+  // Smart Alerts
+  getAlerts: () => request("/alerts"),
+
+  // Bill Negotiation
+  getNegotiateOpportunities: () => request("/negotiate/opportunities"),
+  getNegotiationScript: (billId) => request(`/negotiate/${billId}`, { method: "POST" }),
+
+  // Household
+  getHousehold: () => request("/household"),
+  createHousehold: (name) => request("/household/create", { method: "POST", body: JSON.stringify({ name }) }),
+  joinHousehold: (inviteCode) => request("/household/join", { method: "POST", body: JSON.stringify({ inviteCode }) }),
+  addHouseholdBill: (bill) => request("/household/bills", { method: "POST", body: JSON.stringify(bill) }),
+  payHouseholdSplit: (splitId) => request(`/household/splits/${splitId}/pay`, { method: "PATCH" }),
+  leaveHousehold: () => request("/household/leave", { method: "DELETE" }),
+
   // Credit Cards
   getCards: () => request("/cards"),
   createCard: (card) => request("/cards", { method: "POST", body: JSON.stringify(card) }),

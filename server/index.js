@@ -12,6 +12,10 @@ const incomeRouter = require("./routes/income");
 const calendarRouter = require("./routes/calendar");
 const plaidRouter = require("./routes/plaid");
 const dashboardRouter = require("./routes/dashboard");
+const forecastRouter = require("./routes/forecast");
+const alertsRouter = require("./routes/alerts");
+const negotiateRouter = require("./routes/negotiate");
+const householdRouter = require("./routes/household");
 const pool = require("./db/pool");
 
 const app = express();
@@ -36,6 +40,10 @@ app.use("/api/income", incomeRouter);
 app.use("/api/calendar", calendarRouter);
 app.use("/api/plaid", plaidRouter);
 app.use("/api/dashboard", dashboardRouter);
+app.use("/api/forecast", forecastRouter);
+app.use("/api/alerts", alertsRouter);
+app.use("/api/negotiate", negotiateRouter);
+app.use("/api/household", householdRouter);
 
 app.get("/api/health", async (req, res) => {
   try {
@@ -198,6 +206,49 @@ async function initDB() {
       CREATE INDEX IF NOT EXISTS idx_bank_transactions_user ON bank_transactions(user_id);
       CREATE INDEX IF NOT EXISTS idx_bank_transactions_date ON bank_transactions(date);
       CREATE INDEX IF NOT EXISTS idx_bank_transactions_tid ON bank_transactions(transaction_id);
+
+      CREATE TABLE IF NOT EXISTS households (
+        id SERIAL PRIMARY KEY,
+        name VARCHAR(255) NOT NULL DEFAULT 'My Household',
+        owner_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        invite_code VARCHAR(20) UNIQUE NOT NULL,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+      );
+
+      CREATE TABLE IF NOT EXISTS household_members (
+        id SERIAL PRIMARY KEY,
+        household_id INTEGER NOT NULL REFERENCES households(id) ON DELETE CASCADE,
+        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        role VARCHAR(20) DEFAULT 'member',
+        joined_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+        UNIQUE(household_id, user_id)
+      );
+
+      CREATE TABLE IF NOT EXISTS household_bills (
+        id SERIAL PRIMARY KEY,
+        household_id INTEGER NOT NULL REFERENCES households(id) ON DELETE CASCADE,
+        bill_name VARCHAR(255) NOT NULL,
+        total_amount DECIMAL(12, 2) NOT NULL,
+        due_date INTEGER NOT NULL,
+        category VARCHAR(100) DEFAULT 'Other',
+        is_recurring BOOLEAN DEFAULT true,
+        created_by INTEGER REFERENCES users(id),
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+      );
+
+      CREATE TABLE IF NOT EXISTS household_splits (
+        id SERIAL PRIMARY KEY,
+        household_bill_id INTEGER NOT NULL REFERENCES household_bills(id) ON DELETE CASCADE,
+        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        split_amount DECIMAL(12, 2) NOT NULL,
+        is_paid BOOLEAN DEFAULT false,
+        paid_at TIMESTAMP WITH TIME ZONE,
+        UNIQUE(household_bill_id, user_id)
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_household_members_user ON household_members(user_id);
+      CREATE INDEX IF NOT EXISTS idx_household_bills_hh ON household_bills(household_id);
+      CREATE INDEX IF NOT EXISTS idx_household_splits_user ON household_splits(user_id);
     `);
 
     // Migrations for existing databases

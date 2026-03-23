@@ -382,6 +382,280 @@ function CalendarView({ bills, cards, t, onMoveBill }) {
   );
 }
 
+function ForecastView({ t }) {
+  const [forecast, setForecast] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    (async () => {
+      try { const data = await api.getForecast(); setForecast(data); }
+      catch (err) { console.error(err); }
+      finally { setLoading(false); }
+    })();
+  }, []);
+
+  if (loading) return <div style={{ textAlign: "center", padding: 60, color: t.sub }}>Building your forecast...</div>;
+  if (!forecast || !forecast.days.length) return <div style={{ textAlign: "center", padding: 40, color: t.sub }}>Connect your bank to see a spending forecast</div>;
+
+  const maxBal = Math.max(...forecast.days.map(d => d.balance), 0);
+  const minBal = Math.min(...forecast.days.map(d => d.balance), 0);
+  const range = maxBal - minBal || 1;
+  const chartH = 180;
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+        <div style={{ fontSize: 32 }}>📈</div>
+        <div>
+          <h3 style={{ fontFamily: "'Fredoka'", color: t.text, margin: 0, fontSize: 20 }}>30-Day Forecast</h3>
+          <p style={{ margin: "2px 0 0", fontSize: 13, color: t.sub }}>Projected balance based on upcoming bills & income</p>
+        </div>
+      </div>
+
+      {/* Summary cards */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
+        <div style={{ background: t.card, borderRadius: 12, padding: "12px 14px", boxShadow: t.cs }}>
+          <div style={{ fontSize: 10, color: t.sub, fontWeight: 600, textTransform: "uppercase" }}>Today</div>
+          <div style={{ fontSize: 18, fontWeight: 800, color: "#4ECDC4", fontFamily: "'Fredoka'" }}>{formatMoney(forecast.startBalance)}</div>
+        </div>
+        <div style={{ background: t.card, borderRadius: 12, padding: "12px 14px", boxShadow: t.cs }}>
+          <div style={{ fontSize: 10, color: t.sub, fontWeight: 600, textTransform: "uppercase" }}>Lowest Point</div>
+          <div style={{ fontSize: 18, fontWeight: 800, color: forecast.lowestBalance >= 0 ? "#FDCB6E" : "#FF6B6B", fontFamily: "'Fredoka'" }}>{formatMoney(forecast.lowestBalance)}</div>
+          <div style={{ fontSize: 10, color: t.sub }}>{forecast.lowestDate}</div>
+        </div>
+        <div style={{ background: t.card, borderRadius: 12, padding: "12px 14px", boxShadow: t.cs }}>
+          <div style={{ fontSize: 10, color: t.sub, fontWeight: 600, textTransform: "uppercase" }}>In 30 Days</div>
+          <div style={{ fontSize: 18, fontWeight: 800, color: forecast.endBalance >= 0 ? "#4ECDC4" : "#FF6B6B", fontFamily: "'Fredoka'" }}>{formatMoney(forecast.endBalance)}</div>
+        </div>
+      </div>
+
+      {/* Chart */}
+      <div style={{ background: t.card, borderRadius: 16, padding: "18px 12px 10px", boxShadow: t.cs, overflow: "hidden" }}>
+        <svg width="100%" height={chartH + 30} viewBox={`0 0 ${forecast.days.length * 24} ${chartH + 30}`} style={{ display: "block" }}>
+          {/* Zero line */}
+          {minBal < 0 && <line x1="0" y1={chartH - ((0 - minBal) / range) * chartH} x2={forecast.days.length * 24} y2={chartH - ((0 - minBal) / range) * chartH} stroke="#FF6B6B" strokeWidth="1" strokeDasharray="4" opacity="0.4" />}
+          {/* Area fill */}
+          <path d={
+            `M 0 ${chartH} ` +
+            forecast.days.map((d, i) => `L ${i * 24 + 12} ${chartH - ((d.balance - minBal) / range) * chartH}`).join(" ") +
+            ` L ${(forecast.days.length - 1) * 24 + 12} ${chartH} Z`
+          } fill="url(#forecastGrad)" opacity="0.15" />
+          <defs>
+            <linearGradient id="forecastGrad" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="#6C5CE7" /><stop offset="100%" stopColor="#6C5CE700" />
+            </linearGradient>
+          </defs>
+          {/* Line */}
+          <polyline
+            points={forecast.days.map((d, i) => `${i * 24 + 12},${chartH - ((d.balance - minBal) / range) * chartH}`).join(" ")}
+            fill="none" stroke="#6C5CE7" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
+          />
+          {/* Event dots */}
+          {forecast.days.map((d, i) => d.events.length > 0 ? (
+            <circle key={i} cx={i * 24 + 12} cy={chartH - ((d.balance - minBal) / range) * chartH} r="4"
+              fill={d.events.some(e => e.amount > 0) ? "#4ECDC4" : "#FF6B6B"} stroke="white" strokeWidth="1.5" />
+          ) : null)}
+          {/* Day labels (every 5 days) */}
+          {forecast.days.map((d, i) => i % 5 === 0 ? (
+            <text key={i} x={i * 24 + 12} y={chartH + 20} textAnchor="middle" fontSize="9" fill={t.sub} fontFamily="DM Sans">{d.label}</text>
+          ) : null)}
+        </svg>
+      </div>
+
+      {/* Day by day breakdown */}
+      <div style={{ background: t.card, borderRadius: 16, padding: "14px 18px", boxShadow: t.cs }}>
+        <div style={{ fontWeight: 700, color: t.text, fontSize: 13, marginBottom: 10 }}>📋 Upcoming Events</div>
+        {forecast.days.filter(d => d.events.length > 0).slice(0, 10).map((d, i) => (
+          <div key={i} style={{ padding: "8px 0", borderBottom: `1px solid ${t.border}` }}>
+            <div style={{ fontSize: 12, fontWeight: 700, color: t.text, marginBottom: 4 }}>{d.label}</div>
+            {d.events.map((e, j) => (
+              <div key={j} style={{ display: "flex", justifyContent: "space-between", padding: "2px 8px", fontSize: 12 }}>
+                <span style={{ color: t.sub }}>{e.type === "income" ? "💵" : e.type === "card" ? "💳" : "📋"} {e.name}</span>
+                <span style={{ fontWeight: 700, color: e.amount > 0 ? "#4ECDC4" : "#FF6B6B" }}>{e.amount > 0 ? "+" : ""}{formatMoney(e.amount)}</span>
+              </div>
+            ))}
+            <div style={{ display: "flex", justifyContent: "space-between", padding: "2px 8px", fontSize: 11, color: t.sub, marginTop: 2 }}>
+              <span>Balance after</span>
+              <span style={{ fontWeight: 700, color: d.balance >= 0 ? t.text : "#FF6B6B" }}>{formatMoney(d.balance)}</span>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function SmartAlertsView({ t }) {
+  const [alerts, setAlerts] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    (async () => {
+      try { const data = await api.getAlerts(); setAlerts(data.alerts || []); }
+      catch (err) { console.error(err); }
+      finally { setLoading(false); }
+    })();
+  }, []);
+
+  if (loading) return <div style={{ textAlign: "center", padding: 60, color: t.sub }}>Analyzing your spending...</div>;
+
+  const sevColors = { high: "#FF6B6B", medium: "#FDCB6E", low: "#6C5CE7", positive: "#4ECDC4" };
+  const sevBg = { high: "#FF6B6B12", medium: "#FDCB6E12", low: "#6C5CE712", positive: "#4ECDC412" };
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+        <div style={{ fontSize: 32 }}>🔔</div>
+        <div>
+          <h3 style={{ fontFamily: "'Fredoka'", color: t.text, margin: 0, fontSize: 20 }}>Smart Alerts</h3>
+          <p style={{ margin: "2px 0 0", fontSize: 13, color: t.sub }}>Spending patterns and things to watch</p>
+        </div>
+      </div>
+      {alerts.length === 0 && <div style={{ background: t.card, borderRadius: 16, padding: "30px 20px", boxShadow: t.cs, textAlign: "center" }}><div style={{ fontSize: 32, marginBottom: 8 }}>✅</div><div style={{ fontWeight: 700, color: t.text }}>All good!</div><div style={{ fontSize: 13, color: t.sub, marginTop: 4 }}>No spending anomalies detected. Keep it up!</div></div>}
+      {alerts.map((a, i) => (
+        <div key={i} style={{ background: sevBg[a.severity] || t.card, borderRadius: 14, padding: "14px 18px", boxShadow: t.cs, borderLeft: `4px solid ${sevColors[a.severity] || t.sub}` }}>
+          <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
+            <div style={{ fontSize: 22, flexShrink: 0 }}>{a.icon}</div>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontWeight: 700, color: t.text, fontSize: 14, marginBottom: 3 }}>{a.title}</div>
+              <div style={{ fontSize: 13, color: t.sub, lineHeight: 1.5 }}>{a.desc}</div>
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function NegotiateView({ bills, t }) {
+  const [opportunities, setOpportunities] = useState(null);
+  const [selectedBill, setSelectedBill] = useState(null);
+  const [script, setScript] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [scriptLoading, setScriptLoading] = useState(false);
+
+  useEffect(() => {
+    (async () => {
+      try { const data = await api.getNegotiateOpportunities(); setOpportunities(data); }
+      catch (err) { console.error(err); }
+      finally { setLoading(false); }
+    })();
+  }, []);
+
+  const getScript = async (billId) => {
+    setSelectedBill(billId);
+    setScriptLoading(true);
+    setScript(null);
+    try { const data = await api.getNegotiationScript(billId); setScript(data); }
+    catch (err) { console.error(err); }
+    finally { setScriptLoading(false); }
+  };
+
+  if (loading) return <div style={{ textAlign: "center", padding: 60, color: t.sub }}>Finding negotiation opportunities...</div>;
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+        <div style={{ fontSize: 32 }}>📞</div>
+        <div>
+          <h3 style={{ fontFamily: "'Fredoka'", color: t.text, margin: 0, fontSize: 20 }}>Bill Negotiation</h3>
+          <p style={{ margin: "2px 0 0", fontSize: 13, color: t.sub }}>AI-powered scripts to lower your bills</p>
+        </div>
+      </div>
+
+      {/* Potential savings */}
+      {opportunities && opportunities.totalPotentialMonthlySavings > 0 && (
+        <div style={{ background: "linear-gradient(135deg, #4ECDC4, #45B7D1)", borderRadius: 16, padding: "18px 22px", color: "white" }}>
+          <div style={{ fontSize: 12, opacity: 0.9 }}>Estimated potential savings</div>
+          <div style={{ display: "flex", gap: 16, marginTop: 6 }}>
+            <div><div style={{ fontSize: 24, fontWeight: 800, fontFamily: "'Fredoka'" }}>{formatMoney(opportunities.totalPotentialMonthlySavings)}</div><div style={{ fontSize: 11, opacity: 0.8 }}>/month</div></div>
+            <div><div style={{ fontSize: 24, fontWeight: 800, fontFamily: "'Fredoka'" }}>{formatMoney(opportunities.totalPotentialYearlySavings)}</div><div style={{ fontSize: 11, opacity: 0.8 }}>/year</div></div>
+          </div>
+        </div>
+      )}
+
+      {/* Opportunities */}
+      {opportunities?.opportunities?.map(opp => (
+        <div key={opp.id} style={{ background: t.card, borderRadius: 14, padding: "16px 18px", boxShadow: t.cs }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+            <div>
+              <div style={{ fontWeight: 700, color: t.text, fontSize: 14 }}>{opp.name}</div>
+              <div style={{ fontSize: 12, color: t.sub }}>{opp.category} · {formatMoney(opp.amount)}/mo</div>
+            </div>
+            <div style={{ textAlign: "right" }}>
+              <div style={{ fontSize: 14, fontWeight: 800, color: "#4ECDC4", fontFamily: "'Fredoka'" }}>Save ~{formatMoney(opp.potentialSavings)}/mo</div>
+              <div style={{ fontSize: 10, color: t.sub }}>Difficulty: {opp.difficulty}</div>
+            </div>
+          </div>
+          <button onClick={() => getScript(opp.id)} disabled={scriptLoading && selectedBill === opp.id} style={{
+            width: "100%", padding: "10px", borderRadius: 10, border: "none",
+            background: selectedBill === opp.id && script ? t.prog : "linear-gradient(135deg, #6C5CE7, #A29BFE)",
+            color: selectedBill === opp.id && script ? t.text : "white",
+            cursor: "pointer", fontWeight: 700, fontSize: 12, fontFamily: "'DM Sans'",
+          }}>
+            {scriptLoading && selectedBill === opp.id ? "🧠 Generating script..." : selectedBill === opp.id && script ? "📋 Script ready below ↓" : "📞 Get Negotiation Script"}
+          </button>
+        </div>
+      ))}
+
+      {/* Generated script */}
+      {script && (
+        <div style={{ background: t.card, borderRadius: 16, padding: "20px 22px", boxShadow: t.cs, borderLeft: "4px solid #6C5CE7" }}>
+          <div style={{ fontWeight: 700, color: t.text, fontSize: 16, marginBottom: 12 }}>📞 Negotiation Guide for {script.billName}</div>
+
+          <div style={{ fontSize: 12, color: t.sub, marginBottom: 12 }}>
+            Call: <strong style={{ color: t.text }}>{script.providerPhone}</strong> · Best time: <strong style={{ color: t.text }}>{script.bestTimeToCall}</strong>
+          </div>
+
+          {/* Script sections */}
+          {[
+            ["🗣️ Opening", script.script?.opener],
+            ["💰 The Ask", script.script?.mainAsk],
+            ["🤝 If They Resist", script.script?.ifTheyResist],
+            ["⬆️ Escalation", script.script?.escalation],
+            ["✅ Closing", script.script?.closer],
+          ].map(([label, text], i) => text ? (
+            <div key={i} style={{ marginBottom: 10 }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: "#6C5CE7", marginBottom: 4 }}>{label}</div>
+              <div style={{ fontSize: 13, color: t.text, lineHeight: 1.6, background: t.prog, padding: "10px 14px", borderRadius: 10, fontStyle: "italic" }}>"{text}"</div>
+            </div>
+          ) : null)}
+
+          {/* Tips */}
+          {script.tips?.length > 0 && (
+            <div style={{ marginTop: 8 }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: t.text, marginBottom: 6 }}>💡 Tips</div>
+              {script.tips.map((tip, i) => (
+                <div key={i} style={{ fontSize: 12, color: t.sub, padding: "3px 0", display: "flex", gap: 6 }}>
+                  <span>•</span><span>{tip}</span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Alternatives */}
+          {script.alternativeProviders?.length > 0 && (
+            <div style={{ marginTop: 8 }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: t.text, marginBottom: 6 }}>🔄 Mention These Competitors</div>
+              {script.alternativeProviders.map((alt, i) => (
+                <div key={i} style={{ fontSize: 12, color: t.sub, padding: "2px 0" }}>• {alt}</div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {(!opportunities?.opportunities?.length) && (
+        <div style={{ background: t.card, borderRadius: 16, padding: "30px 20px", boxShadow: t.cs, textAlign: "center" }}>
+          <div style={{ fontSize: 32, marginBottom: 8 }}>📋</div>
+          <div style={{ fontWeight: 700, color: t.text }}>Add recurring bills first</div>
+          <div style={{ fontSize: 13, color: t.sub, marginTop: 4 }}>Add your phone, internet, insurance, and other recurring bills to find negotiation opportunities.</div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function SpendingChart({ bills, t }) {
   const ct = CATEGORIES.map(c => ({ ...c, total: bills.filter(b => b.category === c.name).reduce((s, b) => s + b.amount, 0) })).filter(c => c.total > 0).sort((a, b) => b.total - a.total);
   const mx = Math.max(...ct.map(c => c.total), 1), tot = ct.reduce((s, c) => s + c.total, 0);
@@ -1869,32 +2143,197 @@ function UnifiedDashboard({ dash, bills, t, onToggle, onDelete, onGoTo }) {
 }
 
 // ─── Money Tab (Bank + Cards + Income combined) ───
+function HouseholdView({ t }) {
+  const [hh, setHH] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [showCreate, setShowCreate] = useState(false);
+  const [showJoin, setShowJoin] = useState(false);
+  const [hhName, setHHName] = useState("");
+  const [joinCode, setJoinCode] = useState("");
+  const [showAddBill, setShowAddBill] = useState(false);
+  const [billForm, setBillForm] = useState({ name: "", totalAmount: "", dueDate: "", category: "Utilities" });
+
+  const load = async () => {
+    try { const data = await api.getHousehold(); setHH(data); }
+    catch (err) { console.error(err); }
+    finally { setLoading(false); }
+  };
+  useEffect(() => { load(); }, []);
+
+  const create = async () => {
+    try { await api.createHousehold(hhName || "My Household"); setShowCreate(false); load(); } catch (err) { alert(err.message || "Error"); }
+  };
+  const join = async () => {
+    try { await api.joinHousehold(joinCode); setShowJoin(false); load(); } catch (err) { alert(err.message || "Invalid code"); }
+  };
+  const addBill = async () => {
+    try {
+      await api.addHouseholdBill({ name: billForm.name, totalAmount: parseFloat(billForm.totalAmount), dueDate: parseInt(billForm.dueDate), category: billForm.category });
+      setShowAddBill(false); setBillForm({ name: "", totalAmount: "", dueDate: "", category: "Utilities" }); load();
+    } catch (err) { alert(err.message || "Error"); }
+  };
+  const paySplit = async (splitId) => { try { await api.payHouseholdSplit(splitId); load(); } catch (err) { console.error(err); } };
+  const leave = async () => { if (window.confirm("Leave this household?")) { try { await api.leaveHousehold(); setHH(null); } catch (err) { console.error(err); } } };
+
+  if (loading) return <div style={{ textAlign: "center", padding: 60, color: t.sub }}>Loading household...</div>;
+
+  // No household - show create/join
+  if (!hh) return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+        <div style={{ fontSize: 32 }}>🏠</div>
+        <div>
+          <h3 style={{ fontFamily: "'Fredoka'", color: t.text, margin: 0, fontSize: 20 }}>Shared Household</h3>
+          <p style={{ margin: "2px 0 0", fontSize: 13, color: t.sub }}>Split bills with a partner or roommates</p>
+        </div>
+      </div>
+      <div style={{ background: t.card, borderRadius: 16, padding: "24px 20px", boxShadow: t.cs, textAlign: "center" }}>
+        <div style={{ fontSize: 48, marginBottom: 12 }}>🏠</div>
+        <div style={{ fontWeight: 700, color: t.text, fontSize: 16, marginBottom: 4 }}>No household yet</div>
+        <div style={{ fontSize: 13, color: t.sub, marginBottom: 16, lineHeight: 1.5 }}>Create a household and invite your partner or roommates to split and track bills together.</div>
+        <div style={{ display: "flex", gap: 10, justifyContent: "center", flexWrap: "wrap" }}>
+          <button onClick={() => setShowCreate(true)} style={{ padding: "12px 24px", borderRadius: 12, border: "none", background: "linear-gradient(135deg, #6C5CE7, #A29BFE)", color: "white", cursor: "pointer", fontWeight: 700, fontSize: 14, fontFamily: "'DM Sans'" }}>🏠 Create Household</button>
+          <button onClick={() => setShowJoin(true)} style={{ padding: "12px 24px", borderRadius: 12, border: `2px solid ${t.border}`, background: "transparent", color: t.text, cursor: "pointer", fontWeight: 700, fontSize: 14, fontFamily: "'DM Sans'" }}>🔗 Join with Code</button>
+        </div>
+      </div>
+      {showCreate && (
+        <div style={{ background: t.card, borderRadius: 16, padding: "18px 20px", boxShadow: t.cs }}>
+          <div style={{ fontWeight: 700, color: t.text, marginBottom: 10 }}>Name your household</div>
+          <input value={hhName} onChange={e => setHHName(e.target.value)} placeholder="e.g. Our Apartment" style={{ width: "100%", padding: "12px 14px", borderRadius: 10, border: `2px solid ${t.border}`, background: t.inputBg || t.bg, color: t.text, fontSize: 14, fontFamily: "'DM Sans'", boxSizing: "border-box", marginBottom: 10 }} />
+          <button onClick={create} style={{ width: "100%", padding: "12px", borderRadius: 10, border: "none", background: "linear-gradient(135deg, #6C5CE7, #A29BFE)", color: "white", cursor: "pointer", fontWeight: 700, fontSize: 14, fontFamily: "'DM Sans'" }}>Create</button>
+        </div>
+      )}
+      {showJoin && (
+        <div style={{ background: t.card, borderRadius: 16, padding: "18px 20px", boxShadow: t.cs }}>
+          <div style={{ fontWeight: 700, color: t.text, marginBottom: 10 }}>Enter invite code</div>
+          <input value={joinCode} onChange={e => setJoinCode(e.target.value.toUpperCase())} placeholder="e.g. A1B2C3D4" maxLength={8} style={{ width: "100%", padding: "12px 14px", borderRadius: 10, border: `2px solid ${t.border}`, background: t.inputBg || t.bg, color: t.text, fontSize: 18, fontFamily: "'DM Sans'", boxSizing: "border-box", marginBottom: 10, textAlign: "center", letterSpacing: 4, textTransform: "uppercase" }} />
+          <button onClick={join} style={{ width: "100%", padding: "12px", borderRadius: 10, border: "none", background: "linear-gradient(135deg, #4ECDC4, #45B7D1)", color: "white", cursor: "pointer", fontWeight: 700, fontSize: 14, fontFamily: "'DM Sans'" }}>Join Household</button>
+        </div>
+      )}
+    </div>
+  );
+
+  // Has household
+  const myId = api.getUser()?.id;
+  const myTotal = hh.bills.reduce((s, b) => {
+    const mySplit = b.splits.find(sp => sp.userId === myId);
+    return s + (mySplit && !mySplit.isPaid ? mySplit.amount : 0);
+  }, 0);
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <div style={{ fontSize: 28 }}>🏠</div>
+          <div>
+            <h3 style={{ fontFamily: "'Fredoka'", color: t.text, margin: 0, fontSize: 18 }}>{hh.name}</h3>
+            <p style={{ margin: 0, fontSize: 12, color: t.sub }}>{hh.members.length} member{hh.members.length > 1 ? "s" : ""}</p>
+          </div>
+        </div>
+        <button onClick={() => setShowAddBill(true)} style={{ padding: "8px 14px", borderRadius: 10, border: "none", background: "linear-gradient(135deg, #6C5CE7, #A29BFE)", color: "white", cursor: "pointer", fontWeight: 700, fontSize: 12, fontFamily: "'DM Sans'" }}>+ Add Bill</button>
+      </div>
+
+      {/* Invite code */}
+      <div style={{ background: t.card, borderRadius: 14, padding: "14px 18px", boxShadow: t.cs, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <div><div style={{ fontSize: 11, color: t.sub, fontWeight: 600 }}>Invite Code</div><div style={{ fontSize: 18, fontWeight: 800, color: "#6C5CE7", fontFamily: "'Fredoka'", letterSpacing: 2 }}>{hh.inviteCode}</div></div>
+        <button onClick={() => { navigator.clipboard?.writeText(hh.inviteCode); }} style={{ padding: "8px 14px", borderRadius: 8, border: `1px solid ${t.border}`, background: "transparent", color: t.sub, cursor: "pointer", fontWeight: 600, fontSize: 11, fontFamily: "'DM Sans'" }}>📋 Copy</button>
+      </div>
+
+      {/* Your share */}
+      <div style={{ background: t.card, borderRadius: 14, padding: "14px 18px", boxShadow: t.cs }}>
+        <div style={{ fontSize: 11, color: t.sub, fontWeight: 600, textTransform: "uppercase" }}>Your Share This Month</div>
+        <div style={{ fontSize: 24, fontWeight: 800, color: myTotal > 0 ? "#FF6B6B" : "#4ECDC4", fontFamily: "'Fredoka'" }}>{formatMoney(myTotal)}</div>
+      </div>
+
+      {/* Members */}
+      <div style={{ background: t.card, borderRadius: 14, padding: "14px 18px", boxShadow: t.cs }}>
+        <div style={{ fontWeight: 700, color: t.text, fontSize: 13, marginBottom: 8 }}>👥 Members</div>
+        {hh.members.map(m => (
+          <div key={m.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "6px 0" }}>
+            <div style={{ width: 28, height: 28, borderRadius: 8, background: "linear-gradient(135deg, #6C5CE7, #A29BFE)", color: "white", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, fontSize: 12 }}>{m.name?.charAt(0)?.toUpperCase()}</div>
+            <span style={{ fontSize: 13, fontWeight: 600, color: t.text, flex: 1 }}>{m.name}</span>
+            <span style={{ fontSize: 11, color: t.sub }}>{m.role === "owner" ? "👑 Owner" : "Member"}</span>
+          </div>
+        ))}
+      </div>
+
+      {/* Shared bills */}
+      <div style={{ fontWeight: 700, color: t.text, fontSize: 14, marginTop: 4 }}>📋 Shared Bills</div>
+      {hh.bills.map(bill => (
+        <div key={bill.id} style={{ background: t.card, borderRadius: 14, padding: "14px 18px", boxShadow: t.cs }}>
+          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
+            <div><div style={{ fontWeight: 700, color: t.text, fontSize: 14 }}>{bill.name}</div><div style={{ fontSize: 11, color: t.sub }}>Due: {bill.dueDate}th · {bill.category}</div></div>
+            <div style={{ textAlign: "right" }}><div style={{ fontWeight: 800, color: t.text, fontFamily: "'Fredoka'" }}>{formatMoney(bill.totalAmount)}</div><div style={{ fontSize: 10, color: t.sub }}>total</div></div>
+          </div>
+          {bill.splits.map(sp => (
+            <div key={sp.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "6px 8px", borderRadius: 8, background: sp.isPaid ? "#4ECDC408" : t.prog, marginBottom: 3 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <div style={{ width: 18, height: 18, borderRadius: 6, background: sp.isPaid ? "#4ECDC4" : t.border, color: "white", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10 }}>{sp.isPaid ? "✓" : ""}</div>
+                <span style={{ fontSize: 12, fontWeight: 600, color: sp.isPaid ? t.sub : t.text, textDecoration: sp.isPaid ? "line-through" : "none" }}>{sp.name}</span>
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <span style={{ fontSize: 12, fontWeight: 700, color: sp.isPaid ? "#4ECDC4" : t.text }}>{formatMoney(sp.amount)}</span>
+                {!sp.isPaid && sp.userId === myId && <button onClick={() => paySplit(sp.id)} style={{ padding: "4px 10px", borderRadius: 6, border: "none", background: "#4ECDC4", color: "white", cursor: "pointer", fontWeight: 700, fontSize: 10, fontFamily: "'DM Sans'" }}>Pay</button>}
+              </div>
+            </div>
+          ))}
+        </div>
+      ))}
+      {!hh.bills.length && <div style={{ textAlign: "center", padding: 20, color: t.sub, fontSize: 13 }}>No shared bills yet</div>}
+
+      {/* Add bill form */}
+      {showAddBill && (
+        <div style={{ background: t.card, borderRadius: 16, padding: "18px 20px", boxShadow: t.cs }}>
+          <div style={{ fontWeight: 700, color: t.text, marginBottom: 10 }}>Add Shared Bill</div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            <input value={billForm.name} onChange={e => setBillForm(p => ({ ...p, name: e.target.value }))} placeholder="Bill name" style={{ padding: "10px 12px", borderRadius: 8, border: `2px solid ${t.border}`, background: t.bg, color: t.text, fontSize: 13, fontFamily: "'DM Sans'" }} />
+            <div style={{ display: "flex", gap: 8 }}>
+              <input type="number" value={billForm.totalAmount} onChange={e => setBillForm(p => ({ ...p, totalAmount: e.target.value }))} placeholder="Total $" style={{ flex: 1, padding: "10px 12px", borderRadius: 8, border: `2px solid ${t.border}`, background: t.bg, color: t.text, fontSize: 13, fontFamily: "'DM Sans'" }} />
+              <input type="number" value={billForm.dueDate} onChange={e => setBillForm(p => ({ ...p, dueDate: e.target.value }))} placeholder="Due day" min="1" max="31" style={{ flex: 1, padding: "10px 12px", borderRadius: 8, border: `2px solid ${t.border}`, background: t.bg, color: t.text, fontSize: 13, fontFamily: "'DM Sans'" }} />
+            </div>
+            <div style={{ display: "flex", gap: 8 }}>
+              <button onClick={() => setShowAddBill(false)} style={{ flex: 1, padding: "10px", borderRadius: 8, border: `2px solid ${t.border}`, background: "transparent", color: t.sub, cursor: "pointer", fontWeight: 700, fontSize: 12, fontFamily: "'DM Sans'" }}>Cancel</button>
+              <button onClick={addBill} style={{ flex: 2, padding: "10px", borderRadius: 8, border: "none", background: "linear-gradient(135deg, #6C5CE7, #A29BFE)", color: "white", cursor: "pointer", fontWeight: 700, fontSize: 12, fontFamily: "'DM Sans'" }}>Add & Split Evenly</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <button onClick={leave} style={{ padding: "10px", borderRadius: 10, border: `1px solid #FF6B6B`, background: "transparent", color: "#FF6B6B", cursor: "pointer", fontWeight: 600, fontSize: 12, fontFamily: "'DM Sans'", marginTop: 8 }}>{hh.isOwner ? "🗑️ Delete Household" : "Leave Household"}</button>
+    </div>
+  );
+}
+
 function MoneyTab({ t }) {
   const [subTab, setSubTab] = useState("bank");
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-      <div style={{ display: "flex", gap: 4, background: t.pill, borderRadius: 12, padding: 4, alignSelf: "flex-start" }}>
-        {[["bank", "🏦 Bank"], ["cards", "💳 Cards"], ["income", "💰 Income"]].map(([k, l]) => (
-          <button key={k} onClick={() => setSubTab(k)} style={{ padding: "8px 14px", borderRadius: 10, border: "none", background: subTab === k ? "linear-gradient(135deg, #6C5CE7, #A29BFE)" : "transparent", color: subTab === k ? "white" : t.sub, cursor: "pointer", fontWeight: 700, fontSize: 12, fontFamily: "'DM Sans'" }}>{l}</button>
+      <div style={{ display: "flex", gap: 4, background: t.pill, borderRadius: 12, padding: 4, alignSelf: "flex-start", flexWrap: "wrap" }}>
+        {[["bank", "🏦 Bank"], ["cards", "💳 Cards"], ["income", "💰 Income"], ["household", "🏠 Household"]].map(([k, l]) => (
+          <button key={k} onClick={() => setSubTab(k)} style={{ padding: "7px 12px", borderRadius: 10, border: "none", background: subTab === k ? "linear-gradient(135deg, #6C5CE7, #A29BFE)" : "transparent", color: subTab === k ? "white" : t.sub, cursor: "pointer", fontWeight: 700, fontSize: 11, fontFamily: "'DM Sans'" }}>{l}</button>
         ))}
       </div>
       {subTab === "bank" && <BankAccountsView t={t} />}
       {subTab === "cards" && <CreditCardsView t={t} />}
       {subTab === "income" && <IncomeView t={t} />}
+      {subTab === "household" && <HouseholdView t={t} />}
     </div>
   );
 }
 
 // ─── Settings Tab (History + Reminders + Charts combined) ───
 function SettingsTab({ bills, history, hMonths, hFilter, setHFilter, onUpdateReminder, t }) {
-  const [subTab, setSubTab] = useState("reminders");
+  const [subTab, setSubTab] = useState("forecast");
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
       <div style={{ display: "flex", gap: 4, background: t.pill, borderRadius: 12, padding: 4, alignSelf: "flex-start", flexWrap: "wrap" }}>
-        {[["reminders", "🔔 Reminders"], ["history", "📜 History"], ["charts", "📈 Charts"]].map(([k, l]) => (
-          <button key={k} onClick={() => setSubTab(k)} style={{ padding: "8px 14px", borderRadius: 10, border: "none", background: subTab === k ? "linear-gradient(135deg, #6C5CE7, #A29BFE)" : "transparent", color: subTab === k ? "white" : t.sub, cursor: "pointer", fontWeight: 700, fontSize: 12, fontFamily: "'DM Sans'" }}>{l}</button>
+        {[["forecast", "📈 Forecast"], ["negotiate", "📞 Negotiate"], ["alerts", "🔔 Alerts"], ["reminders", "⏰ Reminders"], ["history", "📜 History"], ["charts", "📊 Charts"]].map(([k, l]) => (
+          <button key={k} onClick={() => setSubTab(k)} style={{ padding: "7px 12px", borderRadius: 10, border: "none", background: subTab === k ? "linear-gradient(135deg, #6C5CE7, #A29BFE)" : "transparent", color: subTab === k ? "white" : t.sub, cursor: "pointer", fontWeight: 700, fontSize: 11, fontFamily: "'DM Sans'" }}>{l}</button>
         ))}
       </div>
+      {subTab === "forecast" && <ForecastView t={t} />}
+      {subTab === "negotiate" && <NegotiateView bills={bills} t={t} />}
+      {subTab === "alerts" && <SmartAlertsView t={t} />}
       {subTab === "reminders" && <RemindersView bills={bills} onUpdate={onUpdateReminder} t={t} />}
       {subTab === "history" && <HistoryView history={history} months={hMonths} filter={hFilter} setFilter={setHFilter} t={t} />}
       {subTab === "charts" && <SpendingChart bills={bills} t={t} />}
