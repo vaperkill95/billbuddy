@@ -3653,12 +3653,350 @@ function HelpGuide({ t }) {
   );
 }
 
+function CreditScoreView({ t }) {
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const F = "'Plus Jakarta Sans', 'Outfit', sans-serif";
+  const H = "'Outfit', 'Plus Jakarta Sans', sans-serif";
+
+  const load = async () => {
+    setLoading(true); setError(null);
+    try { const res = await api.getCreditHealth(); setData(res); }
+    catch (err) { setError("Couldn't load credit score. Try again."); }
+    finally { setLoading(false); }
+  };
+  useEffect(() => { load(); }, []);
+
+  if (loading) return (
+    <div style={{ textAlign: "center", padding: 60 }}>
+      <div style={{ fontSize: 40, marginBottom: 12, animation: "pulse 1.5s ease-in-out infinite" }}>📊</div>
+      <div style={{ fontWeight: 700, color: t.text, fontSize: 16, fontFamily: H, marginBottom: 6 }}>Calculating credit health...</div>
+      <div style={{ fontSize: 13, color: t.sub }}>Analyzing your accounts, bills, and payment history</div>
+      <style>{`@keyframes pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.15); } }`}</style>
+    </div>
+  );
+  if (error) return (
+    <div style={{ textAlign: "center", padding: 40 }}>
+      <div style={{ fontSize: 32, marginBottom: 8 }}>⚠️</div>
+      <div style={{ fontWeight: 700, color: t.text, fontSize: 14, marginBottom: 8 }}>{error}</div>
+      <button onClick={load} style={{ padding: "8px 20px", borderRadius: 10, border: "none", background: "#6C5CE7", color: "white", cursor: "pointer", fontWeight: 700, fontSize: 12, fontFamily: F }}>Try Again</button>
+    </div>
+  );
+  if (!data) return null;
+
+  const pct = ((data.score - 300) / 550) * 100;
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <div style={{ fontSize: 28 }}>📊</div>
+          <div>
+            <h3 style={{ fontFamily: H, color: t.text, margin: 0, fontSize: 18, fontWeight: 700 }}>Credit Health</h3>
+            <p style={{ margin: "2px 0 0", fontSize: 12, color: t.sub }}>Estimated from your financial data</p>
+          </div>
+        </div>
+        <button onClick={load} style={{ padding: "7px 16px", borderRadius: 10, border: "none", background: "#6C5CE7", color: "white", cursor: "pointer", fontWeight: 700, fontSize: 11, fontFamily: F }}>🔄 Refresh</button>
+      </div>
+
+      {/* Score gauge */}
+      <div style={{ background: t.card, borderRadius: 14, padding: "24px 20px", boxShadow: t.cs, textAlign: "center" }}>
+        <div style={{ position: "relative", width: 160, height: 90, margin: "0 auto 12px" }}>
+          <svg viewBox="0 0 160 90" style={{ width: "100%", overflow: "visible" }}>
+            <path d="M 10 80 A 70 70 0 0 1 150 80" fill="none" stroke={t.border} strokeWidth="12" strokeLinecap="round" />
+            <path d="M 10 80 A 70 70 0 0 1 150 80" fill="none" stroke={data.gradeColor} strokeWidth="12" strokeLinecap="round" strokeDasharray={`${pct * 2.2} 220`} />
+          </svg>
+          <div style={{ position: "absolute", bottom: 0, left: "50%", transform: "translateX(-50%)", textAlign: "center" }}>
+            <div style={{ fontSize: 36, fontWeight: 800, color: t.text, fontFamily: H, lineHeight: 1 }}>{data.score}</div>
+            <div style={{ fontSize: 11, color: t.sub, marginTop: 2 }}>out of 850</div>
+          </div>
+        </div>
+        <div style={{ display: "inline-block", padding: "4px 16px", borderRadius: 20, background: data.gradeColor + "18", color: data.gradeColor, fontWeight: 700, fontSize: 13 }}>{data.grade}</div>
+      </div>
+
+      {/* Factors */}
+      {data.factors && data.factors.map((f, i) => (
+        <div key={i} style={{ background: t.card, borderRadius: 12, padding: "14px 18px", boxShadow: t.cs, borderLeft: `4px solid ${f.color}` }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <div>
+              <div style={{ fontWeight: 700, color: t.text, fontSize: 13 }}>{f.name}</div>
+              <div style={{ fontSize: 12, color: t.sub, marginTop: 2 }}>{f.detail}</div>
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <span style={{ fontSize: 12, fontWeight: 700, color: f.color }}>{f.impact}</span>
+              <span style={{ fontSize: 10, fontWeight: 700, padding: "2px 8px", borderRadius: 6, background: f.color + "18", color: f.color }}>{f.rating}</span>
+            </div>
+          </div>
+        </div>
+      ))}
+
+      {/* Summary stats */}
+      {data.summary && (
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 6 }}>
+          <div style={{ background: t.card, borderRadius: 10, padding: "10px 12px", boxShadow: t.cs }}>
+            <div style={{ fontSize: 9, color: t.sub, fontWeight: 600, textTransform: "uppercase" }}>Total Debt</div>
+            <div style={{ fontSize: 14, fontWeight: 800, color: data.summary.totalDebt > 0 ? "#EF4444" : t.text, fontFamily: H }}>{formatMoney(data.summary.totalDebt)}</div>
+          </div>
+          <div style={{ background: t.card, borderRadius: 10, padding: "10px 12px", boxShadow: t.cs }}>
+            <div style={{ fontSize: 9, color: t.sub, fontWeight: 600, textTransform: "uppercase" }}>Utilization</div>
+            <div style={{ fontSize: 14, fontWeight: 800, color: t.text, fontFamily: H }}>{data.utilization}%</div>
+          </div>
+          <div style={{ background: t.card, borderRadius: 10, padding: "10px 12px", boxShadow: t.cs }}>
+            <div style={{ fontSize: 9, color: t.sub, fontWeight: 600, textTransform: "uppercase" }}>Bills Paid</div>
+            <div style={{ fontSize: 14, fontWeight: 800, color: "#10B981", fontFamily: H }}>{data.summary.paidBills}/{data.summary.totalBills}</div>
+          </div>
+        </div>
+      )}
+
+      {/* Score history */}
+      {data.scoreHistory && data.scoreHistory.length > 1 && (
+        <div style={{ background: t.card, borderRadius: 12, padding: "14px 18px", boxShadow: t.cs }}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: t.text, marginBottom: 8 }}>Score Trend</div>
+          <div style={{ display: "flex", alignItems: "flex-end", gap: 4, height: 50 }}>
+            {data.scoreHistory.map((h, i) => {
+              const hPct = ((h.score - 300) / 550) * 100;
+              return <div key={i} style={{ flex: 1, background: data.gradeColor + "40", borderRadius: 3, height: hPct + "%", minHeight: 4, transition: "height 0.3s" }} title={h.score + ""} />;
+            })}
+          </div>
+          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 9, color: t.muted, marginTop: 4 }}>
+            <span>Oldest</span><span>Latest</span>
+          </div>
+        </div>
+      )}
+
+      <div style={{ textAlign: "center", fontSize: 11, color: t.muted, marginTop: 4 }}>Estimated credit health based on your BillBuddy data — not an official credit score</div>
+    </div>
+  );
+}
+
+function SmartSavingsView({ t }) {
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [showRoundUps, setShowRoundUps] = useState(false);
+  const F = "'Plus Jakarta Sans', 'Outfit', sans-serif";
+  const H = "'Outfit', 'Plus Jakarta Sans', sans-serif";
+
+  const load = async () => {
+    setLoading(true); setError(null);
+    try { const res = await api.getSmartSavings(); setData(res); }
+    catch (err) { setError("Couldn't load savings data."); }
+    finally { setLoading(false); }
+  };
+  useEffect(() => { load(); }, []);
+
+  if (loading) return (
+    <div style={{ textAlign: "center", padding: 60 }}>
+      <div style={{ fontSize: 40, marginBottom: 12, animation: "pulse 1.5s ease-in-out infinite" }}>🤖</div>
+      <div style={{ fontWeight: 700, color: t.text, fontSize: 16, fontFamily: H, marginBottom: 6 }}>Crunching your numbers...</div>
+      <div style={{ fontSize: 13, color: t.sub }}>Finding smart ways to save from your spending</div>
+      <style>{`@keyframes pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.15); } }`}</style>
+    </div>
+  );
+  if (error) return (
+    <div style={{ textAlign: "center", padding: 40 }}>
+      <div style={{ fontSize: 32, marginBottom: 8 }}>⚠️</div>
+      <div style={{ fontWeight: 700, color: t.text, fontSize: 14, marginBottom: 8 }}>{error}</div>
+      <button onClick={load} style={{ padding: "8px 20px", borderRadius: 10, border: "none", background: "#6C5CE7", color: "white", cursor: "pointer", fontWeight: 700, fontSize: 12, fontFamily: F }}>Try Again</button>
+    </div>
+  );
+  if (!data) return null;
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <div style={{ fontSize: 28 }}>🤖</div>
+          <div>
+            <h3 style={{ fontFamily: H, color: t.text, margin: 0, fontSize: 18, fontWeight: 700 }}>Smart Savings</h3>
+            <p style={{ margin: "2px 0 0", fontSize: 12, color: t.sub }}>Autopilot your savings</p>
+          </div>
+        </div>
+        <button onClick={load} style={{ padding: "7px 16px", borderRadius: 10, border: "none", background: "#6C5CE7", color: "white", cursor: "pointer", fontWeight: 700, fontSize: 11, fontFamily: F }}>🔄 Refresh</button>
+      </div>
+
+      {/* Autopilot recommendation */}
+      <div style={{ background: "linear-gradient(135deg, #6C5CE7 0%, #a78bfa 100%)", borderRadius: 14, padding: "20px", color: "white" }}>
+        <div style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", opacity: 0.8, marginBottom: 4 }}>Autopilot Recommendation</div>
+        <div style={{ fontSize: 28, fontWeight: 800, fontFamily: H }}>{formatMoney(data.autopilot.monthly)}<span style={{ fontSize: 14, fontWeight: 500, opacity: 0.8 }}>/month</span></div>
+        <div style={{ fontSize: 12, opacity: 0.85, marginTop: 4 }}>Safe to auto-save • {formatMoney(data.autopilot.weekly)}/week • {formatMoney(data.autopilot.daily)}/day</div>
+      </div>
+
+      {/* Round-ups */}
+      <div style={{ background: t.card, borderRadius: 14, padding: "16px 20px", boxShadow: t.cs }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", cursor: "pointer" }} onClick={() => setShowRoundUps(!showRoundUps)}>
+          <div>
+            <div style={{ fontWeight: 700, color: t.text, fontSize: 14 }}>💰 Round-Up Savings</div>
+            <div style={{ fontSize: 12, color: t.sub, marginTop: 2 }}>Round every purchase to the nearest dollar</div>
+          </div>
+          <div style={{ textAlign: "right" }}>
+            <div style={{ fontSize: 18, fontWeight: 800, color: "#10B981", fontFamily: H }}>{formatMoney(data.roundUps.monthly)}/mo</div>
+            <div style={{ fontSize: 11, color: t.sub }}>{formatMoney(data.roundUps.yearly)}/year</div>
+          </div>
+        </div>
+        {showRoundUps && data.roundUps.topRoundUps && data.roundUps.topRoundUps.length > 0 && (
+          <div style={{ marginTop: 12, paddingTop: 12, borderTop: `1px solid ${t.border}` }}>
+            <div style={{ fontSize: 11, fontWeight: 600, color: t.sub, marginBottom: 6 }}>Top round-ups from {data.roundUps.txnCount} transactions</div>
+            {data.roundUps.topRoundUps.slice(0, 5).map((r, i) => (
+              <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "4px 0", fontSize: 12, color: t.text }}>
+                <span style={{ color: t.sub }}>{r.name}</span>
+                <span style={{ fontWeight: 700, color: "#10B981" }}>+{formatMoney(r.roundUp)}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Savings rules */}
+      {data.savingsRules && data.savingsRules.map((rule, i) => (
+        <div key={i} style={{ background: t.card, borderRadius: 12, padding: "14px 18px", boxShadow: t.cs, borderLeft: `4px solid ${i === 0 ? "#6C5CE7" : i === 1 ? "#10B981" : "#F59E0B"}` }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <div>
+              <div style={{ fontWeight: 700, color: t.text, fontSize: 13 }}>{rule.name}</div>
+              <div style={{ fontSize: 11, color: t.sub, marginTop: 2 }}>{rule.description}</div>
+            </div>
+            <div style={{ textAlign: "right" }}>
+              <div style={{ fontSize: 16, fontWeight: 800, color: t.text, fontFamily: H }}>{formatMoney(rule.recommended)}</div>
+              <div style={{ fontSize: 10, color: t.sub }}>{formatMoney(rule.perPaycheck)}/paycheck</div>
+            </div>
+          </div>
+        </div>
+      ))}
+
+      {/* Financial snapshot */}
+      {data.snapshot && (
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 6 }}>
+          <div style={{ background: t.card, borderRadius: 10, padding: "10px 12px", boxShadow: t.cs }}>
+            <div style={{ fontSize: 9, color: t.sub, fontWeight: 600, textTransform: "uppercase" }}>Income</div>
+            <div style={{ fontSize: 14, fontWeight: 800, color: "#10B981", fontFamily: H }}>{formatMoney(data.snapshot.monthlyIncome)}</div>
+          </div>
+          <div style={{ background: t.card, borderRadius: 10, padding: "10px 12px", boxShadow: t.cs }}>
+            <div style={{ fontSize: 9, color: t.sub, fontWeight: 600, textTransform: "uppercase" }}>Bills</div>
+            <div style={{ fontSize: 14, fontWeight: 800, color: "#EF4444", fontFamily: H }}>{formatMoney(data.snapshot.monthlyBills)}</div>
+          </div>
+          <div style={{ background: t.card, borderRadius: 10, padding: "10px 12px", boxShadow: t.cs }}>
+            <div style={{ fontSize: 9, color: t.sub, fontWeight: 600, textTransform: "uppercase" }}>Free Cash</div>
+            <div style={{ fontSize: 14, fontWeight: 800, color: t.text, fontFamily: H }}>{formatMoney(data.snapshot.discretionary)}</div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function CancelHelperView({ t }) {
+  const [query, setQuery] = useState("");
+  const [result, setResult] = useState(null);
+  const [emailTemplate, setEmailTemplate] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [showEmail, setShowEmail] = useState(false);
+  const F = "'Plus Jakarta Sans', 'Outfit', sans-serif";
+  const H = "'Outfit', 'Plus Jakarta Sans', sans-serif";
+
+  const search = async () => {
+    if (!query.trim()) return;
+    setLoading(true); setResult(null); setEmailTemplate(null); setShowEmail(false);
+    try {
+      const res = await api.getCancelInfo(query.trim());
+      setResult(res);
+    } catch (err) { console.error(err); }
+    finally { setLoading(false); }
+  };
+
+  const getEmail = async () => {
+    try {
+      const res = await api.getCancelEmail(query.trim());
+      setEmailTemplate(res);
+      setShowEmail(true);
+    } catch (err) { console.error(err); }
+  };
+
+  const diffColors = { Easy: "#10B981", Medium: "#F59E0B", Hard: "#EF4444", Unknown: "#6B7280" };
+  const popularServices = ["Netflix", "Spotify", "Hulu", "Amazon Prime", "Disney+", "Adobe", "Planet Fitness", "SiriusXM", "Audible", "YouTube", "HBO", "DoorDash"];
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+        <div style={{ fontSize: 28 }}>🚫</div>
+        <div>
+          <h3 style={{ fontFamily: H, color: t.text, margin: 0, fontSize: 18, fontWeight: 700 }}>Cancel Helper</h3>
+          <p style={{ margin: "2px 0 0", fontSize: 12, color: t.sub }}>Direct links and steps to cancel any subscription</p>
+        </div>
+      </div>
+
+      {/* Search */}
+      <div style={{ display: "flex", gap: 8 }}>
+        <input value={query} onChange={e => setQuery(e.target.value)} onKeyDown={e => e.key === "Enter" && search()} placeholder="Search service (Netflix, Spotify, gym...)" style={{ flex: 1, padding: "12px 16px", borderRadius: 12, border: `1px solid ${t.border}`, background: t.input, color: t.text, fontSize: 14, fontFamily: F, boxSizing: "border-box" }} />
+        <button onClick={search} disabled={loading} style={{ padding: "12px 20px", borderRadius: 12, border: "none", background: "#6C5CE7", color: "white", cursor: "pointer", fontWeight: 700, fontSize: 13, fontFamily: F, whiteSpace: "nowrap" }}>{loading ? "..." : "🔍 Search"}</button>
+      </div>
+
+      {/* Quick picks */}
+      {!result && (
+        <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+          {popularServices.map(s => (
+            <button key={s} onClick={() => { setQuery(s); setTimeout(() => { }, 0); }} style={{ padding: "6px 12px", borderRadius: 8, border: `1px solid ${t.border}`, background: t.cardAlt, color: t.sub, cursor: "pointer", fontSize: 11, fontWeight: 600, fontFamily: F }}
+              onClickCapture={() => { setQuery(s); }}>{s}</button>
+          ))}
+        </div>
+      )}
+
+      {/* Result */}
+      {result && (
+        <div style={{ background: t.card, borderRadius: 14, padding: "20px", boxShadow: t.cs }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+            <div>
+              <div style={{ fontWeight: 700, color: t.text, fontSize: 16, textTransform: "capitalize" }}>{result.service}</div>
+              <div style={{ fontSize: 12, color: t.sub, marginTop: 2 }}>Method: {result.method}</div>
+            </div>
+            <div style={{ padding: "4px 12px", borderRadius: 8, fontWeight: 700, fontSize: 11, background: (diffColors[result.difficulty] || "#6B7280") + "18", color: diffColors[result.difficulty] || "#6B7280" }}>{result.difficulty}</div>
+          </div>
+
+          {/* Steps */}
+          <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 14 }}>
+            {result.steps && result.steps.map((step, i) => (
+              <div key={i} style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
+                <div style={{ width: 24, height: 24, borderRadius: "50%", background: "#6C5CE7", color: "white", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, flexShrink: 0 }}>{i + 1}</div>
+                <div style={{ fontSize: 13, color: t.text, lineHeight: 1.5, paddingTop: 2 }}>{step}</div>
+              </div>
+            ))}
+          </div>
+
+          {result.note && (
+            <div style={{ background: t.cardAlt, borderRadius: 10, padding: "10px 14px", fontSize: 12, color: t.sub, marginBottom: 14 }}>📝 {result.note}</div>
+          )}
+
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            {result.url && (
+              <a href={result.url} target="_blank" rel="noopener noreferrer" style={{ padding: "10px 18px", borderRadius: 10, background: "#6C5CE7", color: "white", fontWeight: 700, fontSize: 12, fontFamily: F, textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 6 }}>🔗 Open Cancel Page</a>
+            )}
+            <button onClick={getEmail} style={{ padding: "10px 18px", borderRadius: 10, border: `1px solid ${t.border}`, background: t.cardAlt, color: t.text, cursor: "pointer", fontWeight: 700, fontSize: 12, fontFamily: F }}>✉️ Email Template</button>
+            <button onClick={() => { setResult(null); setQuery(""); setShowEmail(false); }} style={{ padding: "10px 18px", borderRadius: 10, border: `1px solid ${t.border}`, background: t.cardAlt, color: t.sub, cursor: "pointer", fontWeight: 700, fontSize: 12, fontFamily: F }}>New Search</button>
+          </div>
+        </div>
+      )}
+
+      {/* Email template */}
+      {showEmail && emailTemplate && (
+        <div style={{ background: t.card, borderRadius: 14, padding: "18px 20px", boxShadow: t.cs }}>
+          <div style={{ fontWeight: 700, color: t.text, fontSize: 13, marginBottom: 8 }}>Cancellation Email Template</div>
+          <div style={{ background: t.input, borderRadius: 10, padding: "14px", fontSize: 12, color: t.sub, marginBottom: 8 }}>
+            <div style={{ fontWeight: 700, marginBottom: 6, color: t.text }}>Subject: {emailTemplate.subject}</div>
+            <div style={{ whiteSpace: "pre-wrap", lineHeight: 1.6 }}>{emailTemplate.body}</div>
+          </div>
+          <button onClick={() => { navigator.clipboard.writeText("Subject: " + emailTemplate.subject + "\n\n" + emailTemplate.body); }} style={{ padding: "8px 16px", borderRadius: 8, border: "none", background: "#6C5CE7", color: "white", cursor: "pointer", fontWeight: 700, fontSize: 11, fontFamily: F }}>📋 Copy to Clipboard</button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function SettingsTab({ bills, history, hMonths, hFilter, setHFilter, onUpdateReminder, t }) {
   const [subTab, setSubTab] = useState("spending");
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
       <div style={{ display: "flex", gap: 3, background: t.pill, borderRadius: 12, padding: 3, alignSelf: "stretch", flexWrap: "wrap" }}>
-        {[["spending", "💰 Spending"], ["forecast", "📈 Forecast"], ["savings", "🐷 Savings"], ["negotiate", "🤝 Negotiate"], ["subs", "📺 Subs"], ["activity", "📋 Activity"], ["alerts", "🔔 Alerts"], ["reminders", "⏰ Reminders"], ["history", "📜 History"], ["charts", "📊 Charts"], ["help", "❓ Help"], ["aitips", "🧠 AI Tips"], ["goals", "🎯 Goals"]].map(([k, l]) => (
+        {[["spending", "💰 Spending"], ["forecast", "📈 Forecast"], ["savings", "🐷 Savings"], ["negotiate", "🤝 Negotiate"], ["subs", "📺 Subs"], ["activity", "📋 Activity"], ["alerts", "🔔 Alerts"], ["reminders", "⏰ Reminders"], ["history", "📜 History"], ["charts", "📊 Charts"], ["aitips", "🧠 AI Tips"], ["goals", "🎯 Goals"], ["credit", "📊 Credit"], ["smartsave", "🤖 AutoSave"], ["cancel", "🚫 Cancel"]].map(([k, l]) => (
           <button key={k} onClick={() => setSubTab(k)} style={{
             padding: "6px 10px", borderRadius: 8, border: "none",
             background: subTab === k ? "#6C5CE7" : "transparent",
@@ -3678,9 +4016,11 @@ function SettingsTab({ bills, history, hMonths, hFilter, setHFilter, onUpdateRem
       {subTab === "reminders" && <RemindersView bills={bills} onUpdate={onUpdateReminder} t={t} />}
       {subTab === "history" && <HistoryView history={history} months={hMonths} filter={hFilter} setFilter={setHFilter} t={t} />}
       {subTab === "charts" && <SpendingChart bills={bills} t={t} />}
-      {subTab === "help" && <HelpGuide t={t} />}
       {subTab === "aitips" && <AISpendingInsightsView t={t} />}
       {subTab === "goals" && <FinancialGoalsView t={t} />}
+      {subTab === "credit" && <CreditScoreView t={t} />}
+      {subTab === "smartsave" && <SmartSavingsView t={t} />}
+      {subTab === "cancel" && <CancelHelperView t={t} />}
     </div>
   );
 }
