@@ -153,7 +153,18 @@ export const api = {
   contributeToGoal: (id, amount) => request("/goals/" + id + "/contribute", { method: "POST", body: JSON.stringify({ amount }) }),
   deleteGoal: (id) => request("/goals/" + id, { method: "DELETE" }),
 
+  // Credit Health
+  getCreditHealth: () => request("/credit"),
+
+  // Smart Savings
+  getSmartSavings: () => request("/smart-savings"),
+
+  // Subscription Cancel Helper
+  getCancelInfo: (name) => request("/cancel-helper/lookup?name=" + encodeURIComponent(name)),
+  getCancelEmail: (name) => request("/cancel-helper/email-template?name=" + encodeURIComponent(name)),
+
   // Helpers
   getToken, setToken, clearToken, getUser, setUser,
 };
+
 
