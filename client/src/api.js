@@ -143,6 +143,17 @@ export const api = {
   setBudget: (category, monthlyLimit) => request("/spending/budgets", { method: "POST", body: JSON.stringify({ category, monthlyLimit }) }),
   deleteBudget: (id) => request(`/spending/budgets/${id}`, { method: "DELETE" }),
 
+  // Spending Insights (AI)
+  getSpendingInsights: () => request("/spending-insights"),
+
+  // Financial Goals
+  getGoals: () => request("/goals"),
+  createGoal: (goal) => request("/goals", { method: "POST", body: JSON.stringify(goal) }),
+  updateGoal: (id, data) => request("/goals/" + id, { method: "PATCH", body: JSON.stringify(data) }),
+  contributeToGoal: (id, amount) => request("/goals/" + id + "/contribute", { method: "POST", body: JSON.stringify({ amount }) }),
+  deleteGoal: (id) => request("/goals/" + id, { method: "DELETE" }),
+
   // Helpers
   getToken, setToken, clearToken, getUser, setUser,
 };
+
