@@ -51,7 +51,6 @@ app.use("/api/savings", require("./routes/savings"));
 app.use("/api/spending", require("./routes/spending"));
 app.use("/api/spending-insights", require("./routes/spendingInsights"));
 app.use("/api/goals", require("./routes/goals"));
-app.use("/api/spending", require("./routes/spending"));
 
 app.get("/api/health", async (req, res) => {
   try {
@@ -69,10 +68,6 @@ app.get("/api/health", async (req, res) => {
     });
   } catch (err) {
     res.status(500).json({ status: "error", database: { connected: false, error: err.message } });
-  }
-});
-  } catch (err) {
-    res.status(500).json({ status: "error", database: "disconnected", error: err.message });
   }
 });
 
@@ -280,7 +275,7 @@ async function initDB() {
       CREATE INDEX IF NOT EXISTS idx_bank_transactions_pending ON bank_transactions(user_id, pending, date DESC);
       CREATE INDEX IF NOT EXISTS idx_bank_accounts_acct_id ON bank_accounts(account_id, user_id);
       CREATE INDEX IF NOT EXISTS idx_credit_cards_user ON credit_cards(user_id);
-      CREATE INDEX IF NOT EXISTS idx_payment_history_user_month ON payment_history(user_id, month);
+      CREATE INDEX IF NOT EXISTS idx_payment_history_user_month ON payment_history(user_id, month_label);
       CREATE INDEX IF NOT EXISTS idx_income_entries_user_date ON income_entries(user_id, received_date DESC);
       CREATE INDEX IF NOT EXISTS idx_household_members_hh ON household_members(household_id);
       CREATE INDEX IF NOT EXISTS idx_household_splits_bill ON household_splits(household_bill_id);
