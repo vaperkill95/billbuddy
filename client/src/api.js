@@ -84,6 +84,7 @@ export const api = {
   addHouseholdBill: (bill) => request("/household/bills", { method: "POST", body: JSON.stringify(bill) }),
   payHouseholdSplit: (splitId) => request(`/household/splits/${splitId}/pay`, { method: "PATCH" }),
   leaveHousehold: () => request("/household/leave", { method: "DELETE" }),
+  deleteHouseholdBill: (billId) => request(`/household/bills/${billId}`, { method: "DELETE" }),
 
   // Subscriptions
   detectSubscriptions: () => request("/subscriptions/detect"),

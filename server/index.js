@@ -274,6 +274,8 @@ async function initDB() {
       "ALTER TABLE household_members ADD COLUMN IF NOT EXISTS share_bills BOOLEAN DEFAULT true",
       "ALTER TABLE household_members ADD COLUMN IF NOT EXISTS share_cards BOOLEAN DEFAULT false",
       "ALTER TABLE household_members ADD COLUMN IF NOT EXISTS share_income BOOLEAN DEFAULT false",
+      // Household mode: 'household' (roommates) or 'joint' (partners)
+      "ALTER TABLE households ADD COLUMN IF NOT EXISTS mode VARCHAR(20) DEFAULT 'household'",
     ];
     for (const sql of migrations) {
       try { await pool.query(sql); } catch (e) { /* column may already exist */ }

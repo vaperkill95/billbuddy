@@ -2583,12 +2583,14 @@ function UnifiedDashboard({ dash, bills, t, onToggle, onDelete, onGoTo }) {
 function HouseholdView({ t }) {
   const [hh, setHH] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [showCreate, setShowCreate] = useState(false);
+  const [showCreate, setShowCreate] = useState(null); // null, 'household', 'joint'
   const [showJoin, setShowJoin] = useState(false);
   const [hhName, setHHName] = useState("");
   const [joinCode, setJoinCode] = useState("");
   const [showAddBill, setShowAddBill] = useState(false);
   const [billForm, setBillForm] = useState({ name: "", totalAmount: "", dueDate: "", category: "Utilities" });
+  const [jointFilter, setJointFilter] = useState("all"); // all, person1id, person2id
+  const [jointView, setJointView] = useState("overview"); // overview, bills, transactions, accounts, cards
 
   const load = async () => {
     try { const data = await api.getHousehold(); setHH(data); }
@@ -2597,8 +2599,8 @@ function HouseholdView({ t }) {
   };
   useEffect(() => { load(); }, []);
 
-  const create = async () => {
-    try { await api.createHousehold(hhName || "My Household"); setShowCreate(false); load(); } catch (err) { alert(err.message || "Error"); }
+  const create = async (mode) => {
+    try { await api.createHousehold(hhName || (mode === "joint" ? "Our Finances" : "My Household")); setShowCreate(null); load(); } catch (err) { alert(err.message || "Error"); }
   };
   const join = async () => {
     try { await api.joinHousehold(joinCode); setShowJoin(false); load(); } catch (err) { alert(err.message || "Invalid code"); }
@@ -2609,134 +2611,333 @@ function HouseholdView({ t }) {
       setShowAddBill(false); setBillForm({ name: "", totalAmount: "", dueDate: "", category: "Utilities" }); load();
     } catch (err) { alert(err.message || "Error"); }
   };
-  const paySplit = async (splitId) => { try { await api.payHouseholdSplit(splitId); load(); } catch (err) { console.error(err); } };
-  const leave = async () => { if (window.confirm("Leave this household?")) { try { await api.leaveHousehold(); setHH(null); } catch (err) { console.error(err); } } };
+  const paySplit = async (splitId) => { try { await api.payHouseholdSplit(splitId); load(); } catch {} };
+  const deleteBill = async (billId) => { try { await api.deleteHouseholdBill(billId); load(); } catch {} };
+  const leave = async () => { if (window.confirm(hh?.isOwner ? "Delete this? Everyone will be removed." : "Leave?")) { try { await api.leaveHousehold(); setHH(null); } catch {} } };
 
-  if (loading) return <div style={{ textAlign: "center", padding: 60, color: t.sub }}>Loading household...</div>;
+  const myId = api.getUser()?.id;
+  const is = { width: "100%", padding: "10px 14px", borderRadius: 8, border: `1px solid ${t.border}`, fontSize: 13, fontFamily: "'Plus Jakarta Sans', sans-serif", outline: "none", boxSizing: "border-box", background: t.cardAlt || t.bg, color: t.text };
 
-  // No household - show create/join
+  if (loading) return <div style={{ textAlign: "center", padding: 60, color: t.sub }}>Loading...</div>;
+
+  // ─── No household yet — show create/join options ───
   if (!hh) return (
     <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-        <div style={{ fontSize: 32 }}>🏠</div>
-        <div>
-          <h3 style={{ fontFamily: "'Outfit', sans-serif", color: t.text, margin: 0, fontSize: 20 }}>Shared Household</h3>
-          <p style={{ margin: "2px 0 0", fontSize: 13, color: t.sub }}>Split bills with a partner or roommates</p>
+      <div>
+        <h3 style={{ fontFamily: "'Outfit', sans-serif", color: t.text, margin: 0, fontSize: 18, fontWeight: 700 }}>Shared Finances</h3>
+        <p style={{ margin: "4px 0 0", fontSize: 13, color: t.sub }}>Split bills with roommates or manage finances together with a partner</p>
+      </div>
+
+      {/* Two options */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+        <div onClick={() => setShowCreate("household")} style={{ background: t.card, borderRadius: 12, padding: "20px 16px", boxShadow: t.cs, cursor: "pointer", textAlign: "center", border: showCreate === "household" ? "2px solid #6C5CE7" : `1px solid ${t.border}` }}>
+          <div style={{ fontSize: 32, marginBottom: 8 }}>🏠</div>
+          <div style={{ fontWeight: 700, color: t.text, fontSize: 14, marginBottom: 4 }}>Household</div>
+          <div style={{ fontSize: 11, color: t.sub, lineHeight: 1.5 }}>For roommates. Split shared bills. Everyone keeps their own finances private.</div>
+        </div>
+        <div onClick={() => setShowCreate("joint")} style={{ background: t.card, borderRadius: 12, padding: "20px 16px", boxShadow: t.cs, cursor: "pointer", textAlign: "center", border: showCreate === "joint" ? "2px solid #6C5CE7" : `1px solid ${t.border}` }}>
+          <div style={{ fontSize: 32, marginBottom: 8 }}>💑</div>
+          <div style={{ fontWeight: 700, color: t.text, fontSize: 14, marginBottom: 4 }}>Joint</div>
+          <div style={{ fontSize: 11, color: t.sub, lineHeight: 1.5 }}>For partners. See each other's banks, bills, cards, and transactions together.</div>
         </div>
       </div>
-      <div style={{ background: t.card, borderRadius: 16, padding: "24px 20px", boxShadow: t.cs, textAlign: "center" }}>
-        <div style={{ fontSize: 48, marginBottom: 12 }}>🏠</div>
-        <div style={{ fontWeight: 700, color: t.text, fontSize: 16, marginBottom: 4 }}>No household yet</div>
-        <div style={{ fontSize: 13, color: t.sub, marginBottom: 16, lineHeight: 1.5 }}>Create a household and invite your partner or roommates to split and track bills together.</div>
-        <div style={{ display: "flex", gap: 10, justifyContent: "center", flexWrap: "wrap" }}>
-          <button onClick={() => setShowCreate(true)} style={{ padding: "12px 24px", borderRadius: 12, border: "none", background: "#6C5CE7", color: "white", cursor: "pointer", fontWeight: 700, fontSize: 14, fontFamily: "'Plus Jakarta Sans', sans-serif" }}>🏠 Create Household</button>
-          <button onClick={() => setShowJoin(true)} style={{ padding: "12px 24px", borderRadius: 12, border: `2px solid ${t.border}`, background: "transparent", color: t.text, cursor: "pointer", fontWeight: 700, fontSize: 14, fontFamily: "'Plus Jakarta Sans', sans-serif" }}>🔗 Join with Code</button>
-        </div>
-      </div>
+
       {showCreate && (
-        <div style={{ background: t.card, borderRadius: 16, padding: "18px 20px", boxShadow: t.cs }}>
-          <div style={{ fontWeight: 700, color: t.text, marginBottom: 10 }}>Name your household</div>
-          <input value={hhName} onChange={e => setHHName(e.target.value)} placeholder="e.g. Our Apartment" style={{ width: "100%", padding: "12px 14px", borderRadius: 10, border: `2px solid ${t.border}`, background: t.inputBg || t.bg, color: t.text, fontSize: 14, fontFamily: "'Plus Jakarta Sans', sans-serif", boxSizing: "border-box", marginBottom: 10 }} />
-          <button onClick={create} style={{ width: "100%", padding: "12px", borderRadius: 10, border: "none", background: "#6C5CE7", color: "white", cursor: "pointer", fontWeight: 700, fontSize: 14, fontFamily: "'Plus Jakarta Sans', sans-serif" }}>Create</button>
+        <div style={{ background: t.card, borderRadius: 12, padding: "16px 18px", boxShadow: t.cs }}>
+          <div style={{ fontWeight: 700, color: t.text, fontSize: 14, marginBottom: 10 }}>{showCreate === "joint" ? "💑 Create Joint Account" : "🏠 Create Household"}</div>
+          <input value={hhName} onChange={e => setHHName(e.target.value)} placeholder={showCreate === "joint" ? "e.g. John & Jane" : "e.g. Apartment 4B"} style={{ ...is, marginBottom: 10 }} />
+          <button onClick={() => create(showCreate)} style={{ width: "100%", padding: "10px", borderRadius: 8, border: "none", background: "#6C5CE7", color: "white", cursor: "pointer", fontWeight: 700, fontSize: 13, fontFamily: "'Plus Jakarta Sans', sans-serif" }}>Create & Get Invite Code</button>
         </div>
       )}
+
+      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        <div style={{ flex: 1, height: 1, background: t.border }} />
+        <span style={{ fontSize: 11, color: t.muted }}>or</span>
+        <div style={{ flex: 1, height: 1, background: t.border }} />
+      </div>
+
+      <button onClick={() => setShowJoin(!showJoin)} style={{ width: "100%", padding: "12px", borderRadius: 10, border: `1px solid ${t.border}`, background: "transparent", color: t.text, cursor: "pointer", fontWeight: 600, fontSize: 13, fontFamily: "'Plus Jakarta Sans', sans-serif" }}>🔗 Join with Invite Code</button>
+
       {showJoin && (
-        <div style={{ background: t.card, borderRadius: 16, padding: "18px 20px", boxShadow: t.cs }}>
-          <div style={{ fontWeight: 700, color: t.text, marginBottom: 10 }}>Enter invite code</div>
-          <input value={joinCode} onChange={e => setJoinCode(e.target.value.toUpperCase())} placeholder="e.g. A1B2C3D4" maxLength={8} style={{ width: "100%", padding: "12px 14px", borderRadius: 10, border: `2px solid ${t.border}`, background: t.inputBg || t.bg, color: t.text, fontSize: 18, fontFamily: "'Plus Jakarta Sans', sans-serif", boxSizing: "border-box", marginBottom: 10, textAlign: "center", letterSpacing: 4, textTransform: "uppercase" }} />
-          <button onClick={join} style={{ width: "100%", padding: "12px", borderRadius: 10, border: "none", background: "#10B981", color: "white", cursor: "pointer", fontWeight: 700, fontSize: 14, fontFamily: "'Plus Jakarta Sans', sans-serif" }}>Join Household</button>
+        <div style={{ background: t.card, borderRadius: 12, padding: "16px 18px", boxShadow: t.cs }}>
+          <input value={joinCode} onChange={e => setJoinCode(e.target.value.toUpperCase())} placeholder="Enter code" maxLength={8} style={{ ...is, fontSize: 18, textAlign: "center", letterSpacing: 4, textTransform: "uppercase", marginBottom: 10 }} />
+          <button onClick={join} style={{ width: "100%", padding: "10px", borderRadius: 8, border: "none", background: "#10B981", color: "white", cursor: "pointer", fontWeight: 700, fontSize: 13 }}>Join</button>
         </div>
       )}
     </div>
   );
 
-  // Has household
-  const myId = api.getUser()?.id;
-  const myTotal = hh.bills.reduce((s, b) => {
-    const mySplit = b.splits.find(sp => sp.userId === myId);
-    return s + (mySplit && !mySplit.isPaid ? mySplit.amount : 0);
-  }, 0);
-
-  return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <div style={{ fontSize: 28 }}>🏠</div>
+  // ─── HOUSEHOLD MODE (Roommates) ───
+  if (hh.mode === "household" || !hh.mode) {
+    const myTotal = hh.bills.reduce((s, b) => { const sp = b.splits.find(sp => sp.userId === myId); return s + (sp && !sp.isPaid ? sp.amount : 0); }, 0);
+    return (
+      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <div>
-            <h3 style={{ fontFamily: "'Outfit', sans-serif", color: t.text, margin: 0, fontSize: 18 }}>{hh.name}</h3>
-            <p style={{ margin: 0, fontSize: 12, color: t.sub }}>{hh.members.length} member{hh.members.length > 1 ? "s" : ""}</p>
+            <h3 style={{ fontFamily: "'Outfit', sans-serif", color: t.text, margin: 0, fontSize: 18, fontWeight: 700 }}>🏠 {hh.name}</h3>
+            <p style={{ margin: 0, fontSize: 12, color: t.sub }}>{hh.members.length} members · Household mode</p>
           </div>
+          <button onClick={() => setShowAddBill(true)} style={{ padding: "7px 12px", borderRadius: 8, border: "none", background: "#6C5CE7", color: "white", cursor: "pointer", fontWeight: 700, fontSize: 11 }}>+ Bill</button>
         </div>
-        <button onClick={() => setShowAddBill(true)} style={{ padding: "8px 14px", borderRadius: 10, border: "none", background: "#6C5CE7", color: "white", cursor: "pointer", fontWeight: 700, fontSize: 12, fontFamily: "'Plus Jakarta Sans', sans-serif" }}>+ Add Bill</button>
-      </div>
 
-      {/* Invite code */}
-      <div style={{ background: t.card, borderRadius: 14, padding: "14px 18px", boxShadow: t.cs, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <div><div style={{ fontSize: 11, color: t.sub, fontWeight: 600 }}>Invite Code</div><div style={{ fontSize: 18, fontWeight: 800, color: "#6C5CE7", fontFamily: "'Outfit', sans-serif", letterSpacing: 2 }}>{hh.inviteCode}</div></div>
-        <button onClick={() => { navigator.clipboard?.writeText(hh.inviteCode); }} style={{ padding: "8px 14px", borderRadius: 8, border: `1px solid ${t.border}`, background: "transparent", color: t.sub, cursor: "pointer", fontWeight: 600, fontSize: 11, fontFamily: "'Plus Jakarta Sans', sans-serif" }}>📋 Copy</button>
-      </div>
+        {/* Invite code */}
+        <div style={{ background: t.cardAlt, borderRadius: 10, padding: "10px 14px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <div><span style={{ fontSize: 11, color: t.sub }}>Invite: </span><span style={{ fontWeight: 800, color: "#6C5CE7", fontSize: 16, letterSpacing: 2, fontFamily: "'Outfit', sans-serif" }}>{hh.inviteCode}</span></div>
+          <button onClick={() => navigator.clipboard?.writeText(hh.inviteCode)} style={{ padding: "4px 10px", borderRadius: 6, border: `1px solid ${t.border}`, background: "transparent", color: t.sub, cursor: "pointer", fontWeight: 600, fontSize: 10 }}>Copy</button>
+        </div>
 
-      {/* Your share */}
-      <div style={{ background: t.card, borderRadius: 14, padding: "14px 18px", boxShadow: t.cs }}>
-        <div style={{ fontSize: 11, color: t.sub, fontWeight: 600, textTransform: "uppercase" }}>Your Share This Month</div>
-        <div style={{ fontSize: 24, fontWeight: 800, color: myTotal > 0 ? "#EF4444" : "#10B981", fontFamily: "'Outfit', sans-serif" }}>{formatMoney(myTotal)}</div>
-      </div>
+        {/* Your share */}
+        <div style={{ background: t.card, borderRadius: 10, padding: "12px 16px", boxShadow: t.cs }}>
+          <div style={{ fontSize: 10, color: t.sub, fontWeight: 600, textTransform: "uppercase" }}>You Owe</div>
+          <div style={{ fontSize: 22, fontWeight: 800, color: myTotal > 0 ? "#EF4444" : "#10B981", fontFamily: "'Outfit', sans-serif" }}>{formatMoney(myTotal)}</div>
+        </div>
 
-      {/* Members */}
-      <div style={{ background: t.card, borderRadius: 14, padding: "14px 18px", boxShadow: t.cs }}>
-        <div style={{ fontWeight: 700, color: t.text, fontSize: 13, marginBottom: 8 }}>👥 Members</div>
-        {hh.members.map(m => (
-          <div key={m.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "6px 0" }}>
-            <div style={{ width: 28, height: 28, borderRadius: 8, background: "#6C5CE7", color: "white", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, fontSize: 12 }}>{m.name?.charAt(0)?.toUpperCase()}</div>
-            <span style={{ fontSize: 13, fontWeight: 600, color: t.text, flex: 1 }}>{m.name}</span>
-            <span style={{ fontSize: 11, color: t.sub }}>{m.role === "owner" ? "👑 Owner" : "Member"}</span>
-          </div>
-        ))}
-      </div>
-
-      {/* Shared bills */}
-      <div style={{ fontWeight: 700, color: t.text, fontSize: 14, marginTop: 4 }}>📋 Shared Bills</div>
-      {hh.bills.map(bill => (
-        <div key={bill.id} style={{ background: t.card, borderRadius: 14, padding: "14px 18px", boxShadow: t.cs }}>
-          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
-            <div><div style={{ fontWeight: 700, color: t.text, fontSize: 14 }}>{bill.name}</div><div style={{ fontSize: 11, color: t.sub }}>Due: {bill.dueDate}th · {bill.category}</div></div>
-            <div style={{ textAlign: "right" }}><div style={{ fontWeight: 800, color: t.text, fontFamily: "'Outfit', sans-serif" }}>{formatMoney(bill.totalAmount)}</div><div style={{ fontSize: 10, color: t.sub }}>total</div></div>
-          </div>
-          {bill.splits.map(sp => (
-            <div key={sp.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "6px 8px", borderRadius: 8, background: sp.isPaid ? "#10B98108" : t.prog, marginBottom: 3 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <div style={{ width: 18, height: 18, borderRadius: 6, background: sp.isPaid ? "#10B981" : t.border, color: "white", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10 }}>{sp.isPaid ? "✓" : ""}</div>
-                <span style={{ fontSize: 12, fontWeight: 600, color: sp.isPaid ? t.sub : t.text, textDecoration: sp.isPaid ? "line-through" : "none" }}>{sp.name}</span>
-              </div>
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <span style={{ fontSize: 12, fontWeight: 700, color: sp.isPaid ? "#10B981" : t.text }}>{formatMoney(sp.amount)}</span>
-                {!sp.isPaid && sp.userId === myId && <button onClick={() => paySplit(sp.id)} style={{ padding: "4px 10px", borderRadius: 6, border: "none", background: "#10B981", color: "white", cursor: "pointer", fontWeight: 700, fontSize: 10, fontFamily: "'Plus Jakarta Sans', sans-serif" }}>Pay</button>}
-              </div>
+        {/* Members */}
+        <div style={{ display: "flex", gap: 6 }}>
+          {hh.members.map(m => (
+            <div key={m.id} style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 10px", background: t.card, borderRadius: 8, boxShadow: t.cs }}>
+              <div style={{ width: 22, height: 22, borderRadius: 6, background: "#6C5CE7", color: "white", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, fontSize: 10 }}>{m.name?.charAt(0)}</div>
+              <span style={{ fontSize: 12, fontWeight: 600, color: t.text }}>{m.name?.split(" ")[0]}</span>
             </div>
           ))}
         </div>
-      ))}
-      {!hh.bills.length && <div style={{ textAlign: "center", padding: 20, color: t.sub, fontSize: 13 }}>No shared bills yet</div>}
 
-      {/* Add bill form */}
+        {/* Shared bills */}
+        {hh.bills.map(bill => (
+          <div key={bill.id} style={{ background: t.card, borderRadius: 10, padding: "12px 16px", boxShadow: t.cs }}>
+            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
+              <div><div style={{ fontWeight: 700, color: t.text, fontSize: 13 }}>{bill.name}</div><div style={{ fontSize: 11, color: t.sub }}>Due: {bill.dueDate}th · {formatMoney(bill.totalAmount)} total</div></div>
+              <button onClick={() => deleteBill(bill.id)} style={{ width: 20, height: 20, borderRadius: 4, border: `1px solid ${t.border}`, background: "transparent", cursor: "pointer", color: t.muted, fontSize: 10, display: "flex", alignItems: "center", justifyContent: "center" }}>×</button>
+            </div>
+            {bill.splits.map(sp => (
+              <div key={sp.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "5px 8px", borderRadius: 6, background: sp.isPaid ? "#10B98108" : t.cardAlt, marginBottom: 2 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  {sp.userId === myId && !sp.isPaid ? (
+                    <button onClick={() => paySplit(sp.id)} style={{ width: 18, height: 18, borderRadius: 4, border: `1px solid ${t.border}`, background: "transparent", cursor: "pointer", fontSize: 8 }} />
+                  ) : (
+                    <div style={{ width: 18, height: 18, borderRadius: 4, background: sp.isPaid ? "#10B981" : t.border, color: "white", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10 }}>{sp.isPaid ? "✓" : ""}</div>
+                  )}
+                  <span style={{ fontSize: 12, fontWeight: 600, color: sp.isPaid ? t.sub : t.text, textDecoration: sp.isPaid ? "line-through" : "none" }}>{sp.name?.split(" ")[0]}</span>
+                </div>
+                <span style={{ fontSize: 12, fontWeight: 700, color: sp.isPaid ? "#10B981" : t.text }}>{formatMoney(sp.amount)}</span>
+              </div>
+            ))}
+          </div>
+        ))}
+        {!hh.bills.length && <div style={{ textAlign: "center", padding: 20, color: t.sub, fontSize: 12 }}>No shared bills yet. Add one to start splitting.</div>}
+
+        {/* Add bill form */}
+        {showAddBill && (
+          <div style={{ background: t.card, borderRadius: 12, padding: "14px 16px", boxShadow: t.cs }}>
+            <input value={billForm.name} onChange={e => setBillForm(p => ({ ...p, name: e.target.value }))} placeholder="Bill name (e.g. Rent)" style={{ ...is, marginBottom: 6 }} />
+            <div style={{ display: "flex", gap: 6, marginBottom: 8 }}>
+              <input type="number" value={billForm.totalAmount} onChange={e => setBillForm(p => ({ ...p, totalAmount: e.target.value }))} placeholder="Total $" style={{ ...is, flex: 1 }} />
+              <input type="number" value={billForm.dueDate} onChange={e => setBillForm(p => ({ ...p, dueDate: e.target.value }))} placeholder="Due day" min="1" max="31" style={{ ...is, flex: 1 }} />
+            </div>
+            <div style={{ display: "flex", gap: 6 }}>
+              <button onClick={() => setShowAddBill(false)} style={{ flex: 1, padding: "8px", borderRadius: 6, border: `1px solid ${t.border}`, background: "transparent", color: t.sub, cursor: "pointer", fontWeight: 600, fontSize: 11 }}>Cancel</button>
+              <button onClick={addBill} style={{ flex: 2, padding: "8px", borderRadius: 6, border: "none", background: "#6C5CE7", color: "white", cursor: "pointer", fontWeight: 700, fontSize: 11 }}>Split Evenly</button>
+            </div>
+          </div>
+        )}
+
+        <button onClick={leave} style={{ padding: "8px", borderRadius: 8, border: `1px solid #EF4444`, background: "transparent", color: "#EF4444", cursor: "pointer", fontWeight: 600, fontSize: 11, marginTop: 8 }}>{hh.isOwner ? "Delete Household" : "Leave"}</button>
+      </div>
+    );
+  }
+
+  // ─── JOINT MODE (Partners) ───
+  const md = hh.memberData || {};
+  const memberIds = hh.members.map(m => m.id);
+  const memberNames = {};
+  hh.members.forEach(m => { memberNames[m.id] = m.name?.split(" ")[0] || "Partner"; });
+
+  // Build filtered data based on jointFilter
+  const getFilteredData = () => {
+    const ids = jointFilter === "all" ? memberIds : [parseInt(jointFilter)];
+    const filtered = { bills: [], cards: [], accounts: [], transactions: [] };
+    ids.forEach(id => {
+      const d = md[id];
+      if (!d) return;
+      filtered.bills.push(...d.bills.map(b => ({ ...b, owner: memberNames[id], ownerId: id })));
+      filtered.cards.push(...d.cards.map(c => ({ ...c, owner: memberNames[id], ownerId: id })));
+      filtered.accounts.push(...d.accounts.map(a => ({ ...a, owner: memberNames[id], ownerId: id })));
+      filtered.transactions.push(...d.transactions.map(tx => ({ ...tx, owner: memberNames[id], ownerId: id })));
+    });
+    filtered.transactions.sort((a, b) => b.date.localeCompare(a.date));
+    return filtered;
+  };
+  const fd = getFilteredData();
+  const totalBalance = fd.accounts.reduce((s, a) => s + a.balanceCurrent, 0);
+  const totalDebt = fd.cards.reduce((s, c) => s + c.balance, 0);
+  const totalBills = fd.bills.reduce((s, b) => s + b.amount, 0);
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+      {/* Header */}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <div>
+          <h3 style={{ fontFamily: "'Outfit', sans-serif", color: t.text, margin: 0, fontSize: 18, fontWeight: 700 }}>💑 {hh.name}</h3>
+          <p style={{ margin: 0, fontSize: 12, color: t.sub }}>Joint finances · {hh.members.length} partners</p>
+        </div>
+        <div style={{ display: "flex", gap: 4 }}>
+          <button onClick={() => setShowAddBill(true)} style={{ padding: "6px 10px", borderRadius: 6, border: "none", background: "#6C5CE7", color: "white", cursor: "pointer", fontWeight: 700, fontSize: 10 }}>+ Shared Bill</button>
+        </div>
+      </div>
+
+      {/* Invite code */}
+      <div style={{ background: t.cardAlt, borderRadius: 8, padding: "8px 12px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <div><span style={{ fontSize: 10, color: t.sub }}>Invite: </span><span style={{ fontWeight: 800, color: "#6C5CE7", fontSize: 14, letterSpacing: 2 }}>{hh.inviteCode}</span></div>
+        <button onClick={() => navigator.clipboard?.writeText(hh.inviteCode)} style={{ padding: "3px 8px", borderRadius: 4, border: `1px solid ${t.border}`, background: "transparent", color: t.sub, cursor: "pointer", fontWeight: 600, fontSize: 9 }}>Copy</button>
+      </div>
+
+      {/* Person filter — the key feature */}
+      <div style={{ display: "flex", gap: 3, background: t.cardAlt, borderRadius: 8, padding: 3 }}>
+        <button onClick={() => setJointFilter("all")} style={{ flex: 1, padding: "7px 8px", borderRadius: 6, border: "none", background: jointFilter === "all" ? "#6C5CE7" : "transparent", color: jointFilter === "all" ? "white" : t.sub, cursor: "pointer", fontWeight: 600, fontSize: 11 }}>👥 Both</button>
+        {hh.members.map(m => (
+          <button key={m.id} onClick={() => setJointFilter(String(m.id))} style={{ flex: 1, padding: "7px 8px", borderRadius: 6, border: "none", background: jointFilter === String(m.id) ? "#6C5CE7" : "transparent", color: jointFilter === String(m.id) ? "white" : t.sub, cursor: "pointer", fontWeight: 600, fontSize: 11 }}>{m.id === myId ? "🙋 Me" : `👤 ${m.name?.split(" ")[0]}`}</button>
+        ))}
+      </div>
+
+      {/* Combined summary */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 6 }}>
+        <div style={{ background: t.card, borderRadius: 10, padding: "10px 12px", boxShadow: t.cs }}>
+          <div style={{ fontSize: 9, color: t.sub, fontWeight: 600, textTransform: "uppercase" }}>Balance</div>
+          <div style={{ fontSize: 16, fontWeight: 800, color: "#10B981", fontFamily: "'Outfit', sans-serif" }}>{formatMoney(totalBalance)}</div>
+        </div>
+        <div style={{ background: t.card, borderRadius: 10, padding: "10px 12px", boxShadow: t.cs }}>
+          <div style={{ fontSize: 9, color: t.sub, fontWeight: 600, textTransform: "uppercase" }}>Card Debt</div>
+          <div style={{ fontSize: 16, fontWeight: 800, color: totalDebt > 0 ? "#EF4444" : "#10B981", fontFamily: "'Outfit', sans-serif" }}>{formatMoney(totalDebt)}</div>
+        </div>
+        <div style={{ background: t.card, borderRadius: 10, padding: "10px 12px", boxShadow: t.cs }}>
+          <div style={{ fontSize: 9, color: t.sub, fontWeight: 600, textTransform: "uppercase" }}>Bills/mo</div>
+          <div style={{ fontSize: 16, fontWeight: 800, color: t.text, fontFamily: "'Outfit', sans-serif" }}>{formatMoney(totalBills)}</div>
+        </div>
+      </div>
+
+      {/* View tabs */}
+      <div style={{ display: "flex", gap: 3, background: t.cardAlt, borderRadius: 8, padding: 3 }}>
+        {[["overview", "Overview"], ["bills", "Bills"], ["transactions", "Transactions"], ["accounts", "Accounts"], ["cards", "Cards"]].map(([k, l]) => (
+          <button key={k} onClick={() => setJointView(k)} style={{ flex: 1, padding: "6px 4px", borderRadius: 6, border: "none", background: jointView === k ? t.card : "transparent", color: jointView === k ? t.text : t.muted, cursor: "pointer", fontWeight: 600, fontSize: 10, boxShadow: jointView === k ? t.cs : "none" }}>{l}</button>
+        ))}
+      </div>
+
+      {/* Overview */}
+      {jointView === "overview" && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          {/* Shared bills */}
+          {hh.bills.length > 0 && (
+            <div style={{ background: t.card, borderRadius: 10, padding: "12px 16px", boxShadow: t.cs }}>
+              <div style={{ fontWeight: 700, color: t.text, fontSize: 13, marginBottom: 8 }}>Shared Bills</div>
+              {hh.bills.map(b => (
+                <div key={b.id} style={{ display: "flex", justifyContent: "space-between", padding: "5px 0", borderBottom: `1px solid ${t.border}` }}>
+                  <span style={{ fontSize: 12, color: t.text }}>{b.name}</span>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: t.text }}>{formatMoney(b.totalAmount)}</span>
+                </div>
+              ))}
+            </div>
+          )}
+          {/* Per-person summary */}
+          {hh.members.map(m => {
+            const d = md[m.id];
+            if (!d) return null;
+            const bal = d.accounts.reduce((s, a) => s + a.balanceCurrent, 0);
+            const debt = d.cards.reduce((s, c) => s + c.balance, 0);
+            const bills = d.bills.reduce((s, b) => s + b.amount, 0);
+            return (
+              <div key={m.id} style={{ background: t.card, borderRadius: 10, padding: "12px 16px", boxShadow: t.cs }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+                  <div style={{ width: 24, height: 24, borderRadius: 6, background: "#6C5CE7", color: "white", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, fontSize: 11 }}>{m.name?.charAt(0)}</div>
+                  <span style={{ fontWeight: 700, color: t.text, fontSize: 13 }}>{m.name}</span>
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 6 }}>
+                  <div><div style={{ fontSize: 9, color: t.sub }}>Bank</div><div style={{ fontSize: 13, fontWeight: 700, color: "#10B981" }}>{formatMoney(bal)}</div></div>
+                  <div><div style={{ fontSize: 9, color: t.sub }}>Debt</div><div style={{ fontSize: 13, fontWeight: 700, color: debt > 0 ? "#EF4444" : "#10B981" }}>{formatMoney(debt)}</div></div>
+                  <div><div style={{ fontSize: 9, color: t.sub }}>Bills</div><div style={{ fontSize: 13, fontWeight: 700, color: t.text }}>{formatMoney(bills)}/mo</div></div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Bills */}
+      {jointView === "bills" && fd.bills.map(b => (
+        <div key={`${b.ownerId}-${b.id}`} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", background: t.card, borderRadius: 10, boxShadow: t.cs }}>
+          <div style={{ width: 28, height: 28, borderRadius: 6, background: b.isPaid ? "#10B98115" : "#EF444415", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12 }}>{b.isPaid ? "✅" : "📋"}</div>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 13, fontWeight: 600, color: t.text }}>{b.name}</div>
+            <div style={{ fontSize: 11, color: t.sub }}>Due: {b.dueDate}th · {b.owner}</div>
+          </div>
+          <div style={{ fontWeight: 700, fontSize: 13, color: t.text, fontFamily: "'Outfit', sans-serif" }}>{formatMoney(b.amount)}</div>
+        </div>
+      ))}
+      {jointView === "bills" && !fd.bills.length && <div style={{ textAlign: "center", padding: 20, color: t.sub, fontSize: 12 }}>No bills</div>}
+
+      {/* Transactions */}
+      {jointView === "transactions" && fd.transactions.map(tx => (
+        <div key={`${tx.ownerId}-${tx.id}`} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", background: t.card, borderRadius: 8, boxShadow: t.cs }}>
+          <div style={{ width: 28, height: 28, borderRadius: 6, background: tx.amount > 0 ? "#EF444410" : "#10B98110", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12 }}>{tx.amount > 0 ? "💸" : "💵"}</div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 12, fontWeight: 600, color: t.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{tx.name}</div>
+            <div style={{ fontSize: 10, color: t.sub }}>{tx.date} · {tx.owner} · {tx.accountName || ""}</div>
+          </div>
+          <div style={{ fontWeight: 700, fontSize: 12, color: tx.amount > 0 ? "#EF4444" : "#10B981", fontFamily: "'Outfit', sans-serif" }}>{tx.amount > 0 ? "-" : "+"}{formatMoney(Math.abs(tx.amount))}</div>
+        </div>
+      ))}
+      {jointView === "transactions" && !fd.transactions.length && <div style={{ textAlign: "center", padding: 20, color: t.sub, fontSize: 12 }}>No transactions</div>}
+
+      {/* Accounts */}
+      {jointView === "accounts" && fd.accounts.map(a => (
+        <div key={`${a.ownerId}-${a.id}`} style={{ background: t.card, borderRadius: 10, padding: "12px 16px", boxShadow: t.cs }}>
+          <div style={{ display: "flex", justifyContent: "space-between" }}>
+            <div>
+              <div style={{ fontWeight: 600, color: t.text, fontSize: 13 }}>{a.name}</div>
+              <div style={{ fontSize: 11, color: t.sub }}>{a.owner} · {a.institution} · ••••{a.mask}</div>
+            </div>
+            <div style={{ textAlign: "right" }}>
+              <div style={{ fontWeight: 800, color: t.text, fontSize: 16, fontFamily: "'Outfit', sans-serif" }}>{formatMoney(a.balanceCurrent)}</div>
+              {a.balanceAvailable > 0 && a.balanceAvailable !== a.balanceCurrent && <div style={{ fontSize: 10, color: "#10B981" }}>{formatMoney(a.balanceAvailable)} avail</div>}
+            </div>
+          </div>
+        </div>
+      ))}
+      {jointView === "accounts" && !fd.accounts.length && <div style={{ textAlign: "center", padding: 20, color: t.sub, fontSize: 12 }}>No accounts connected</div>}
+
+      {/* Cards */}
+      {jointView === "cards" && fd.cards.map(c => {
+        const pct = c.creditLimit > 0 ? (c.balance / c.creditLimit * 100) : 0;
+        return (
+          <div key={`${c.ownerId}-${c.id}`} style={{ background: t.card, borderRadius: 10, padding: "12px 16px", boxShadow: t.cs }}>
+            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
+              <div><div style={{ fontWeight: 600, color: t.text, fontSize: 13 }}>{c.name}</div><div style={{ fontSize: 11, color: t.sub }}>{c.owner} · {c.apr}% APR</div></div>
+              <div style={{ textAlign: "right" }}><div style={{ fontWeight: 800, color: t.text, fontSize: 16, fontFamily: "'Outfit', sans-serif" }}>{formatMoney(c.balance)}</div><div style={{ fontSize: 10, color: "#10B981" }}>{formatMoney(c.creditLimit - c.balance)} avail</div></div>
+            </div>
+            <div style={{ height: 4, background: t.prog, borderRadius: 2, overflow: "hidden" }}>
+              <div style={{ height: "100%", borderRadius: 2, background: pct > 50 ? "#EF4444" : pct > 30 ? "#F59E0B" : "#10B981", width: `${Math.min(pct, 100)}%` }} />
+            </div>
+          </div>
+        );
+      })}
+      {jointView === "cards" && !fd.cards.length && <div style={{ textAlign: "center", padding: 20, color: t.sub, fontSize: 12 }}>No credit cards</div>}
+
+      {/* Add shared bill */}
       {showAddBill && (
-        <div style={{ background: t.card, borderRadius: 16, padding: "18px 20px", boxShadow: t.cs }}>
-          <div style={{ fontWeight: 700, color: t.text, marginBottom: 10 }}>Add Shared Bill</div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            <input value={billForm.name} onChange={e => setBillForm(p => ({ ...p, name: e.target.value }))} placeholder="Bill name" style={{ padding: "10px 12px", borderRadius: 8, border: `2px solid ${t.border}`, background: t.bg, color: t.text, fontSize: 13, fontFamily: "'Plus Jakarta Sans', sans-serif" }} />
-            <div style={{ display: "flex", gap: 8 }}>
-              <input type="number" value={billForm.totalAmount} onChange={e => setBillForm(p => ({ ...p, totalAmount: e.target.value }))} placeholder="Total $" style={{ flex: 1, padding: "10px 12px", borderRadius: 8, border: `2px solid ${t.border}`, background: t.bg, color: t.text, fontSize: 13, fontFamily: "'Plus Jakarta Sans', sans-serif" }} />
-              <input type="number" value={billForm.dueDate} onChange={e => setBillForm(p => ({ ...p, dueDate: e.target.value }))} placeholder="Due day" min="1" max="31" style={{ flex: 1, padding: "10px 12px", borderRadius: 8, border: `2px solid ${t.border}`, background: t.bg, color: t.text, fontSize: 13, fontFamily: "'Plus Jakarta Sans', sans-serif" }} />
-            </div>
-            <div style={{ display: "flex", gap: 8 }}>
-              <button onClick={() => setShowAddBill(false)} style={{ flex: 1, padding: "10px", borderRadius: 8, border: `2px solid ${t.border}`, background: "transparent", color: t.sub, cursor: "pointer", fontWeight: 700, fontSize: 12, fontFamily: "'Plus Jakarta Sans', sans-serif" }}>Cancel</button>
-              <button onClick={addBill} style={{ flex: 2, padding: "10px", borderRadius: 8, border: "none", background: "#6C5CE7", color: "white", cursor: "pointer", fontWeight: 700, fontSize: 12, fontFamily: "'Plus Jakarta Sans', sans-serif" }}>Add & Split Evenly</button>
-            </div>
+        <div style={{ background: t.card, borderRadius: 12, padding: "14px 16px", boxShadow: t.cs }}>
+          <div style={{ fontWeight: 700, color: t.text, fontSize: 13, marginBottom: 8 }}>Add Shared Bill</div>
+          <input value={billForm.name} onChange={e => setBillForm(p => ({ ...p, name: e.target.value }))} placeholder="Bill name" style={{ ...is, marginBottom: 6 }} />
+          <div style={{ display: "flex", gap: 6, marginBottom: 8 }}>
+            <input type="number" value={billForm.totalAmount} onChange={e => setBillForm(p => ({ ...p, totalAmount: e.target.value }))} placeholder="Total $" style={{ ...is, flex: 1 }} />
+            <input type="number" value={billForm.dueDate} onChange={e => setBillForm(p => ({ ...p, dueDate: e.target.value }))} placeholder="Day" min="1" max="31" style={{ ...is, flex: 1 }} />
+          </div>
+          <div style={{ display: "flex", gap: 6 }}>
+            <button onClick={() => setShowAddBill(false)} style={{ flex: 1, padding: "8px", borderRadius: 6, border: `1px solid ${t.border}`, background: "transparent", color: t.sub, cursor: "pointer", fontWeight: 600, fontSize: 11 }}>Cancel</button>
+            <button onClick={addBill} style={{ flex: 2, padding: "8px", borderRadius: 6, border: "none", background: "#6C5CE7", color: "white", cursor: "pointer", fontWeight: 700, fontSize: 11 }}>Split Evenly</button>
           </div>
         </div>
       )}
 
-      <button onClick={leave} style={{ padding: "10px", borderRadius: 10, border: `1px solid #EF4444`, background: "transparent", color: "#EF4444", cursor: "pointer", fontWeight: 600, fontSize: 12, fontFamily: "'Plus Jakarta Sans', sans-serif", marginTop: 8 }}>{hh.isOwner ? "🗑️ Delete Household" : "Leave Household"}</button>
+      <button onClick={leave} style={{ padding: "8px", borderRadius: 8, border: `1px solid #EF4444`, background: "transparent", color: "#EF4444", cursor: "pointer", fontWeight: 600, fontSize: 11, marginTop: 4 }}>{hh.isOwner ? "Delete Joint Account" : "Leave"}</button>
     </div>
   );
 }
