@@ -85,6 +85,21 @@ export const api = {
   payHouseholdSplit: (splitId) => request(`/household/splits/${splitId}/pay`, { method: "PATCH" }),
   leaveHousehold: () => request("/household/leave", { method: "DELETE" }),
 
+  // Subscriptions
+  detectSubscriptions: () => request("/subscriptions/detect"),
+
+  // Activity Feed
+  getActivity: (days, type) => request(`/activity?days=${days || 30}&type=${type || "all"}`),
+
+  // Savings
+  getSavingsAdvice: () => request("/savings/advisor"),
+  createSavingsGoal: (goal) => request("/savings/goals", { method: "POST", body: JSON.stringify(goal) }),
+  updateSavingsGoal: (id, addAmount) => request(`/savings/goals/${id}`, { method: "PATCH", body: JSON.stringify({ addAmount }) }),
+  deleteSavingsGoal: (id) => request(`/savings/goals/${id}`, { method: "DELETE" }),
+
+  // User Preferences
+  updatePreferences: (prefs) => request("/auth/preferences", { method: "PATCH", body: JSON.stringify(prefs) }),
+
   // Credit Cards
   getCards: () => request("/cards"),
   createCard: (card) => request("/cards", { method: "POST", body: JSON.stringify(card) }),

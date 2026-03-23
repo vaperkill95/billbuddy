@@ -44,6 +44,9 @@ app.use("/api/forecast", forecastRouter);
 app.use("/api/alerts", alertsRouter);
 app.use("/api/negotiate", negotiateRouter);
 app.use("/api/household", householdRouter);
+app.use("/api/subscriptions", require("./routes/subscriptions"));
+app.use("/api/activity", require("./routes/activity"));
+app.use("/api/savings", require("./routes/savings"));
 
 app.get("/api/health", async (req, res) => {
   try {
@@ -255,10 +258,43 @@ async function initDB() {
     const migrations = [
       "ALTER TABLE users ADD COLUMN IF NOT EXISTS calendar_token VARCHAR(255) UNIQUE",
       "ALTER TABLE users ADD COLUMN IF NOT EXISTS last_reset_month VARCHAR(10)",
+      // Dark mode persistence
+      "ALTER TABLE users ADD COLUMN IF NOT EXISTS dark_mode BOOLEAN DEFAULT false",
+      // Flexible bill frequencies
+      "ALTER TABLE bills ADD COLUMN IF NOT EXISTS frequency VARCHAR(20) DEFAULT 'monthly'",
+      "ALTER TABLE bills ADD COLUMN IF NOT EXISTS end_amount DECIMAL(12,2)",
+      "ALTER TABLE bills ADD COLUMN IF NOT EXISTS total_paid_amount DECIMAL(12,2) DEFAULT 0",
+      "ALTER TABLE bills ADD COLUMN IF NOT EXISTS next_due_date DATE",
+      // Savings goals
+      "ALTER TABLE users ADD COLUMN IF NOT EXISTS ez_pass_enabled BOOLEAN DEFAULT false",
+      "ALTER TABLE users ADD COLUMN IF NOT EXISTS ez_pass_reload_amount DECIMAL(10,2) DEFAULT 50",
+      // Household sharing preferences
+      "ALTER TABLE household_members ADD COLUMN IF NOT EXISTS share_bank BOOLEAN DEFAULT true",
+      "ALTER TABLE household_members ADD COLUMN IF NOT EXISTS share_transactions BOOLEAN DEFAULT true",
+      "ALTER TABLE household_members ADD COLUMN IF NOT EXISTS share_bills BOOLEAN DEFAULT true",
+      "ALTER TABLE household_members ADD COLUMN IF NOT EXISTS share_cards BOOLEAN DEFAULT false",
+      "ALTER TABLE household_members ADD COLUMN IF NOT EXISTS share_income BOOLEAN DEFAULT false",
     ];
     for (const sql of migrations) {
       try { await pool.query(sql); } catch (e) { /* column may already exist */ }
     }
+
+    // Create savings goals table
+    try {
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS savings_goals (
+          id SERIAL PRIMARY KEY,
+          user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          name VARCHAR(255) NOT NULL,
+          target_amount DECIMAL(12,2) NOT NULL,
+          current_amount DECIMAL(12,2) DEFAULT 0,
+          account_type VARCHAR(50) DEFAULT 'general',
+          linked_account_id VARCHAR(255),
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+        );
+        CREATE INDEX IF NOT EXISTS idx_savings_goals_user ON savings_goals(user_id);
+      `);
+    } catch (e) { /* already exists */ }
 
     console.log("✅ Database tables ready");
   } catch (err) {

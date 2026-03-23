@@ -227,7 +227,8 @@ function BillRow({ bill, onToggle, onDelete, t }) {
         <div style={{ fontWeight: 700, color: t.text, fontSize: 14, textDecoration: bill.isPaid ? "line-through" : "none", opacity: bill.isPaid ? 0.5 : 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{bill.name}</div>
         <div style={{ fontSize: 11, color: t.sub, marginTop: 2, display: "flex", flexWrap: "wrap", gap: 6, alignItems: "center" }}>
           Due: {bill.dueDate}th · {bill.category}
-          {bill.isRecurring && <span style={{ background: t.tag, color: "#6C5CE7", padding: "1px 6px", borderRadius: 6, fontSize: 10, fontWeight: 700 }}>RECURRING</span>}
+          {bill.isRecurring && <span style={{ background: t.tag, color: "#6C5CE7", padding: "1px 6px", borderRadius: 6, fontSize: 10, fontWeight: 700 }}>{bill.frequency === "weekly" ? "WEEKLY" : bill.frequency === "biweekly" ? "BIWEEKLY" : bill.frequency === "daily" ? "DAILY" : "MONTHLY"}</span>}
+          {bill.endAmount > 0 && <span style={{ background: "#FDCB6E20", color: "#F39C12", padding: "1px 6px", borderRadius: 6, fontSize: 10, fontWeight: 700 }}>{formatMoney(bill.totalPaidAmount || 0)}/{formatMoney(bill.endAmount)}</span>}
           {bill.reminder && bill.reminder !== "none" && <span style={{ background: "#FFF8E1", color: "#F39C12", padding: "1px 6px", borderRadius: 6, fontSize: 10, fontWeight: 700 }}>🔔 {reminderLabel(bill.reminder)}</span>}
         </div>
       </div>
@@ -378,6 +379,240 @@ function CalendarView({ bills, cards, t, onMoveBill }) {
         {(cards || []).some(c => c.balance > 0) && <div style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11, color: t.sub }}><div style={{ width: 8, height: 8, borderRadius: 4, background: "#FF6B6B" }} />💳 Credit Card</div>}
         <div style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11, color: t.sub }}><div style={{ width: 8, height: 8, borderRadius: 4, background: "#4ECDC4", opacity: 0.5 }} />Paid</div>
       </div>
+    </div>
+  );
+}
+
+function ActivityView({ t }) {
+  const [activity, setActivity] = useState(null);
+  const [days, setDays] = useState(30);
+  const [filter, setFilter] = useState("all");
+  const [loading, setLoading] = useState(true);
+
+  const load = async () => {
+    setLoading(true);
+    try { const data = await api.getActivity(days, filter); setActivity(data); }
+    catch (err) { console.error(err); }
+    finally { setLoading(false); }
+  };
+  useEffect(() => { load(); }, [days, filter]);
+
+  if (loading && !activity) return <div style={{ textAlign: "center", padding: 60, color: t.sub }}>Loading activity...</div>;
+  if (!activity) return null;
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+        <div style={{ fontSize: 28 }}>📋</div>
+        <div>
+          <h3 style={{ fontFamily: "'Fredoka'", color: t.text, margin: 0, fontSize: 18 }}>All Activity</h3>
+          <p style={{ margin: 0, fontSize: 12, color: t.sub }}>{activity.summary.transactionCount} transactions</p>
+        </div>
+      </div>
+      {/* Summary */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
+        <div style={{ background: t.card, borderRadius: 12, padding: "10px 14px", boxShadow: t.cs }}>
+          <div style={{ fontSize: 9, color: t.sub, fontWeight: 600, textTransform: "uppercase" }}>Money In</div>
+          <div style={{ fontSize: 16, fontWeight: 800, color: "#4ECDC4", fontFamily: "'Fredoka'" }}>+{formatMoney(activity.summary.totalIn)}</div>
+        </div>
+        <div style={{ background: t.card, borderRadius: 12, padding: "10px 14px", boxShadow: t.cs }}>
+          <div style={{ fontSize: 9, color: t.sub, fontWeight: 600, textTransform: "uppercase" }}>Money Out</div>
+          <div style={{ fontSize: 16, fontWeight: 800, color: "#FF6B6B", fontFamily: "'Fredoka'" }}>-{formatMoney(activity.summary.totalOut)}</div>
+        </div>
+        <div style={{ background: t.card, borderRadius: 12, padding: "10px 14px", boxShadow: t.cs }}>
+          <div style={{ fontSize: 9, color: t.sub, fontWeight: 600, textTransform: "uppercase" }}>Pending</div>
+          <div style={{ fontSize: 16, fontWeight: 800, color: "#FDCB6E", fontFamily: "'Fredoka'" }}>{activity.summary.pendingCount}</div>
+        </div>
+      </div>
+      {/* Filters */}
+      <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+        {[["all", "All"], ["in", "💵 Money In"], ["out", "💸 Money Out"], ["pending", "⏳ Pending"]].map(([k, l]) => (
+          <button key={k} onClick={() => setFilter(k)} style={{ padding: "6px 12px", borderRadius: 8, border: "none", background: filter === k ? "linear-gradient(135deg, #6C5CE7, #A29BFE)" : t.pill, color: filter === k ? "white" : t.sub, cursor: "pointer", fontWeight: 700, fontSize: 11, fontFamily: "'DM Sans'" }}>{l}</button>
+        ))}
+        <div style={{ flex: 1 }} />
+        {[7, 14, 30, 60, 90].map(d => (
+          <button key={d} onClick={() => setDays(d)} style={{ padding: "6px 10px", borderRadius: 8, border: "none", background: days === d ? t.card : "transparent", color: days === d ? t.text : t.muted, cursor: "pointer", fontWeight: 700, fontSize: 10, fontFamily: "'DM Sans'", boxShadow: days === d ? t.cs : "none" }}>{d}d</button>
+        ))}
+      </div>
+      {/* Transaction list grouped by date */}
+      {Object.entries(activity.grouped).map(([date, txns]) => (
+        <div key={date}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: t.sub, padding: "6px 4px", position: "sticky", top: 0, background: t.bg, zIndex: 1 }}>{new Date(date + "T12:00:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}</div>
+          {txns.map(tx => (
+            <div key={tx.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", background: t.card, borderRadius: 12, boxShadow: t.cs, marginBottom: 4, opacity: tx.pending ? 0.7 : 1 }}>
+              <div style={{ width: 32, height: 32, borderRadius: 8, background: tx.isIncome ? "#4ECDC410" : "#FF6B6B10", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, flexShrink: 0 }}>
+                {tx.pending ? "⏳" : tx.isIncome ? "💵" : "💸"}
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 12, fontWeight: 600, color: t.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{tx.name}</div>
+                <div style={{ fontSize: 10, color: t.sub }}>{tx.accountName} {tx.mask ? `••••${tx.mask}` : ""}{tx.pending ? " · Pending" : ""}</div>
+              </div>
+              <div style={{ fontWeight: 800, fontSize: 13, color: tx.isIncome ? "#4ECDC4" : "#FF6B6B", fontFamily: "'Fredoka'", flexShrink: 0 }}>
+                {tx.isIncome ? "+" : "-"}{formatMoney(Math.abs(tx.amount))}
+              </div>
+            </div>
+          ))}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function SubscriptionDetector({ t }) {
+  const [subs, setSubs] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [adding, setAdding] = useState(null);
+
+  useEffect(() => {
+    (async () => {
+      try { const data = await api.detectSubscriptions(); setSubs(data.detected || []); }
+      catch (err) { console.error(err); }
+      finally { setLoading(false); }
+    })();
+  }, []);
+
+  const addAsBill = async (sub) => {
+    setAdding(sub.name);
+    try {
+      await api.createBill({ name: sub.name, amount: sub.amount, dueDate: sub.suggestedDueDate, category: sub.category, isRecurring: true });
+      setSubs(prev => prev.filter(s => s.name !== sub.name));
+    } catch (err) { console.error(err); }
+    finally { setAdding(null); }
+  };
+
+  if (loading) return <div style={{ textAlign: "center", padding: 60, color: t.sub }}>Scanning your transactions for recurring charges...</div>;
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+        <div style={{ fontSize: 28 }}>🔍</div>
+        <div>
+          <h3 style={{ fontFamily: "'Fredoka'", color: t.text, margin: 0, fontSize: 18 }}>Detected Subscriptions</h3>
+          <p style={{ margin: 0, fontSize: 12, color: t.sub }}>Recurring charges found in your bank statements</p>
+        </div>
+      </div>
+      {subs.length === 0 && <div style={{ background: t.card, borderRadius: 14, padding: "24px 18px", boxShadow: t.cs, textAlign: "center" }}><div style={{ fontSize: 28, marginBottom: 8 }}>✅</div><div style={{ fontWeight: 700, color: t.text, fontSize: 14 }}>All caught up!</div><div style={{ fontSize: 12, color: t.sub, marginTop: 4 }}>No untracked recurring charges found.</div></div>}
+      {subs.map(sub => (
+        <div key={sub.name} style={{ background: t.card, borderRadius: 14, padding: "14px 18px", boxShadow: t.cs }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+            <div>
+              <div style={{ fontWeight: 700, color: t.text, fontSize: 14 }}>{sub.name}</div>
+              <div style={{ fontSize: 11, color: t.sub }}>{sub.category} · {sub.frequency} · {sub.occurrences}x in 90 days</div>
+            </div>
+            <div style={{ fontSize: 16, fontWeight: 800, color: t.text, fontFamily: "'Fredoka'" }}>{formatMoney(sub.amount)}</div>
+          </div>
+          <div style={{ display: "flex", gap: 8 }}>
+            <button onClick={() => addAsBill(sub)} disabled={adding === sub.name} style={{ flex: 1, padding: "8px", borderRadius: 8, border: "none", background: "linear-gradient(135deg, #6C5CE7, #A29BFE)", color: "white", cursor: "pointer", fontWeight: 700, fontSize: 11, fontFamily: "'DM Sans'" }}>
+              {adding === sub.name ? "Adding..." : "📋 Add as Bill"}
+            </button>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function SavingsAdvisor({ t }) {
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [showGoalForm, setShowGoalForm] = useState(false);
+  const [goalName, setGoalName] = useState("");
+  const [goalTarget, setGoalTarget] = useState("");
+  const [goalType, setGoalType] = useState("general");
+
+  const load = async () => {
+    try { const d = await api.getSavingsAdvice(); setData(d); }
+    catch (err) { console.error(err); }
+    finally { setLoading(false); }
+  };
+  useEffect(() => { load(); }, []);
+
+  const createGoal = async () => {
+    try { await api.createSavingsGoal({ name: goalName, targetAmount: parseFloat(goalTarget), accountType: goalType }); setShowGoalForm(false); setGoalName(""); setGoalTarget(""); load(); } catch (err) { console.error(err); }
+  };
+
+  if (loading) return <div style={{ textAlign: "center", padding: 60, color: t.sub }}>Calculating your savings potential...</div>;
+  if (!data) return null;
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+        <div style={{ fontSize: 28 }}>🐷</div>
+        <div>
+          <h3 style={{ fontFamily: "'Fredoka'", color: t.text, margin: 0, fontSize: 18 }}>Savings Advisor</h3>
+          <p style={{ margin: 0, fontSize: 12, color: t.sub }}>How much you can put aside</p>
+        </div>
+      </div>
+      {/* Big savings number */}
+      <div style={{ background: "linear-gradient(135deg, #4ECDC4, #45B7D1)", borderRadius: 16, padding: "20px 22px", color: "white" }}>
+        <div style={{ fontSize: 12, opacity: 0.9 }}>You can save</div>
+        <div style={{ display: "flex", gap: 20, alignItems: "baseline", marginTop: 6 }}>
+          <div>
+            <div style={{ fontSize: 28, fontWeight: 800, fontFamily: "'Fredoka'" }}>{formatMoney(data.savings.perPaycheck)}</div>
+            <div style={{ fontSize: 11, opacity: 0.8 }}>{data.savings.paycheckLabel}</div>
+          </div>
+          <div>
+            <div style={{ fontSize: 20, fontWeight: 800, fontFamily: "'Fredoka'" }}>{formatMoney(data.savings.conservative)}</div>
+            <div style={{ fontSize: 11, opacity: 0.8 }}>per month (comfortable)</div>
+          </div>
+        </div>
+      </div>
+      {/* Breakdown */}
+      <div style={{ background: t.card, borderRadius: 14, padding: "14px 18px", boxShadow: t.cs }}>
+        <div style={{ fontWeight: 700, color: t.text, fontSize: 13, marginBottom: 8 }}>📊 Your Numbers</div>
+        {[
+          ["Monthly Income", formatMoney(data.income.monthly), "#4ECDC4"],
+          ["Fixed Bills", `-${formatMoney(data.expenses.bills)}`, "#FF6B6B"],
+          ["Card Minimums", `-${formatMoney(data.expenses.cardMins)}`, "#FF6B6B"],
+          ["Other Spending", `-${formatMoney(data.expenses.discretionary)}`, "#FDCB6E"],
+        ].map(([label, val, color]) => (
+          <div key={label} style={{ display: "flex", justifyContent: "space-between", padding: "5px 0", borderBottom: `1px solid ${t.border}` }}>
+            <span style={{ fontSize: 12, color: t.sub }}>{label}</span>
+            <span style={{ fontSize: 12, fontWeight: 700, color }}>{val}</span>
+          </div>
+        ))}
+        <div style={{ display: "flex", justifyContent: "space-between", padding: "8px 0 0", marginTop: 4 }}>
+          <span style={{ fontSize: 13, fontWeight: 700, color: t.text }}>💰 Available to Save</span>
+          <span style={{ fontSize: 14, fontWeight: 800, color: data.savings.potential >= 0 ? "#4ECDC4" : "#FF6B6B", fontFamily: "'Fredoka'" }}>{formatMoney(data.savings.potential)}</span>
+        </div>
+      </div>
+      {/* Savings goals */}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <div style={{ fontWeight: 700, color: t.text, fontSize: 14 }}>🎯 Savings Goals</div>
+        <button onClick={() => setShowGoalForm(true)} style={{ padding: "6px 12px", borderRadius: 8, border: "none", background: "linear-gradient(135deg, #6C5CE7, #A29BFE)", color: "white", cursor: "pointer", fontWeight: 700, fontSize: 11, fontFamily: "'DM Sans'" }}>+ New Goal</button>
+      </div>
+      {showGoalForm && (
+        <div style={{ background: t.card, borderRadius: 14, padding: "14px 18px", boxShadow: t.cs }}>
+          <input value={goalName} onChange={e => setGoalName(e.target.value)} placeholder="Goal name (e.g. Emergency Fund, Kid's College)" style={{ width: "100%", padding: "10px 12px", borderRadius: 8, border: `2px solid ${t.border}`, background: t.bg, color: t.text, fontSize: 13, fontFamily: "'DM Sans'", boxSizing: "border-box", marginBottom: 8 }} />
+          <input type="number" value={goalTarget} onChange={e => setGoalTarget(e.target.value)} placeholder="Target amount" style={{ width: "100%", padding: "10px 12px", borderRadius: 8, border: `2px solid ${t.border}`, background: t.bg, color: t.text, fontSize: 13, fontFamily: "'DM Sans'", boxSizing: "border-box", marginBottom: 8 }} />
+          <select value={goalType} onChange={e => setGoalType(e.target.value)} style={{ width: "100%", padding: "10px 12px", borderRadius: 8, border: `2px solid ${t.border}`, background: t.bg, color: t.text, fontSize: 13, fontFamily: "'DM Sans'", boxSizing: "border-box", marginBottom: 8 }}>
+            <option value="general">General Savings</option>
+            <option value="emergency">Emergency Fund</option>
+            <option value="kids">Kids Fund</option>
+            <option value="vacation">Vacation</option>
+            <option value="ezpass">EZ-Pass</option>
+          </select>
+          <div style={{ display: "flex", gap: 8 }}>
+            <button onClick={() => setShowGoalForm(false)} style={{ flex: 1, padding: "10px", borderRadius: 8, border: `1px solid ${t.border}`, background: "transparent", color: t.sub, cursor: "pointer", fontWeight: 700, fontSize: 12, fontFamily: "'DM Sans'" }}>Cancel</button>
+            <button onClick={createGoal} style={{ flex: 2, padding: "10px", borderRadius: 8, border: "none", background: "linear-gradient(135deg, #6C5CE7, #A29BFE)", color: "white", cursor: "pointer", fontWeight: 700, fontSize: 12, fontFamily: "'DM Sans'" }}>Create Goal</button>
+          </div>
+        </div>
+      )}
+      {data.goals.map(g => (
+        <div key={g.id} style={{ background: t.card, borderRadius: 14, padding: "14px 18px", boxShadow: t.cs }}>
+          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
+            <div style={{ fontWeight: 700, color: t.text, fontSize: 14 }}>{g.accountType === "kids" ? "👶" : g.accountType === "ezpass" ? "🛣️" : g.accountType === "emergency" ? "🆘" : "🎯"} {g.name}</div>
+            <div style={{ fontSize: 12, fontWeight: 700, color: "#6C5CE7" }}>{g.progress}%</div>
+          </div>
+          <div style={{ height: 8, background: t.prog, borderRadius: 4, overflow: "hidden", marginBottom: 6 }}>
+            <div style={{ height: "100%", borderRadius: 4, background: "linear-gradient(90deg, #4ECDC4, #6C5CE7)", width: `${Math.min(g.progress, 100)}%`, transition: "width 0.5s" }} />
+          </div>
+          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: t.sub }}>
+            <span>{formatMoney(g.current)} saved</span>
+            <span>{formatMoney(g.target)} goal</span>
+          </div>
+        </div>
+      ))}
     </div>
   );
 }
@@ -1903,6 +2138,9 @@ function AddBillModal({ onClose, onAdd, t }) {
   const [filteredBills, setFilteredBills] = useState([]);
   const inputRef = useRef(null);
 
+  const [frequency, setFrequency] = useState("monthly");
+  const [endAmount, setEndAmount] = useState("");
+
   const handleNameChange = (val) => {
     setName(val);
     if (val.length >= 1) {
@@ -1923,7 +2161,7 @@ function AddBillModal({ onClose, onAdd, t }) {
   };
 
   const is = { width: "100%", padding: "12px 16px", borderRadius: 12, border: `2px solid ${t.border}`, fontSize: 14, fontFamily: "'DM Sans'", outline: "none", boxSizing: "border-box", background: t.input, color: t.text };
-  const go = async () => { if (!name || !amount || !dueDate) return; setSaving(true); await onAdd({ name, amount: parseFloat(amount), dueDate: parseInt(dueDate), category, isRecurring, reminder }); setSaving(false); };
+  const go = async () => { if (!name || !amount || !dueDate) return; setSaving(true); await onAdd({ name, amount: parseFloat(amount), dueDate: parseInt(dueDate), category, isRecurring, reminder, frequency: isRecurring ? frequency : "once", endAmount: endAmount ? parseFloat(endAmount) : null }); setSaving(false); };
 
   return (
     <div style={{ position: "fixed", inset: 0, background: t.over, display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, backdropFilter: "blur(4px)" }} onClick={onClose}>
@@ -1991,8 +2229,26 @@ function AddBillModal({ onClose, onAdd, t }) {
           <div><label style={{ fontSize: 12, fontWeight: 700, color: t.sub, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4, display: "block" }}>Reminder</label><select value={reminder} onChange={e => setReminder(e.target.value)} style={{ ...is, cursor: "pointer" }}>{REMINDER_OPTIONS.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}</select></div>
           <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
             <div onClick={() => setIsRecurring(!isRecurring)} style={{ width: 22, height: 22, borderRadius: 6, border: isRecurring ? "none" : `2px solid ${t.border}`, background: isRecurring ? "#6C5CE7" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", color: "white", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>{isRecurring && "✓"}</div>
-            <span style={{ fontSize: 14, fontWeight: 600, color: t.sub }}>Recurring monthly</span>
+            <span style={{ fontSize: 14, fontWeight: 600, color: t.sub }}>Recurring payment</span>
           </label>
+          {isRecurring && (
+            <div style={{ display: "flex", gap: 12 }}>
+              <div style={{ flex: 1 }}>
+                <label style={{ fontSize: 12, fontWeight: 700, color: t.sub, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4, display: "block" }}>Frequency</label>
+                <select value={frequency} onChange={e => setFrequency(e.target.value)} style={{ ...is, cursor: "pointer" }}>
+                  <option value="daily">Daily</option>
+                  <option value="weekly">Weekly</option>
+                  <option value="biweekly">Biweekly</option>
+                  <option value="monthly">Monthly</option>
+                </select>
+              </div>
+              <div style={{ flex: 1 }}>
+                <label style={{ fontSize: 12, fontWeight: 700, color: t.sub, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4, display: "block" }}>End After ($)</label>
+                <input type="number" value={endAmount} onChange={e => setEndAmount(e.target.value)} placeholder="Optional" style={is} />
+                <div style={{ fontSize: 10, color: t.muted, marginTop: 2 }}>Auto-removes when total paid reaches this amount</div>
+              </div>
+            </div>
+          )}
           <div style={{ display: "flex", gap: 12, marginTop: 8 }}>
             <button onClick={onClose} style={{ flex: 1, padding: 14, borderRadius: 14, border: `2px solid ${t.border}`, background: t.card, cursor: "pointer", fontWeight: 700, fontSize: 14, color: t.sub, fontFamily: "'DM Sans'" }}>Cancel</button>
             <button onClick={go} disabled={saving} style={{ flex: 2, padding: 14, borderRadius: 14, border: "none", background: "linear-gradient(135deg, #6C5CE7, #A29BFE)", color: "white", cursor: "pointer", fontWeight: 700, fontSize: 14, fontFamily: "'DM Sans'", opacity: saving ? 0.7 : 1 }}>{saving ? "Saving..." : "Add Bill"}</button>
@@ -2326,13 +2582,16 @@ function SettingsTab({ bills, history, hMonths, hFilter, setHFilter, onUpdateRem
   const [subTab, setSubTab] = useState("forecast");
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-      <div style={{ display: "flex", gap: 4, background: t.pill, borderRadius: 12, padding: 4, alignSelf: "flex-start", flexWrap: "wrap" }}>
-        {[["forecast", "📈 Forecast"], ["negotiate", "📞 Negotiate"], ["alerts", "🔔 Alerts"], ["reminders", "⏰ Reminders"], ["history", "📜 History"], ["charts", "📊 Charts"]].map(([k, l]) => (
-          <button key={k} onClick={() => setSubTab(k)} style={{ padding: "7px 12px", borderRadius: 10, border: "none", background: subTab === k ? "linear-gradient(135deg, #6C5CE7, #A29BFE)" : "transparent", color: subTab === k ? "white" : t.sub, cursor: "pointer", fontWeight: 700, fontSize: 11, fontFamily: "'DM Sans'" }}>{l}</button>
+      <div style={{ display: "flex", gap: 3, background: t.pill, borderRadius: 12, padding: 3, alignSelf: "stretch", flexWrap: "wrap" }}>
+        {[["forecast", "📈 Forecast"], ["savings", "🐷 Savings"], ["negotiate", "📞 Negotiate"], ["subs", "🔍 Subscriptions"], ["activity", "📋 Activity"], ["alerts", "🔔 Alerts"], ["reminders", "⏰ Reminders"], ["history", "📜 History"], ["charts", "📊 Charts"]].map(([k, l]) => (
+          <button key={k} onClick={() => setSubTab(k)} style={{ padding: "6px 10px", borderRadius: 8, border: "none", background: subTab === k ? "linear-gradient(135deg, #6C5CE7, #A29BFE)" : "transparent", color: subTab === k ? "white" : t.sub, cursor: "pointer", fontWeight: 700, fontSize: 10, fontFamily: "'DM Sans'" }}>{l}</button>
         ))}
       </div>
       {subTab === "forecast" && <ForecastView t={t} />}
+      {subTab === "savings" && <SavingsAdvisor t={t} />}
       {subTab === "negotiate" && <NegotiateView bills={bills} t={t} />}
+      {subTab === "subs" && <SubscriptionDetector t={t} />}
+      {subTab === "activity" && <ActivityView t={t} />}
       {subTab === "alerts" && <SmartAlertsView t={t} />}
       {subTab === "reminders" && <RemindersView bills={bills} onUpdate={onUpdateReminder} t={t} />}
       {subTab === "history" && <HistoryView history={history} months={hMonths} filter={hFilter} setFilter={setHFilter} t={t} />}
@@ -2351,7 +2610,15 @@ export default function App() {
   const [dash, setDash] = useState(null);
   const [tab, setTab] = useState("dashboard");
   const [showAdd, setShowAdd] = useState(false);
-  const [dark, setDark] = useState(false);
+  const [dark, setDark] = useState(() => {
+    try { return localStorage.getItem("bb_dark") === "true"; } catch { return false; }
+  });
+  const toggleDark = () => {
+    const next = !dark;
+    setDark(next);
+    try { localStorage.setItem("bb_dark", String(next)); } catch {}
+    api.updatePreferences({ darkMode: next }).catch(() => {});
+  };
   const [hFilter, setHFilter] = useState("all");
   const [loading, setLoading] = useState(false);
 
@@ -2396,11 +2663,17 @@ export default function App() {
 
   const togglePaid = async (bill) => {
     const np = !bill.isPaid;
-    setBills(p => p.map(b => b.id === bill.id ? { ...b, isPaid: np } : b));
+    const newTotalPaid = (bill.totalPaidAmount || 0) + (np ? bill.amount : 0);
+    setBills(p => p.map(b => b.id === bill.id ? { ...b, isPaid: np, totalPaidAmount: np ? newTotalPaid : b.totalPaidAmount } : b));
     try {
       await api.updateBill(bill.id, { isPaid: np });
       if (np) {
         await api.recordPayment({ billName: bill.name, amount: bill.amount, category: bill.category, dueDate: bill.dueDate });
+        // Track total paid and auto-delete if end amount reached
+        if (bill.endAmount && newTotalPaid >= bill.endAmount) {
+          await api.deleteBill(bill.id);
+          setBills(p => p.filter(b => b.id !== bill.id));
+        }
       }
       const [h, m, d] = await Promise.all([api.getHistory(), api.getHistoryMonths(), api.getDashboard()]);
       setHistory(h); setHMonths(m); setDash(d);
@@ -2468,7 +2741,7 @@ export default function App() {
             <div style={{ color: "rgba(255,255,255,0.8)", fontSize: 11, marginTop: 2 }}>Hey, {user.name}!</div>
           </div>
           <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-            <button onClick={() => setDark(!dark)} style={{ width: 36, height: 22, borderRadius: 11, border: "none", cursor: "pointer", background: dark ? "#4ECDC4" : "rgba(255,255,255,0.25)", display: "flex", alignItems: "center", padding: "0 2px" }}>
+            <button onClick={toggleDark} style={{ width: 36, height: 22, borderRadius: 11, border: "none", cursor: "pointer", background: dark ? "#4ECDC4" : "rgba(255,255,255,0.25)", display: "flex", alignItems: "center", padding: "0 2px" }}>
               <div style={{ width: 18, height: 18, borderRadius: 9, background: "white", boxShadow: "0 1px 3px rgba(0,0,0,0.2)", transform: dark ? "translateX(14px)" : "translateX(0)", transition: "transform 0.3s", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 9 }}>{dark ? "🌙" : "☀️"}</div>
             </button>
             <button onClick={() => setShowAdd(true)} style={{ padding: "7px 14px", borderRadius: 10, border: "none", background: "rgba(255,255,255,0.2)", color: "white", cursor: "pointer", fontWeight: 700, fontSize: 12, fontFamily: "'DM Sans'" }}>+ Add</button>

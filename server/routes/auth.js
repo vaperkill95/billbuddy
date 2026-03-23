@@ -150,10 +150,23 @@ router.get("/me", (req, res) => {
   try {
     const token = header.split(" ")[1];
     const decoded = jwt.verify(token, JWT_SECRET);
-    res.json({ user: { id: decoded.id, email: decoded.email, name: decoded.name } });
+    const { rows } = await pool.query("SELECT dark_mode FROM users WHERE id = $1", [decoded.id]);
+    res.json({ user: { id: decoded.id, email: decoded.email, name: decoded.name, darkMode: rows[0]?.dark_mode || false } });
   } catch (err) {
     return res.status(401).json({ error: "Invalid or expired token" });
   }
+});
+
+// PATCH /api/auth/preferences - Update user preferences
+const { authMiddleware } = require("../middleware/auth");
+router.patch("/preferences", authMiddleware, async (req, res) => {
+  try {
+    const { darkMode } = req.body;
+    if (darkMode !== undefined) {
+      await pool.query("UPDATE users SET dark_mode = $1 WHERE id = $2", [darkMode, req.user.id]);
+    }
+    res.json({ success: true });
+  } catch (err) { res.status(500).json({ error: "Failed to update preferences" }); }
 });
 
 module.exports = router;
