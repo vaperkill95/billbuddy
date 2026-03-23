@@ -2613,7 +2613,7 @@ function HouseholdView({ t }) {
   useEffect(() => { load(); }, []);
 
   const create = async (mode) => {
-    try { await api.createHousehold(hhName || (mode === "joint" ? "Our Finances" : "My Household")); setShowCreate(null); load(); } catch (err) { alert(err.message || "Error"); }
+    try { await api.createHousehold(hhName || (mode === "joint" ? "Our Finances" : "My Household"), mode); setShowCreate(null); load(); } catch (err) { alert(err.message || "Error"); }
   };
   const join = async () => {
     try { await api.joinHousehold(joinCode); setShowJoin(false); load(); } catch (err) { alert(err.message || "Invalid code"); }

@@ -79,7 +79,7 @@ export const api = {
 
   // Household
   getHousehold: () => request("/household"),
-  createHousehold: (name) => request("/household/create", { method: "POST", body: JSON.stringify({ name }) }),
+  createHousehold: (name, mode) => request("/household/create", { method: "POST", body: JSON.stringify({ name, mode: mode || "household" }) }),
   joinHousehold: (inviteCode) => request("/household/join", { method: "POST", body: JSON.stringify({ inviteCode }) }),
   addHouseholdBill: (bill) => request("/household/bills", { method: "POST", body: JSON.stringify(bill) }),
   payHouseholdSplit: (splitId) => request(`/household/splits/${splitId}/pay`, { method: "PATCH" }),
