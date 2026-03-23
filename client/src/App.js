@@ -3991,6 +3991,154 @@ function CancelHelperView({ t }) {
   );
 }
 
+function AdvisorChat({ t, user }) {
+  const [open, setOpen] = useState(false);
+  const [messages, setMessages] = useState([]);
+  const [input, setInput] = useState("");
+  const [loading, setLoading] = useState(false);
+  const messagesEndRef = useRef(null);
+  const inputRef = useRef(null);
+  const F = "'Plus Jakarta Sans', 'Outfit', sans-serif";
+  const H = "'Outfit', 'Plus Jakarta Sans', sans-serif";
+
+  const scrollToBottom = () => { messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }); };
+  useEffect(() => { scrollToBottom(); }, [messages]);
+  useEffect(() => { if (open && inputRef.current) inputRef.current.focus(); }, [open]);
+
+  const send = async () => {
+    if (!input.trim() || loading) return;
+    const userMsg = input.trim();
+    setInput("");
+    setMessages(prev => [...prev, { role: "user", content: userMsg }]);
+    setLoading(true);
+    try {
+      const history = messages.map(m => ({ role: m.role, content: m.content }));
+      const res = await api.askAdvisor(userMsg, history);
+      setMessages(prev => [...prev, { role: "assistant", content: res.reply }]);
+    } catch (err) {
+      setMessages(prev => [...prev, { role: "assistant", content: "Sorry, I couldn't process that. Please try again." }]);
+    } finally { setLoading(false); }
+  };
+
+  const suggestions = [
+    "Can I afford a $1,500 TV paying $250/mo?",
+    "When is the safest day to make a big purchase?",
+    "How much can I spend this week?",
+    "What should I prioritize paying off first?",
+  ];
+
+  return (
+    <>
+      {/* Floating button - always visible */}
+      {!open && (
+        <button onClick={() => setOpen(true)} style={{
+          position: "fixed", bottom: 90, right: 20, width: 56, height: 56,
+          borderRadius: "50%", background: "linear-gradient(135deg, #6C5CE7, #a78bfa)",
+          border: "none", cursor: "pointer", zIndex: 999,
+          boxShadow: "0 4px 20px rgba(108,92,231,0.5)",
+          display: "flex", alignItems: "center", justifyContent: "center",
+          transition: "transform 0.2s, box-shadow 0.2s",
+        }}
+        onMouseEnter={e => { e.target.style.transform = "scale(1.1)"; e.target.style.boxShadow = "0 6px 28px rgba(108,92,231,0.6)"; }}
+        onMouseLeave={e => { e.target.style.transform = "scale(1)"; e.target.style.boxShadow = "0 4px 20px rgba(108,92,231,0.5)"; }}
+        >
+          <span style={{ fontSize: 26, lineHeight: 1 }}>💬</span>
+        </button>
+      )}
+
+      {/* Chat panel */}
+      {open && (
+        <div style={{
+          position: "fixed", bottom: 20, right: 20,
+          width: 380, maxWidth: "calc(100vw - 40px)", height: 520, maxHeight: "calc(100vh - 100px)",
+          background: t.card, borderRadius: 20, zIndex: 1000,
+          boxShadow: "0 8px 40px rgba(0,0,0,0.3)",
+          display: "flex", flexDirection: "column", overflow: "hidden",
+          border: `1px solid ${t.border}`,
+        }}>
+          {/* Header */}
+          <div style={{
+            background: "linear-gradient(135deg, #6C5CE7, #a78bfa)",
+            padding: "16px 20px", display: "flex", justifyContent: "space-between", alignItems: "center",
+          }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <div style={{ width: 36, height: 36, borderRadius: "50%", background: "rgba(255,255,255,0.2)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18 }}>💸</div>
+              <div>
+                <div style={{ color: "white", fontWeight: 700, fontSize: 14, fontFamily: H }}>BillBuddy Advisor</div>
+                <div style={{ color: "rgba(255,255,255,0.7)", fontSize: 11 }}>AI-powered financial advice</div>
+              </div>
+            </div>
+            <button onClick={() => setOpen(false)} style={{ background: "rgba(255,255,255,0.2)", border: "none", borderRadius: 8, width: 32, height: 32, cursor: "pointer", color: "white", fontSize: 16, display: "flex", alignItems: "center", justifyContent: "center" }}>✕</button>
+          </div>
+
+          {/* Messages area */}
+          <div style={{ flex: 1, overflowY: "auto", padding: "16px", display: "flex", flexDirection: "column", gap: 12 }}>
+            {messages.length === 0 && (
+              <div style={{ textAlign: "center", padding: "20px 0" }}>
+                <div style={{ fontSize: 36, marginBottom: 8 }}>👋</div>
+                <div style={{ fontWeight: 700, color: t.text, fontSize: 14, fontFamily: H, marginBottom: 4 }}>Hey{user?.name ? ", " + user.name.split(" ")[0] : ""}!</div>
+                <div style={{ fontSize: 12, color: t.sub, lineHeight: 1.6, marginBottom: 16 }}>Ask me anything about your finances. I know your balance, bills, income, and spending.</div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                  {suggestions.map((s, i) => (
+                    <button key={i} onClick={() => { setInput(s); }} style={{
+                      padding: "10px 14px", borderRadius: 10, border: `1px solid ${t.border}`,
+                      background: t.cardAlt, color: t.text, cursor: "pointer",
+                      fontSize: 12, fontFamily: F, textAlign: "left", fontWeight: 500,
+                      transition: "background 0.2s",
+                    }}
+                    onMouseEnter={e => e.target.style.background = t.pill}
+                    onMouseLeave={e => e.target.style.background = t.cardAlt}
+                    >{s}</button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {messages.map((msg, i) => (
+              <div key={i} style={{ display: "flex", justifyContent: msg.role === "user" ? "flex-end" : "flex-start" }}>
+                <div style={{
+                  maxWidth: "85%", padding: "10px 14px", borderRadius: msg.role === "user" ? "14px 14px 4px 14px" : "14px 14px 14px 4px",
+                  background: msg.role === "user" ? "#6C5CE7" : t.cardAlt,
+                  color: msg.role === "user" ? "white" : t.text,
+                  fontSize: 13, lineHeight: 1.6, fontFamily: F, whiteSpace: "pre-wrap",
+                }}>{msg.content}</div>
+              </div>
+            ))}
+
+            {loading && (
+              <div style={{ display: "flex", justifyContent: "flex-start" }}>
+                <div style={{ padding: "12px 18px", borderRadius: "14px 14px 14px 4px", background: t.cardAlt }}>
+                  <div style={{ display: "flex", gap: 4 }}>
+                    <span style={{ width: 6, height: 6, borderRadius: "50%", background: t.sub, animation: "dotPulse 1.2s ease-in-out 0s infinite" }} />
+                    <span style={{ width: 6, height: 6, borderRadius: "50%", background: t.sub, animation: "dotPulse 1.2s ease-in-out 0.2s infinite" }} />
+                    <span style={{ width: 6, height: 6, borderRadius: "50%", background: t.sub, animation: "dotPulse 1.2s ease-in-out 0.4s infinite" }} />
+                  </div>
+                  <style>{`@keyframes dotPulse { 0%, 80%, 100% { opacity: 0.3; transform: scale(0.8); } 40% { opacity: 1; transform: scale(1.2); } }`}</style>
+                </div>
+              </div>
+            )}
+            <div ref={messagesEndRef} />
+          </div>
+
+          {/* Input area */}
+          <div style={{ padding: "12px 16px", borderTop: `1px solid ${t.border}`, display: "flex", gap: 8, alignItems: "center" }}>
+            <input ref={inputRef} value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => e.key === "Enter" && send()}
+              placeholder="Ask about your finances..."
+              style={{ flex: 1, padding: "10px 14px", borderRadius: 12, border: `1px solid ${t.border}`, background: t.input, color: t.text, fontSize: 13, fontFamily: F, outline: "none", boxSizing: "border-box" }} />
+            <button onClick={send} disabled={loading || !input.trim()} style={{
+              width: 40, height: 40, borderRadius: 12, border: "none",
+              background: input.trim() ? "#6C5CE7" : t.cardAlt,
+              color: input.trim() ? "white" : t.sub,
+              cursor: input.trim() ? "pointer" : "default",
+              display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, flexShrink: 0,
+            }}>↑</button>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
 function SettingsTab({ bills, history, hMonths, hFilter, setHFilter, onUpdateReminder, t }) {
   const [subTab, setSubTab] = useState("spending");
   return (
@@ -4260,6 +4408,7 @@ export default function App() {
         })}
       </div>
 
+      {user && <AdvisorChat t={t} user={user} />}
       {showAdd && <AddBillModal onClose={() => setShowAdd(false)} onAdd={addBill} t={t} />}
     </div>
   );
