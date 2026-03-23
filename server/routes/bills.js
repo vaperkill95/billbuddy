@@ -2,6 +2,7 @@ const express = require("express");
 const router = express.Router();
 const pool = require("../db/pool");
 const { authMiddleware } = require("../middleware/auth");
+const { clearUserCache } = require("../middleware/cache");
 
 router.use(authMiddleware);
 
@@ -60,6 +61,7 @@ router.patch("/:id", async (req, res) => {
     const { rows } = await pool.query(`UPDATE bills SET ${f.join(",")} WHERE user_id=$${i} AND id=$${i+1} RETURNING *`, v);
     if (!rows.length) return res.status(404).json({ error: "Bill not found" });
     const r = rows[0];
+    clearUserCache(req.user.id);
     res.json({ id: r.id, name: r.name, amount: parseFloat(r.amount), dueDate: r.due_date, category: r.category, isPaid: r.is_paid, isRecurring: r.is_recurring, reminder: r.reminder, frequency: r.frequency, endAmount: r.end_amount ? parseFloat(r.end_amount) : null, totalPaidAmount: parseFloat(r.total_paid_amount || 0) });
   } catch (err) { console.error("PATCH error:", err); res.status(500).json({ error: "Failed to update bill" }); }
 });
@@ -68,6 +70,7 @@ router.delete("/:id", async (req, res) => {
   try {
     const { rowCount } = await pool.query("DELETE FROM bills WHERE id=$1 AND user_id=$2", [req.params.id, req.user.id]);
     if (!rowCount) return res.status(404).json({ error: "Bill not found" });
+    clearUserCache(req.user.id);
     res.json({ success: true });
   } catch (err) { console.error("DELETE error:", err); res.status(500).json({ error: "Failed to delete bill" }); }
 });
@@ -80,3 +83,4 @@ router.post("/reset-month", async (req, res) => {
 });
 
 module.exports = router;
+
