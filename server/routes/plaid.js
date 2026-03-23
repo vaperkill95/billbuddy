@@ -25,7 +25,7 @@ router.post("/create-link-token", async (req, res) => {
     const response = await plaidClient.linkTokenCreate({
       user: { client_user_id: String(req.user.id) },
       client_name: "BillBuddy",
-      products: [Products.Transactions],
+      products: [Products.Transactions, Products.Liabilities],
       country_codes: [CountryCode.Us],
       language: "en",
     });
@@ -300,4 +300,84 @@ router.post("/smart-sync", async (req, res) => {
   }
 });
 
+// GET /api/plaid/liabilities - Get credit card, loan, and mortgage details
+router.get("/liabilities", async (req, res) => {
+  try {
+    const { rows: items } = await pool.query("SELECT * FROM plaid_items WHERE user_id = $1", [req.user.id]);
+    if (!items.length) return res.json({ accounts: [] });
+    
+    const allLiabilities = [];
+    for (const item of items) {
+      try {
+        const response = await plaidClient.liabilitiesGet({ access_token: item.access_token });
+        const liabs = response.data.liabilities || {};
+        
+        // Credit cards
+        if (liabs.credit) {
+          liabs.credit.forEach(cc => {
+            allLiabilities.push({
+              type: "credit_card",
+              accountId: cc.account_id,
+              lastPaymentAmount: cc.last_payment_amount,
+              lastPaymentDate: cc.last_payment_date,
+              lastStatementBalance: cc.last_statement_balance,
+              lastStatementDate: cc.last_statement_issue_date,
+              minimumPayment: cc.minimum_payment_amount,
+              nextPaymentDue: cc.next_payment_due_date,
+              aprs: cc.aprs || [],
+              isOverdue: cc.is_overdue,
+            });
+          });
+        }
+        
+        // Student loans
+        if (liabs.student) {
+          liabs.student.forEach(sl => {
+            allLiabilities.push({
+              type: "student_loan",
+              accountId: sl.account_id,
+              name: sl.loan_name,
+              interestRate: sl.interest_rate_percentage,
+              lastPaymentAmount: sl.last_payment_amount,
+              lastPaymentDate: sl.last_payment_date,
+              minimumPayment: sl.minimum_payment_amount,
+              nextPaymentDue: sl.next_payment_due_date,
+              originationDate: sl.origination_date,
+              outstandingBalance: sl.outstanding_interest_amount,
+              repaymentPlan: sl.repayment_plan && sl.repayment_plan.type,
+              loanStatus: sl.loan_status && sl.loan_status.type,
+            });
+          });
+        }
+        
+        // Mortgages
+        if (liabs.mortgage) {
+          liabs.mortgage.forEach(m => {
+            allLiabilities.push({
+              type: "mortgage",
+              accountId: m.account_id,
+              interestRate: m.interest_rate && m.interest_rate.percentage,
+              lastPaymentAmount: m.last_payment_amount,
+              lastPaymentDate: m.last_payment_date,
+              nextPaymentDue: m.next_payment_due_date,
+              maturityDate: m.maturity_date,
+              originationDate: m.origination_date,
+              propertyAddress: m.property_address,
+              loanType: m.loan_type_description,
+            });
+          });
+        }
+      } catch (err) {
+        console.error("Liabilities error for item:", item.id, err.message);
+      }
+    }
+    
+    res.json({ accounts: allLiabilities });
+  } catch (err) {
+    console.error("Liabilities fetch error:", err.message);
+    res.status(500).json({ error: "Failed to get liabilities" });
+  }
+});
+
 module.exports = router;
+
