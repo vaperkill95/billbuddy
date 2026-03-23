@@ -47,6 +47,7 @@ app.use("/api/household", householdRouter);
 app.use("/api/subscriptions", require("./routes/subscriptions"));
 app.use("/api/activity", require("./routes/activity"));
 app.use("/api/savings", require("./routes/savings"));
+app.use("/api/spending", require("./routes/spending"));
 
 app.get("/api/health", async (req, res) => {
   try {
@@ -295,6 +296,21 @@ async function initDB() {
           created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
         );
         CREATE INDEX IF NOT EXISTS idx_savings_goals_user ON savings_goals(user_id);
+      `);
+    } catch (e) { /* already exists */ }
+
+    // Create spending budgets table
+    try {
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS spending_budgets (
+          id SERIAL PRIMARY KEY,
+          user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          category VARCHAR(100) NOT NULL,
+          monthly_limit DECIMAL(12,2) NOT NULL,
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+          UNIQUE(user_id, category)
+        );
+        CREATE INDEX IF NOT EXISTS idx_spending_budgets_user ON spending_budgets(user_id);
       `);
     } catch (e) { /* already exists */ }
 

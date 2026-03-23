@@ -137,6 +137,12 @@ export const api = {
   disconnectBank: (itemId) => request(`/plaid/disconnect/${itemId}`, { method: "DELETE" }),
   smartSync: () => request("/plaid/smart-sync", { method: "POST" }),
 
+  // Spending
+  getSpendingSummary: (days) => request(`/spending/summary?days=${days || 30}`),
+  getWeeklySpending: () => request("/spending/weekly"),
+  setBudget: (category, monthlyLimit) => request("/spending/budgets", { method: "POST", body: JSON.stringify({ category, monthlyLimit }) }),
+  deleteBudget: (id) => request(`/spending/budgets/${id}`, { method: "DELETE" }),
+
   // Helpers
   getToken, setToken, clearToken, getUser, setUser,
 };

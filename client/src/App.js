@@ -2951,15 +2951,318 @@ function MoneyTab({ t }) {
 }
 
 // ─── Settings Tab (History + Reminders + Charts combined) ───
+// Category icons and colors
+const SPEND_CATS = {
+  "Gas & Fuel": { icon: "⛽", color: "#F59E0B" },
+  "Groceries": { icon: "🛒", color: "#10B981" },
+  "Eating Out": { icon: "🍔", color: "#EF4444" },
+  "Shopping": { icon: "🛍️", color: "#8B5CF6" },
+  "Entertainment": { icon: "🎬", color: "#EC4899" },
+  "Health & Medical": { icon: "🏥", color: "#06B6D4" },
+  "Transportation": { icon: "🚗", color: "#6366F1" },
+  "Utilities": { icon: "💡", color: "#F97316" },
+  "Home & Living": { icon: "🏠", color: "#14B8A6" },
+  "Kids & Family": { icon: "👶", color: "#A855F7" },
+  "Personal Care": { icon: "💇", color: "#F472B6" },
+  "Subscriptions": { icon: "📺", color: "#3B82F6" },
+  "Transfers": { icon: "💸", color: "#6B7280" },
+  "Other": { icon: "📋", color: "#9CA3AF" },
+};
+
+function SpendingView({ t }) {
+  const [data, setData] = useState(null);
+  const [weekly, setWeekly] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [days, setDays] = useState(30);
+  const [view, setView] = useState("overview");
+  const [selectedCat, setSelectedCat] = useState(null);
+  const [showBudget, setShowBudget] = useState(false);
+  const [budgetCat, setBudgetCat] = useState("");
+  const [budgetAmt, setBudgetAmt] = useState("");
+
+  const load = async () => {
+    try {
+      const [s, w] = await Promise.all([api.getSpendingSummary(days), api.getWeeklySpending()]);
+      setData(s); setWeekly(w);
+    } catch (err) { console.error(err); }
+    finally { setLoading(false); }
+  };
+  useEffect(() => { load(); }, [days]);
+
+  const addBudget = async () => {
+    if (!budgetCat || !budgetAmt) return;
+    try { await api.setBudget(budgetCat, parseFloat(budgetAmt)); setShowBudget(false); setBudgetCat(""); setBudgetAmt(""); load(); } catch {}
+  };
+  const delBudget = async (id) => { try { await api.deleteBudget(id); load(); } catch {} };
+
+  if (loading) return <div style={{ textAlign: "center", padding: 60, color: t.sub }}>Analyzing spending...</div>;
+  if (!data || !data.categories.length) return (
+    <div style={{ textAlign: "center", padding: 40 }}>
+      <div style={{ fontSize: 32, marginBottom: 8 }}>💳</div>
+      <div style={{ fontWeight: 700, color: t.text, fontSize: 14, marginBottom: 4 }}>No spending data yet</div>
+      <div style={{ fontSize: 12, color: t.sub }}>Connect your bank to automatically track spending</div>
+    </div>
+  );
+
+  const changeColor = data.totalSpent > data.prevTotalSpent ? "#EF4444" : "#10B981";
+  const changeAmt = data.totalSpent - data.prevTotalSpent;
+  const changePct = data.prevTotalSpent > 0 ? Math.round((changeAmt / data.prevTotalSpent) * 100) : 0;
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+      {/* Header */}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <div>
+          <h3 style={{ fontFamily: "'Outfit', sans-serif", color: t.text, margin: 0, fontSize: 18, fontWeight: 700 }}>Spending</h3>
+          <p style={{ margin: 0, fontSize: 12, color: t.sub }}>Where your money goes</p>
+        </div>
+        <button onClick={() => setShowBudget(true)} style={{ padding: "6px 10px", borderRadius: 6, border: "none", background: "#6C5CE7", color: "white", cursor: "pointer", fontWeight: 700, fontSize: 10 }}>+ Budget</button>
+      </div>
+
+      {/* Period selector */}
+      <div style={{ display: "flex", gap: 3, background: t.cardAlt || t.pill, borderRadius: 8, padding: 3 }}>
+        {[7, 14, 30, 60, 90].map(d => (
+          <button key={d} onClick={() => { setDays(d); setLoading(true); }} style={{ flex: 1, padding: "6px", borderRadius: 6, border: "none", background: days === d ? "#6C5CE7" : "transparent", color: days === d ? "white" : t.sub, cursor: "pointer", fontWeight: 600, fontSize: 10 }}>{d}d</button>
+        ))}
+      </div>
+
+      {/* Total spent hero */}
+      <div style={{ background: t.card, borderRadius: 12, padding: "16px 18px", boxShadow: t.cs }}>
+        <div style={{ fontSize: 11, color: t.sub, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.3 }}>Total Spent ({days} days)</div>
+        <div style={{ fontSize: 28, fontWeight: 800, color: t.text, fontFamily: "'Outfit', sans-serif", letterSpacing: -0.5 }}>{formatMoney(data.totalSpent)}</div>
+        <div style={{ display: "flex", gap: 12, fontSize: 11, marginTop: 4 }}>
+          <span style={{ color: changeColor, fontWeight: 700 }}>
+            {changeAmt >= 0 ? "↑" : "↓"} {formatMoney(Math.abs(changeAmt))} ({changePct >= 0 ? "+" : ""}{changePct}%) vs prev
+          </span>
+          <span style={{ color: t.sub }}>~{formatMoney(data.dailyAvg)}/day</span>
+        </div>
+      </div>
+
+      {/* Quick stats */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 6 }}>
+        <div style={{ background: t.card, borderRadius: 10, padding: "10px 12px", boxShadow: t.cs }}>
+          <div style={{ fontSize: 9, color: t.sub, fontWeight: 600, textTransform: "uppercase" }}>This Week</div>
+          <div style={{ fontSize: 16, fontWeight: 800, color: t.text, fontFamily: "'Outfit', sans-serif" }}>{weekly ? formatMoney(weekly.total) : "—"}</div>
+        </div>
+        <div style={{ background: t.card, borderRadius: 10, padding: "10px 12px", boxShadow: t.cs }}>
+          <div style={{ fontSize: 9, color: t.sub, fontWeight: 600, textTransform: "uppercase" }}>Transactions</div>
+          <div style={{ fontSize: 16, fontWeight: 800, color: t.text, fontFamily: "'Outfit', sans-serif" }}>{data.txnCount}</div>
+        </div>
+        <div style={{ background: t.card, borderRadius: 10, padding: "10px 12px", boxShadow: t.cs }}>
+          <div style={{ fontSize: 9, color: t.sub, fontWeight: 600, textTransform: "uppercase" }}>Biggest</div>
+          <div style={{ fontSize: 14, fontWeight: 800, color: "#EF4444", fontFamily: "'Outfit', sans-serif" }}>{data.biggest ? formatMoney(data.biggest.amount) : "—"}</div>
+          {data.biggest && <div style={{ fontSize: 9, color: t.sub, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{data.biggest.name}</div>}
+        </div>
+      </div>
+
+      {/* View tabs */}
+      <div style={{ display: "flex", gap: 3, background: t.cardAlt || t.pill, borderRadius: 8, padding: 3 }}>
+        {[["overview", "Categories"], ["budgets", "Budgets"], ["weekly", "Weekly"], ["trends", "Trends"]].map(([k, l]) => (
+          <button key={k} onClick={() => setView(k)} style={{ flex: 1, padding: "6px", borderRadius: 6, border: "none", background: view === k ? t.card : "transparent", color: view === k ? t.text : t.muted, cursor: "pointer", fontWeight: 600, fontSize: 10, boxShadow: view === k ? t.cs : "none" }}>{l}</button>
+        ))}
+      </div>
+
+      {/* Categories view */}
+      {view === "overview" && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+          {/* Visual bar chart */}
+          <div style={{ background: t.card, borderRadius: 10, padding: "14px 16px", boxShadow: t.cs }}>
+            {data.categories.slice(0, 8).map(cat => {
+              const meta = SPEND_CATS[cat.name] || SPEND_CATS.Other;
+              const pct = data.totalSpent > 0 ? (cat.total / data.totalSpent) * 100 : 0;
+              return (
+                <div key={cat.name} onClick={() => setSelectedCat(selectedCat === cat.name ? null : cat.name)} style={{ cursor: "pointer", marginBottom: 8 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 3 }}>
+                    <span style={{ fontSize: 12, fontWeight: 600, color: t.text }}>{meta.icon} {cat.name}</span>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                      {cat.changePct !== null && <span style={{ fontSize: 9, fontWeight: 700, color: cat.change > 0 ? "#EF4444" : "#10B981" }}>{cat.change > 0 ? "↑" : "↓"}{Math.abs(cat.changePct)}%</span>}
+                      <span style={{ fontSize: 12, fontWeight: 700, color: t.text, fontFamily: "'Outfit', sans-serif" }}>{formatMoney(cat.total)}</span>
+                    </div>
+                  </div>
+                  <div style={{ height: 6, background: t.prog, borderRadius: 3, overflow: "hidden" }}>
+                    <div style={{ height: "100%", borderRadius: 3, background: meta.color, width: `${pct}%`, transition: "width 0.5s" }} />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Expanded transactions for selected category */}
+          {selectedCat && (() => {
+            const cat = data.categories.find(c => c.name === selectedCat);
+            if (!cat) return null;
+            const meta = SPEND_CATS[cat.name] || SPEND_CATS.Other;
+            return (
+              <div style={{ background: t.card, borderRadius: 10, padding: "12px 14px", boxShadow: t.cs }}>
+                <div style={{ fontWeight: 700, color: t.text, fontSize: 13, marginBottom: 8 }}>{meta.icon} {cat.name} — {cat.count} transactions</div>
+                {cat.transactions.slice(0, 10).map(tx => (
+                  <div key={tx.id} style={{ display: "flex", justifyContent: "space-between", padding: "4px 0", borderBottom: `1px solid ${t.border}` }}>
+                    <div>
+                      <div style={{ fontSize: 12, fontWeight: 600, color: t.text }}>{tx.name}</div>
+                      <div style={{ fontSize: 10, color: t.sub }}>{tx.date}</div>
+                    </div>
+                    <span style={{ fontSize: 12, fontWeight: 700, color: t.text }}>{formatMoney(tx.amount)}</span>
+                  </div>
+                ))}
+                {cat.count > 10 && <div style={{ fontSize: 10, color: t.sub, marginTop: 4, textAlign: "center" }}>+ {cat.count - 10} more</div>}
+              </div>
+            );
+          })()}
+        </div>
+      )}
+
+      {/* Budgets view */}
+      {view === "budgets" && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          {data.budgets.length > 0 ? data.budgets.map(b => {
+            const meta = SPEND_CATS[b.category] || SPEND_CATS.Other;
+            const pct = b.limit > 0 ? (b.spent / b.limit) * 100 : 0;
+            const over = pct > 100;
+            return (
+              <div key={b.id} style={{ background: t.card, borderRadius: 10, padding: "12px 16px", boxShadow: t.cs }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+                  <span style={{ fontSize: 13, fontWeight: 700, color: t.text }}>{meta.icon} {b.category}</span>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    <span style={{ fontSize: 12, fontWeight: 700, color: over ? "#EF4444" : t.text }}>{formatMoney(b.spent)} / {formatMoney(b.limit)}</span>
+                    <button onClick={() => delBudget(b.id)} style={{ width: 18, height: 18, borderRadius: 4, border: `1px solid ${t.border}`, background: "transparent", cursor: "pointer", color: t.muted, fontSize: 9, display: "flex", alignItems: "center", justifyContent: "center" }}>×</button>
+                  </div>
+                </div>
+                <div style={{ height: 8, background: t.prog, borderRadius: 4, overflow: "hidden" }}>
+                  <div style={{ height: "100%", borderRadius: 4, background: over ? "#EF4444" : pct > 75 ? "#F59E0B" : meta.color, width: `${Math.min(pct, 100)}%`, transition: "width 0.5s" }} />
+                </div>
+                <div style={{ fontSize: 10, color: over ? "#EF4444" : t.sub, marginTop: 4, fontWeight: over ? 700 : 400 }}>
+                  {over ? `Over budget by ${formatMoney(b.spent - b.limit)}!` : `${formatMoney(b.limit - b.spent)} remaining`}
+                </div>
+              </div>
+            );
+          }) : (
+            <div style={{ textAlign: "center", padding: 20, color: t.sub, fontSize: 12 }}>No budgets set. Tap "+ Budget" to add one.</div>
+          )}
+
+          {/* Suggested budgets based on spending */}
+          {data.categories.filter(c => !data.budgets.some(b => b.category === c.name) && c.name !== "Transfers" && c.name !== "Other").length > 0 && (
+            <div style={{ background: t.cardAlt, borderRadius: 10, padding: "12px 14px" }}>
+              <div style={{ fontWeight: 700, color: t.text, fontSize: 12, marginBottom: 8 }}>Suggested Budgets</div>
+              {data.categories.filter(c => !data.budgets.some(b => b.category === c.name) && c.name !== "Transfers" && c.name !== "Other").slice(0, 5).map(c => {
+                const meta = SPEND_CATS[c.name] || SPEND_CATS.Other;
+                const suggested = Math.round(c.total * (days / 30) * 0.9 / 10) * 10; // 90% of current, rounded
+                return (
+                  <div key={c.name} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "5px 0" }}>
+                    <span style={{ fontSize: 11, color: t.text }}>{meta.icon} {c.name} — spending ~{formatMoney(c.total)}/mo</span>
+                    <button onClick={async () => { try { await api.setBudget(c.name, suggested); load(); } catch {} }} style={{ padding: "3px 8px", borderRadius: 4, border: "none", background: "#6C5CE720", color: "#6C5CE7", cursor: "pointer", fontWeight: 700, fontSize: 9 }}>Set {formatMoney(suggested)}</button>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Weekly breakdown */}
+      {view === "weekly" && weekly && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          <div style={{ background: t.card, borderRadius: 10, padding: "14px 16px", boxShadow: t.cs }}>
+            <div style={{ fontSize: 11, color: t.sub, fontWeight: 600, textTransform: "uppercase" }}>This Week's Spending</div>
+            <div style={{ fontSize: 24, fontWeight: 800, color: t.text, fontFamily: "'Outfit', sans-serif", marginBottom: 10 }}>{formatMoney(weekly.total)}</div>
+            {weekly.breakdown.map(c => {
+              const meta = SPEND_CATS[c.name] || SPEND_CATS.Other;
+              const pct = weekly.total > 0 ? (c.amount / weekly.total) * 100 : 0;
+              return (
+                <div key={c.name} style={{ display: "flex", alignItems: "center", gap: 10, padding: "6px 0" }}>
+                  <span style={{ fontSize: 14 }}>{meta.icon}</span>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 12, fontWeight: 600, color: t.text }}>{c.name}</div>
+                    <div style={{ height: 4, background: t.prog, borderRadius: 2, marginTop: 2, overflow: "hidden" }}>
+                      <div style={{ height: "100%", borderRadius: 2, background: meta.color, width: `${pct}%` }} />
+                    </div>
+                  </div>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: t.text, fontFamily: "'Outfit', sans-serif" }}>{formatMoney(c.amount)}</span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Trends — day of week */}
+      {view === "trends" && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          <div style={{ background: t.card, borderRadius: 10, padding: "14px 16px", boxShadow: t.cs }}>
+            <div style={{ fontWeight: 700, color: t.text, fontSize: 13, marginBottom: 10 }}>Spending by Day of Week</div>
+            <div style={{ display: "flex", gap: 4, alignItems: "flex-end", height: 100 }}>
+              {data.dayOfWeek.map((d, i) => {
+                const max = Math.max(...data.dayOfWeek.map(x => x.total));
+                const h = max > 0 ? (d.total / max) * 80 : 4;
+                const isWeekend = i === 0 || i === 6;
+                return (
+                  <div key={d.day} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
+                    <div style={{ fontSize: 9, fontWeight: 700, color: t.sub }}>{formatMoney(d.total)}</div>
+                    <div style={{ width: "100%", height: h, borderRadius: 4, background: isWeekend ? "#EF444480" : "#6C5CE780" }} />
+                    <div style={{ fontSize: 9, fontWeight: 600, color: isWeekend ? "#EF4444" : t.sub }}>{d.day}</div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Daily spending chart */}
+          {data.dailySpending.length > 0 && (
+            <div style={{ background: t.card, borderRadius: 10, padding: "14px 16px", boxShadow: t.cs }}>
+              <div style={{ fontWeight: 700, color: t.text, fontSize: 13, marginBottom: 10 }}>Daily Spending</div>
+              <div style={{ display: "flex", gap: 2, alignItems: "flex-end", height: 80 }}>
+                {data.dailySpending.slice(-30).map(d => {
+                  const max = Math.max(...data.dailySpending.map(x => x.total));
+                  const h = max > 0 ? (d.total / max) * 70 : 2;
+                  return (
+                    <div key={d.date} style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ height: h, borderRadius: 2, background: d.total > data.dailyAvg * 1.5 ? "#EF4444" : "#6C5CE7", opacity: 0.7 }} />
+                    </div>
+                  );
+                })}
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 9, color: t.sub, marginTop: 4 }}>
+                <span>{data.dailySpending[0]?.date?.slice(5)}</span>
+                <span style={{ color: "#EF4444", fontWeight: 600 }}>— avg: {formatMoney(data.dailyAvg)}/day —</span>
+                <span>{data.dailySpending[data.dailySpending.length - 1]?.date?.slice(5)}</span>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Add budget modal */}
+      {showBudget && (
+        <div style={{ position: "fixed", inset: 0, background: t.over, display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, backdropFilter: "blur(4px)" }} onClick={() => setShowBudget(false)}>
+          <div style={{ background: t.modal, borderRadius: 14, padding: "20px 18px", width: "90%", maxWidth: 380, boxShadow: "0 8px 32px rgba(0,0,0,0.12)" }} onClick={e => e.stopPropagation()}>
+            <div style={{ fontWeight: 700, color: t.text, fontSize: 16, marginBottom: 12, fontFamily: "'Outfit', sans-serif" }}>Set Budget</div>
+            <select value={budgetCat} onChange={e => setBudgetCat(e.target.value)} style={{ width: "100%", padding: "10px 12px", borderRadius: 8, border: `1px solid ${t.border}`, background: t.cardAlt || t.bg, color: t.text, fontSize: 13, marginBottom: 8, fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
+              <option value="">Select category...</option>
+              {Object.keys(SPEND_CATS).filter(c => c !== "Other" && c !== "Transfers").map(c => (
+                <option key={c} value={c}>{SPEND_CATS[c].icon} {c}</option>
+              ))}
+            </select>
+            <input type="number" value={budgetAmt} onChange={e => setBudgetAmt(e.target.value)} placeholder="Monthly limit $" style={{ width: "100%", padding: "10px 12px", borderRadius: 8, border: `1px solid ${t.border}`, background: t.cardAlt || t.bg, color: t.text, fontSize: 13, marginBottom: 10, boxSizing: "border-box", fontFamily: "'Plus Jakarta Sans', sans-serif" }} />
+            <div style={{ display: "flex", gap: 8 }}>
+              <button onClick={() => setShowBudget(false)} style={{ flex: 1, padding: "10px", borderRadius: 8, border: `1px solid ${t.border}`, background: "transparent", color: t.sub, cursor: "pointer", fontWeight: 600, fontSize: 12 }}>Cancel</button>
+              <button onClick={addBudget} style={{ flex: 2, padding: "10px", borderRadius: 8, border: "none", background: "#6C5CE7", color: "white", cursor: "pointer", fontWeight: 700, fontSize: 12 }}>Set Budget</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function SettingsTab({ bills, history, hMonths, hFilter, setHFilter, onUpdateReminder, t }) {
-  const [subTab, setSubTab] = useState("forecast");
+  const [subTab, setSubTab] = useState("spending");
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
       <div style={{ display: "flex", gap: 3, background: t.pill, borderRadius: 12, padding: 3, alignSelf: "stretch", flexWrap: "wrap" }}>
-        {[["forecast", "📈 Forecast"], ["savings", "🐷 Savings"], ["negotiate", "📞 Negotiate"], ["subs", "🔍 Subscriptions"], ["activity", "📋 Activity"], ["alerts", "🔔 Alerts"], ["reminders", "⏰ Reminders"], ["history", "📜 History"], ["charts", "📊 Charts"]].map(([k, l]) => (
+        {[["spending", "💰 Spending"], ["forecast", "📈 Forecast"], ["savings", "🐷 Savings"], ["negotiate", "📞 Negotiate"], ["subs", "🔍 Subs"], ["activity", "📋 Activity"], ["alerts", "🔔 Alerts"], ["reminders", "⏰ Reminders"], ["history", "📜 History"], ["charts", "📊 Charts"]].map(([k, l]) => (
           <button key={k} onClick={() => setSubTab(k)} style={{ padding: "6px 10px", borderRadius: 8, border: "none", background: subTab === k ? "#6C5CE7" : "transparent", color: subTab === k ? "white" : t.sub, cursor: "pointer", fontWeight: 700, fontSize: 10, fontFamily: "'Plus Jakarta Sans', sans-serif" }}>{l}</button>
         ))}
       </div>
+      {subTab === "spending" && <SpendingView t={t} />}
       {subTab === "forecast" && <ForecastView t={t} />}
       {subTab === "savings" && <SavingsAdvisor t={t} />}
       {subTab === "negotiate" && <NegotiateView bills={bills} t={t} />}
