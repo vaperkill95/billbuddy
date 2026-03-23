@@ -928,15 +928,27 @@ function BankAccountsView({ t }) {
                     </>
                   )}
 
-                  {!hasPending && a.balanceAvailable !== a.balanceCurrent && a.balanceAvailable > 0 && (
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 0" }}>
-                      <span style={{ fontSize: 12, color: t.sub }}>Available</span>
-                      <span style={{ fontSize: 14, fontWeight: 700, color: "#4ECDC4", fontFamily: "'Fredoka'" }}>{formatMoney(a.balanceAvailable)}</span>
-                    </div>
+                  {/* Fallback: No individual pending txns but balance differs from available (bank has holds/pending) */}
+                  {!hasPending && a.balanceAvailable > 0 && Math.abs(a.balanceCurrent - a.balanceAvailable) > 0.50 && (
+                    <>
+                      <div style={{ height: 1, background: t.border, margin: "0 0 12px" }} />
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                        <span style={{ fontSize: 12, fontWeight: 700, color: "#FDCB6E" }}>⏳ Pending / Holds</span>
+                        <span style={{ fontSize: 14, fontWeight: 800, color: "#FDCB6E", fontFamily: "'Fredoka'" }}>-{formatMoney(a.balanceCurrent - a.balanceAvailable)}</span>
+                      </div>
+                      <div style={{ fontSize: 11, color: t.sub, marginBottom: 10 }}>Your bank reports holds or pending charges not yet itemized</div>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 14px", background: a.balanceAvailable >= 0 ? "#4ECDC410" : "#FF6B6B10", borderRadius: 12 }}>
+                        <div>
+                          <span style={{ fontSize: 13, fontWeight: 700, color: t.text }}>Available Balance</span>
+                          <div style={{ fontSize: 10, color: t.sub, marginTop: 1 }}>What you can actually spend right now</div>
+                        </div>
+                        <span style={{ fontSize: 22, fontWeight: 800, color: a.balanceAvailable >= 0 ? "#4ECDC4" : "#FF6B6B", fontFamily: "'Fredoka'" }}>{formatMoney(a.balanceAvailable)}</span>
+                      </div>
+                    </>
                   )}
 
-                  {!hasPending && (
-                    <div style={{ fontSize: 11, color: t.muted, marginTop: 6 }}>No pending transactions — balance is current</div>
+                  {!hasPending && (a.balanceAvailable <= 0 || Math.abs(a.balanceCurrent - a.balanceAvailable) <= 0.50) && (
+                    <div style={{ fontSize: 11, color: t.muted, marginTop: 6 }}>✅ No pending transactions — balance is current</div>
                   )}
                 </div>
               </div>
