@@ -268,6 +268,10 @@ router.delete("/disconnect/:itemId", async (req, res) => {
     } catch (e) { /* may already be removed */ }
 
     // Remove from DB (cascades to accounts)
+    const { rows: accts } = await pool.query("SELECT account_id FROM bank_accounts WHERE plaid_item_id = $1", [req.params.itemId]);
+    const acctIds = accts.map(a => a.account_id);
+    if (acctIds.length > 0) { await pool.query("DELETE FROM bank_transactions WHERE user_id = $1 AND account_id = ANY($2)", [req.user.id, acctIds]); }
+    await pool.query("DELETE FROM bank_accounts WHERE plaid_item_id = $1", [req.params.itemId]);
     await pool.query("DELETE FROM plaid_items WHERE id = $1", [req.params.itemId]);
 
     res.json({ success: true });
@@ -377,6 +381,20 @@ router.get("/liabilities", async (req, res) => {
     console.error("Liabilities fetch error:", err.message);
     res.status(500).json({ error: "Failed to get liabilities" });
   }
+});
+
+// POST /api/plaid/cleanup - Remove orphaned bank data when no plaid items exist
+router.post("/cleanup", async (req, res) => {
+  try {
+    const { rows: items } = await pool.query("SELECT id FROM plaid_items WHERE user_id = $1", [req.user.id]);
+    if (items.length === 0) {
+      await pool.query("DELETE FROM bank_transactions WHERE user_id = $1", [req.user.id]);
+      await pool.query("DELETE FROM bank_accounts WHERE user_id = $1", [req.user.id]);
+      res.json({ success: true, message: "Cleaned up orphaned bank data" });
+    } else {
+      res.json({ success: true, message: "Active connections exist, no cleanup needed" });
+    }
+  } catch (err) { res.status(500).json({ error: "Cleanup failed" }); }
 });
 
 module.exports = router;
