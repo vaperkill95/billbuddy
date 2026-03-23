@@ -49,6 +49,8 @@ app.use("/api/subscriptions", require("./routes/subscriptions"));
 app.use("/api/activity", require("./routes/activity"));
 app.use("/api/savings", require("./routes/savings"));
 app.use("/api/spending", require("./routes/spending"));
+app.use("/api/spending-insights", require("./routes/spendingInsights"));
+app.use("/api/goals", require("./routes/goals"));
 app.use("/api/spending", require("./routes/spending"));
 
 app.get("/api/health", async (req, res) => {
@@ -343,6 +345,26 @@ async function initDB() {
       `);
     } catch (e) { /* already exists */ }
 
+    // Financial goals table
+    try {
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS financial_goals (
+          id SERIAL PRIMARY KEY,
+          user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          name VARCHAR(255) NOT NULL,
+          goal_type VARCHAR(50) DEFAULT 'savings',
+          icon VARCHAR(10) DEFAULT '🎯',
+          target_amount DECIMAL(12,2) NOT NULL,
+          current_amount DECIMAL(12,2) DEFAULT 0,
+          monthly_contribution DECIMAL(12,2) DEFAULT 0,
+          target_date DATE,
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+          updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+        );
+        CREATE INDEX IF NOT EXISTS idx_financial_goals_user ON financial_goals(user_id);
+      `);
+    } catch (e) {}
+
     console.log("â Database tables ready");
   } catch (err) {
     console.error("â ï¸  Database init warning:", err.message);
@@ -385,4 +407,5 @@ initDB().then(() => {
     console.log(`   Health: http://localhost:${PORT}/api/health\n`);
   });
 });
+
 
