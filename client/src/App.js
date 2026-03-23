@@ -1837,6 +1837,7 @@ function CreditCardsView({ t }) {
   const [payAmount, setPayAmount] = useState("");
   const [loading, setLoading] = useState(true);
   const [view, setView] = useState("cards"); // cards | strategy
+  const [plaidCards, setPlaidCards] = useState([]);
 
   const loadCards = async () => {
     try {
@@ -1846,11 +1847,76 @@ function CreditCardsView({ t }) {
         const s = await api.getDebtStrategy();
         setStrategy(s);
       }
+      // Also check for Plaid credit accounts not yet in cards
+      try {
+        const accts = await api.getBankAccounts();
+        const creditAccts = accts.filter(a => a.type === "credit");
+        const unlinked = creditAccts.filter(pa => !c.some(card =>
+          card.name.toLowerCase().includes(pa.name.toLowerCase()) ||
+          pa.name.toLowerCase().includes(card.name.toLowerCase()) ||
+          (card.mask && pa.mask && card.mask === pa.mask)
+        ));
+        setPlaidCards(unlinked);
+      } catch {}
     } catch (err) { console.error(err); }
     finally { setLoading(false); }
   };
 
   useEffect(() => { loadCards(); }, []);
+
+  const connectBank = async () => {
+    try {
+      const { linkToken } = await api.createLinkToken();
+      const handler = window.Plaid.create({
+        token: linkToken,
+        onSuccess: async (publicToken, metadata) => {
+          try {
+            await api.exchangePlaidToken(publicToken, metadata.institution);
+            // After connecting, check for new credit accounts
+            const accts = await api.getBankAccounts();
+            const creditAccts = accts.filter(a => a.type === "credit");
+            // Auto-add any new credit cards
+            for (const ca of creditAccts) {
+              const exists = cards.some(card =>
+                card.name.toLowerCase().includes(ca.name.toLowerCase()) ||
+                (card.mask && ca.mask && card.mask === ca.mask)
+              );
+              if (!exists) {
+                try {
+                  await api.createCard({
+                    name: ca.name,
+                    balance: ca.balanceCurrent,
+                    creditLimit: ca.balanceAvailable ? ca.balanceCurrent + ca.balanceAvailable : 0,
+                    apr: 0,
+                    minPayment: Math.max(25, Math.round(ca.balanceCurrent * 0.02)),
+                    dueDate: 1,
+                  });
+                } catch {}
+              }
+            }
+            loadCards();
+          } catch (err) { console.error("Exchange error:", err); }
+        },
+        onExit: () => {},
+      });
+      handler.open();
+    } catch (err) { console.error("Link token error:", err); }
+  };
+
+  const importPlaidCard = async (pa) => {
+    try {
+      await api.createCard({
+        name: pa.name,
+        balance: pa.balanceCurrent,
+        creditLimit: pa.balanceAvailable ? pa.balanceCurrent + pa.balanceAvailable : 0,
+        apr: 0,
+        minPayment: Math.max(25, Math.round(pa.balanceCurrent * 0.02)),
+        dueDate: 1,
+      });
+      setPlaidCards(p => p.filter(c => c.accountId !== pa.accountId));
+      loadCards();
+    } catch (err) { console.error(err); }
+  };
 
   const addCard = async (card) => {
     try { const c = await api.createCard(card); setCards(p => [...p, c]); setShowAddCard(false); } catch (err) { console.error(err); }
@@ -1904,7 +1970,7 @@ function CreditCardsView({ t }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
       {/* Header */}
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
           <div style={{ fontSize: 32 }}>💳</div>
           <div>
@@ -1912,8 +1978,27 @@ function CreditCardsView({ t }) {
             <p style={{ margin: "2px 0 0", fontSize: 13, color: t.sub }}>Track balances, payments & payoff goals</p>
           </div>
         </div>
-        <button onClick={() => setShowAddCard(true)} style={{ padding: "8px 18px", borderRadius: 12, border: "none", background: "linear-gradient(135deg, #6C5CE7, #A29BFE)", color: "white", cursor: "pointer", fontWeight: 700, fontSize: 12, fontFamily: "'DM Sans'" }}>+ Add Card</button>
+        <div style={{ display: "flex", gap: 8 }}>
+          <button onClick={connectBank} style={{ padding: "8px 14px", borderRadius: 12, border: `2px solid ${t.border}`, background: "transparent", color: t.sub, cursor: "pointer", fontWeight: 700, fontSize: 11, fontFamily: "'DM Sans'" }}>🔗 Connect via Bank</button>
+          <button onClick={() => setShowAddCard(true)} style={{ padding: "8px 14px", borderRadius: 12, border: "none", background: "linear-gradient(135deg, #6C5CE7, #A29BFE)", color: "white", cursor: "pointer", fontWeight: 700, fontSize: 12, fontFamily: "'DM Sans'" }}>+ Add Manual</button>
+        </div>
       </div>
+
+      {/* Detected Plaid credit cards not yet tracked */}
+      {plaidCards.length > 0 && (
+        <div style={{ background: "#6C5CE710", borderRadius: 14, padding: "14px 18px", borderLeft: "4px solid #6C5CE7" }}>
+          <div style={{ fontWeight: 700, color: "#6C5CE7", fontSize: 13, marginBottom: 8 }}>🔗 Credit cards found in your bank</div>
+          {plaidCards.map(pa => (
+            <div key={pa.accountId} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 0", borderBottom: `1px solid ${t.border}` }}>
+              <div>
+                <div style={{ fontWeight: 600, color: t.text, fontSize: 13 }}>{pa.name}</div>
+                <div style={{ fontSize: 11, color: t.sub }}>{pa.institution} · ••••{pa.mask} · Balance: {formatMoney(pa.balanceCurrent)}</div>
+              </div>
+              <button onClick={() => importPlaidCard(pa)} style={{ padding: "6px 12px", borderRadius: 8, border: "none", background: "#6C5CE7", color: "white", cursor: "pointer", fontWeight: 700, fontSize: 11, fontFamily: "'DM Sans'" }}>+ Import</button>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Summary stats */}
       {cards.length > 0 && (
