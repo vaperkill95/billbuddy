@@ -3745,19 +3745,18 @@ export default function App() {
   const handleAuth = (u) => {
     setUser(u);
     setTab("dashboard");
-    setBills([]);
-    setHistory([]);
-    setHMonths([]);
-    setDash(null);
-    setLoading(false);
+    setLoading(true);
   };
+
   const handleLogout = () => {
     api.clearToken();
+    api.setUser(null);
     setUser(null);
     setBills([]);
     setHistory([]);
     setHMonths([]);
     setDash(null);
+    setCalCards([]);
     setTab("dashboard");
   };
 
