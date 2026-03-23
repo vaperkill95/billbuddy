@@ -135,6 +135,7 @@ export const api = {
   getBankSummary: () => request("/plaid/summary"),
   getPlaidItems: () => request("/plaid/items"),
   disconnectBank: (itemId) => request(`/plaid/disconnect/${itemId}`, { method: "DELETE" }),
+  getLiabilities: () => request("/plaid/liabilities"),
   smartSync: () => request("/plaid/smart-sync", { method: "POST" }),
 
   // Spending
@@ -166,5 +167,6 @@ export const api = {
   // Helpers
   getToken, setToken, clearToken, getUser, setUser,
 };
+
 
 
