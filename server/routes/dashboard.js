@@ -2,13 +2,14 @@ const express = require("express");
 const router = express.Router();
 const pool = require("../db/pool");
 const { authMiddleware } = require("../middleware/auth");
+const { cacheMiddleware } = require("../middleware/cache");
 
 const FULL_MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
 
 router.use(authMiddleware);
 
 // GET /api/dashboard - Unified financial snapshot
-router.get("/", async (req, res) => {
+router.get("/", cacheMiddleware(req => `user:${req.user.id}:dashboard`, 120), async (req, res) => {
   try {
     const userId = req.user.id;
     const now = new Date();
@@ -123,3 +124,4 @@ router.get("/", async (req, res) => {
 });
 
 module.exports = router;
+
