@@ -55,6 +55,7 @@ app.use("/api/credit", require("./routes/credit"));
 app.use("/api/smart-savings", require("./routes/smartSavings"));
 app.use("/api/cancel-helper", require("./routes/cancelHelper"));
 app.use("/api/advisor", require("./routes/advisor"));
+app.use("/api/2fa", require("./routes/twoFactor"));
 
 app.get("/api/health", async (req, res) => {
   try {
@@ -366,6 +367,16 @@ async function initDB() {
 
     // Credit score history table
     try { await pool.query(`CREATE TABLE IF NOT EXISTS credit_scores (id SERIAL PRIMARY KEY, user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE, score INTEGER NOT NULL, grade VARCHAR(20), checked_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()); CREATE INDEX IF NOT EXISTS idx_credit_scores_user ON credit_scores(user_id);`); } catch (e) {}
+
+    // 2FA table
+    try { await pool.query(`CREATE TABLE IF NOT EXISTS user_2fa (
+      user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+      secret TEXT NOT NULL,
+      enabled BOOLEAN DEFAULT false,
+      backup_codes TEXT DEFAULT '[]',
+      created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+    )`); } catch (e) {}
+
     console.log("â Database tables ready");
   } catch (err) {
     console.error("â ï¸  Database init warning:", err.message);
