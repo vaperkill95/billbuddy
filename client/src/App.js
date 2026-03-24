@@ -4369,25 +4369,22 @@ export default function App() {
   const totalUnpaid = totalMonthly - totalPaid;
   const paidCount = bills.filter(b => b.isPaid).length;
 
-  // 5-tab navigation
-  const mainTabs = [
-    { key: "dashboard", label: "Home", icon: "⌂", activeIcon: "⌂" },
-    { key: "money", label: "Money", icon: "○", activeIcon: "●" },
-    { key: "calendar", label: "Calendar", icon: "▫", activeIcon: "▪" },
-    { key: "insights", label: "Insights", icon: "◇", activeIcon: "◆" },
-    { key: "more", label: "More", icon: "≡", activeIcon: "≡" },
+  // Tab navigation
+  const navItems = [
+    { key: "dashboard", label: "Home", icon: "🏠" },
+    { key: "money", label: "Money", icon: "💳" },
+    { key: "calendar", label: "Calendar", icon: "📅" },
+    { key: "insights", label: "Insights", icon: "✨" },
+    { key: "more", label: "More", icon: "⚙️" },
   ];
-
-  const tabEmojis = { dashboard: "📊", money: "🏦", calendar: "📅", insights: "🤖", more: "⚙️" };
-
   const F = "'Plus Jakarta Sans', 'Outfit', sans-serif";
   const H = "'Outfit', 'Plus Jakarta Sans', sans-serif";
 
   return (
-    <div style={{ fontFamily: F, minHeight: "100vh", background: t.bg, transition: "all 0.3s ease", paddingBottom: 80 }}>
+    <div style={{ fontFamily: F, minHeight: "100vh", background: t.bg, transition: "background 0.3s ease" }}>
       <style>{`
         select option { background: ${t.card}; color: ${t.text}; }
-        * { -webkit-tap-highlight-color: transparent; }
+        * { -webkit-tap-highlight-color: transparent; box-sizing: border-box; }
         @media (min-width: 768px) {
           .bb-bottom-nav { display: none !important; }
           .bb-desktop-nav { display: flex !important; }
@@ -4396,54 +4393,61 @@ export default function App() {
           .bb-bottom-nav { display: flex !important; }
           .bb-desktop-nav { display: none !important; }
         }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
-        .bb-animate { animation: fadeIn 0.3s ease-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+        .bb-animate { animation: fadeIn 0.25s ease-out; }
+        .bb-content { max-width: 600px; margin: 0 auto; padding: 0 16px; }
+        @media (min-width: 768px) { .bb-content { max-width: 720px; } }
       `}</style>
 
-      {/* Header — clean, flat, modern */}
-      <div style={{ background: t.card, borderBottom: `1px solid ${t.border}`, padding: "12px 16px", position: "sticky", top: 0, zIndex: 50 }}>
-        <div style={{ maxWidth: 960, margin: "0 auto", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+      {/* ── Header ── */}
+      <div style={{ background: t.card, borderBottom: `1px solid ${t.border}`, padding: "10px 16px", position: "sticky", top: 0, zIndex: 50 }}>
+        <div className="bb-content" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", maxWidth: 720, margin: "0 auto", padding: 0 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <div style={{ width: 34, height: 34, borderRadius: 10, background: "#6C5CE7", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16 }}>💸</div>
+            <div style={{ width: 36, height: 36, borderRadius: 12, background: "#6C5CE7", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18 }}>💸</div>
             <div>
-              <div style={{ fontFamily: H, fontWeight: 800, fontSize: 16, color: t.text, letterSpacing: -0.3 }}>BillBuddy</div>
-              <div style={{ fontSize: 11, color: t.sub, fontWeight: 500, marginTop: -1 }}>Hey, {user.name?.split(" ")[0]}</div>
+              <div style={{ fontFamily: H, fontWeight: 800, fontSize: 17, color: t.text, letterSpacing: -0.5 }}>BillBuddy</div>
+              <div style={{ fontSize: 11, color: t.sub, fontWeight: 500 }}>Hey, {user.name?.split(" ")[0]}</div>
             </div>
           </div>
-          <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-            <button onClick={toggleDark} style={{ width: 32, height: 32, borderRadius: 8, border: `1px solid ${t.border}`, cursor: "pointer", background: t.cardAlt, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14 }}>
+          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <button onClick={toggleDark} style={{ width: 36, height: 36, borderRadius: 10, border: `1px solid ${t.border}`, cursor: "pointer", background: t.cardAlt, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16 }}>
               {dark ? "🌙" : "☀️"}
             </button>
-            <button onClick={() => setShowAdd(true)} style={{ height: 32, padding: "0 14px", borderRadius: 8, border: "none", background: "#6C5CE7", color: "white", cursor: "pointer", fontWeight: 700, fontSize: 12, fontFamily: F, display: "flex", alignItems: "center", gap: 4 }}>
-              <span style={{ fontSize: 16, lineHeight: 1 }}>+</span> Bill
+            <button onClick={() => setShowAdd(true)} style={{
+              height: 36, padding: "0 16px", borderRadius: 10, border: "none",
+              background: "#6C5CE7", color: "white", cursor: "pointer",
+              fontWeight: 700, fontSize: 13, fontFamily: F,
+              display: "flex", alignItems: "center", gap: 5,
+              boxShadow: "0 2px 8px rgba(108,92,231,0.3)",
+            }}>
+              <span style={{ fontSize: 18, lineHeight: 1 }}>+</span> Bill
             </button>
-            <button onClick={handleLogout} style={{ width: 32, height: 32, borderRadius: 8, border: `1px solid ${t.border}`, background: t.cardAlt, cursor: "pointer", fontSize: 12, color: t.sub, display: "flex", alignItems: "center", justifyContent: "center" }}>↗</button>
+            <button onClick={handleLogout} style={{ width: 36, height: 36, borderRadius: 10, border: `1px solid ${t.border}`, background: t.cardAlt, cursor: "pointer", fontSize: 14, color: t.sub, display: "flex", alignItems: "center", justifyContent: "center" }}>→</button>
           </div>
         </div>
       </div>
-
-      {/* Desktop Nav — clean pill style */}
-      <div className="bb-desktop-nav" style={{ display: "none", maxWidth: 960, margin: "12px auto 0", padding: "0 16px", justifyContent: "center", position: "relative", zIndex: 10 }}>
-        <div style={{ display: "inline-flex", gap: 2, background: t.cardAlt, borderRadius: 10, padding: 3 }}>
-          {Object.entries(tabEmojis).map(([key, emoji]) => (
-            <button key={key} onClick={() => setTab(key)} style={{
-              padding: "8px 20px", borderRadius: 8, border: "none",
-              background: tab === key ? "#6C5CE7" : "transparent",
-              color: tab === key ? "white" : t.sub,
-              cursor: "pointer", fontWeight: 600, fontSize: 12, fontFamily: F,
+      {/* ── Desktop Nav ── */}
+      <div className="bb-desktop-nav" style={{ display: "none", maxWidth: 720, margin: "12px auto 0", padding: "0 16px", justifyContent: "center" }}>
+        <div style={{ display: "inline-flex", gap: 2, background: t.cardAlt, borderRadius: 12, padding: 3 }}>
+          {navItems.map(item => (
+            <button key={item.key} onClick={() => setTab(item.key)} style={{
+              padding: "9px 22px", borderRadius: 10, border: "none",
+              background: tab === item.key ? "#6C5CE7" : "transparent",
+              color: tab === item.key ? "white" : t.sub,
+              cursor: "pointer", fontWeight: 600, fontSize: 13, fontFamily: F,
               transition: "all 0.2s ease",
-            }}>{emoji} {key.charAt(0).toUpperCase() + key.slice(1)}</button>
+            }}>{item.icon} {item.label}</button>
           ))}
         </div>
       </div>
 
-      {/* Content */}
-      <div style={{ maxWidth: 960, margin: "12px auto 0", padding: "0 16px", paddingBottom: 90 }}>
+      {/* ── Content ── */}
+      <div className="bb-content" style={{ paddingTop: 16, paddingBottom: 100 }}>
         {loading && !bills.length ? (
           <div style={{ textAlign: "center", padding: 80 }}>
-            <div style={{ width: 48, height: 48, borderRadius: 12, background: "#6C5CE7", display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 24 }}>💸</div>
-            <div style={{ marginTop: 16, fontWeight: 700, color: t.text, fontFamily: H, fontSize: 16 }}>Loading your finances...</div>
-            <div style={{ marginTop: 4, color: t.sub, fontSize: 13 }}>Syncing with your accounts</div>
+            <div style={{ width: 52, height: 52, borderRadius: 14, background: "#6C5CE7", display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 26 }}>💸</div>
+            <div style={{ marginTop: 16, fontWeight: 700, color: t.text, fontFamily: H, fontSize: 17 }}>Loading your finances...</div>
+            <div style={{ marginTop: 6, color: t.sub, fontSize: 13 }}>Syncing with your accounts</div>
           </div>
         ) : (<>
           {tab === "dashboard" && <UnifiedDashboard dash={dash} bills={bills} t={t} onToggle={togglePaid} onDelete={deleteBill} onGoTo={setTab} />}
@@ -4454,28 +4458,41 @@ export default function App() {
         </>)}
       </div>
 
-      {/* Bottom Navigation — iOS-style glass morphism */}
+      {/* ── Bottom Nav ── */}
       <div className="bb-bottom-nav" style={{
         display: "none", position: "fixed", bottom: 0, left: 0, right: 0,
-        background: dark ? "rgba(13,13,18,0.92)" : "rgba(255,255,255,0.92)",
+        background: dark ? "rgba(13,13,18,0.95)" : "rgba(255,255,255,0.95)",
         backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)",
         borderTop: `1px solid ${dark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.06)"}`,
-        padding: "6px 0 2px", paddingBottom: "max(6px, env(safe-area-inset-bottom))",
+        padding: "8px 0", paddingBottom: "max(8px, env(safe-area-inset-bottom))",
         justifyContent: "space-around", alignItems: "center", zIndex: 100,
       }}>
-        {Object.entries(tabEmojis).map(([key, emoji]) => {
-          const active = tab === key;
+        {navItems.map(item => {
+          const active = tab === item.key;
           return (
-            <button key={key} onClick={() => setTab(key)} style={{
-              display: "flex", flexDirection: "column", alignItems: "center", gap: 2,
-              background: "none", border: "none", cursor: "pointer", padding: "6px 16px",
-              position: "relative", transition: "all 0.2s ease",
+            <button key={item.key} onClick={() => setTab(item.key)} style={{
+              display: "flex", flexDirection: "column", alignItems: "center", gap: 3,
+              background: "none", border: "none", cursor: "pointer",
+              padding: "4px 0", minWidth: 56, position: "relative",
             }}>
-              <span style={{ fontSize: 20, lineHeight: 1, filter: active ? "none" : "grayscale(0.5)", opacity: active ? 1 : 0.5, transition: "all 0.2s" }}>{emoji}</span>
-              <span style={{ fontSize: 9, fontWeight: active ? 700 : 500, fontFamily: F, color: active ? "#6C5CE7" : t.sub, transition: "color 0.2s" }}>
-                {key.charAt(0).toUpperCase() + key.slice(1)}
-              </span>
-              {active && <div style={{ position: "absolute", top: -1, width: 20, height: 2, borderRadius: 1, background: "#6C5CE7" }} />}
+              <div style={{
+                width: 28, height: 28, borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center",
+                background: active ? "#6C5CE720" : "transparent",
+                transition: "all 0.2s",
+              }}>
+                <span style={{
+                  fontSize: 18, lineHeight: 1,
+                  filter: active ? "none" : "grayscale(0.6)",
+                  opacity: active ? 1 : 0.5,
+                  transition: "all 0.2s",
+                }}>{item.icon}</span>
+              </div>
+              <span style={{
+                fontSize: 10, fontWeight: active ? 700 : 500, fontFamily: F,
+                color: active ? "#6C5CE7" : t.sub, transition: "color 0.2s",
+                letterSpacing: 0.1,
+              }}>{item.label}</span>
+              {active && <div style={{ position: "absolute", top: -4, width: 24, height: 2.5, borderRadius: 2, background: "#6C5CE7" }} />}
             </button>
           );
         })}
