@@ -2467,61 +2467,72 @@ function OnboardingWizard({ steps, t, onGoTo }) {
 // ─── Unified Dashboard ───
 function UnifiedDashboard({ dash, bills, t, onToggle, onDelete, onGoTo }) {
   if (!dash) return null;
-  const getCatIcon2 = n => CATEGORIES.find(c => c.name === n)?.icon || "📋";
+  const getCatIcon2 = n => CATEGORIES.find(c => c.name === n)?.icon || "📄";
+  const H = "'Outfit', 'Plus Jakarta Sans', sans-serif";
+  const F = "'Plus Jakarta Sans', 'Outfit', sans-serif";
+  const paidPct = dash.totalMonthlyBills > 0 ? Math.round((dash.totalPaid / dash.totalMonthlyBills) * 100) : 0;
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
       {/* Onboarding */}
       {!dash.onboardingComplete && <OnboardingWizard steps={dash.onboardingSteps} t={t} onGoTo={onGoTo} />}
 
-      {/* Bank balance hero */}
+      {/* Balance hero */}
       {dash.accountCount > 0 && (
-        <div style={{ background: t.card, borderRadius: 16, padding: "18px 20px", boxShadow: t.cs }}>
-          <div style={{ fontSize: 11, color: t.sub, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5 }}>Bank Balance</div>
-          <div style={{ fontSize: 28, fontWeight: 800, color: "#10B981", fontFamily: "'Outfit', sans-serif", margin: "4px 0" }}>{formatMoney(dash.totalBankBalance)}</div>
-          <div style={{ display: "flex", gap: 16, fontSize: 12, color: t.sub }}>
-            {dash.totalCardDebt > 0 && <span>💳 {formatMoney(dash.totalCardDebt)} debt</span>}
-            <span>💰 {formatMoney(dash.incomeThisMonth)} earned this month</span>
+        <div style={{ background: t.card, borderRadius: 18, padding: "22px 22px 18px", boxShadow: t.cs, borderTop: "3px solid #6C5CE7" }}>
+          <div style={{ fontSize: 11, color: t.sub, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5 }}>Balance</div>
+          <div style={{ fontSize: 34, fontWeight: 800, color: "#10B981", fontFamily: H, margin: "2px 0 8px", letterSpacing: -1 }}>{formatMoney(dash.totalBankBalance)}</div>
+          <div style={{ display: "flex", gap: 20, fontSize: 13, color: t.sub }}>
+            {dash.totalCardDebt > 0 && <span>💳 <span style={{ color: "#EF4444", fontWeight: 600 }}>{formatMoney(dash.totalCardDebt)}</span> debt</span>}
+            <span>💰 {formatMoney(dash.incomeThisMonth)} earned</span>
           </div>
         </div>
       )}
 
-      {/* Quick stats row */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
-        <div style={{ background: t.card, borderRadius: 14, padding: "14px 16px", boxShadow: t.cs }}>
-          <div style={{ fontSize: 10, color: t.sub, fontWeight: 600, textTransform: "uppercase" }}>Monthly Bills</div>
-          <div style={{ fontSize: 18, fontWeight: 800, color: "#6C5CE7", fontFamily: "'Outfit', sans-serif" }}>{formatMoney(dash.totalMonthlyBills)}</div>
-          <div style={{ fontSize: 11, color: t.sub, fontWeight: 600 }}>{dash.totalBills} total</div>
+      {/* Stats grid - 2x2 */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+        <div style={{ background: t.card, borderRadius: 14, padding: "16px 18px", boxShadow: t.cs }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+            <div style={{ width: 28, height: 28, borderRadius: 8, background: "#6C5CE720", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14 }}>📃</div>
+            <span style={{ fontSize: 11, color: t.sub, fontWeight: 600, textTransform: "uppercase" }}>Monthly Bills</span>
+          </div>
+          <div style={{ fontSize: 22, fontWeight: 800, color: "#6C5CE7", fontFamily: H }}>{formatMoney(dash.totalMonthlyBills)}</div>
+          <div style={{ fontSize: 12, color: t.sub, marginTop: 2 }}>{dash.totalBills} bills</div>
         </div>
-        <div style={{ background: t.card, borderRadius: 14, padding: "14px 16px", boxShadow: t.cs }}>
-          <div style={{ fontSize: 10, color: t.sub, fontWeight: 600, textTransform: "uppercase" }}>Still Owed</div>
-          <div style={{ fontSize: 18, fontWeight: 800, color: dash.totalUnpaid > 0 ? "#EF4444" : "#10B981", fontFamily: "'Outfit', sans-serif" }}>{formatMoney(dash.totalUnpaid)}</div>
-          <div style={{ fontSize: 11, color: t.sub, fontWeight: 600 }}>{dash.totalBills - dash.paidCount} unpaid</div>
+        <div style={{ background: t.card, borderRadius: 14, padding: "16px 18px", boxShadow: t.cs }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+            <div style={{ width: 28, height: 28, borderRadius: 8, background: dash.totalUnpaid > 0 ? "#EF444420" : "#10B98120", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14 }}>{dash.totalUnpaid > 0 ? "⏳" : "✅"}</div>
+            <span style={{ fontSize: 11, color: t.sub, fontWeight: 600, textTransform: "uppercase" }}>Still Owed</span>
+          </div>
+          <div style={{ fontSize: 22, fontWeight: 800, color: dash.totalUnpaid > 0 ? "#EF4444" : "#10B981", fontFamily: H }}>{formatMoney(dash.totalUnpaid)}</div>
+          <div style={{ fontSize: 12, color: t.sub, marginTop: 2 }}>{dash.totalBills - dash.paidCount} unpaid</div>
         </div>
-        <div style={{ background: t.card, borderRadius: 14, padding: "14px 16px", boxShadow: t.cs }}>
-          <div style={{ fontSize: 10, color: t.sub, fontWeight: 600, textTransform: "uppercase" }}>Left Over</div>
-          <div style={{ fontSize: 18, fontWeight: 800, color: dash.leftoverFromBank >= 0 ? "#10B981" : "#EF4444", fontFamily: "'Outfit', sans-serif" }}>{dash.accountCount > 0 ? formatMoney(dash.leftoverFromBank) : formatMoney(dash.leftoverEstimated)}</div>
-          <div style={{ fontSize: 11, color: t.sub, fontWeight: 600 }}>after bills</div>
+        <div style={{ background: t.card, borderRadius: 14, padding: "16px 18px", boxShadow: t.cs }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+            <div style={{ width: 28, height: 28, borderRadius: 8, background: "#10B98120", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14 }}>💵</div>
+            <span style={{ fontSize: 11, color: t.sub, fontWeight: 600, textTransform: "uppercase" }}>Left Over</span>
+          </div>
+          <div style={{ fontSize: 22, fontWeight: 800, color: (dash.accountCount > 0 ? dash.leftoverFromBank : dash.leftoverEstimated) >= 0 ? "#10B981" : "#EF4444", fontFamily: H }}>{dash.accountCount > 0 ? formatMoney(dash.leftoverFromBank) : formatMoney(dash.leftoverEstimated)}</div>
+          <div style={{ fontSize: 12, color: t.sub, marginTop: 2 }}>after bills</div>
         </div>
-      </div>
-
-      {/* Progress */}
-      <div style={{ background: t.card, borderRadius: 14, padding: "14px 18px", boxShadow: t.cs }}>
-        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
-          <span style={{ fontWeight: 700, color: t.text, fontSize: 13 }}>Monthly Progress</span>
-          <span style={{ fontWeight: 800, color: "#6C5CE7", fontFamily: "'Outfit', sans-serif", fontSize: 13 }}>{dash.totalMonthlyBills > 0 ? Math.round((dash.totalPaid / dash.totalMonthlyBills) * 100) : 0}%</span>
-        </div>
-        <div style={{ height: 8, background: t.prog, borderRadius: 4, overflow: "hidden" }}>
-          <div style={{ height: "100%", borderRadius: 4, background: "linear-gradient(90deg, #10B981, #6C5CE7)", width: `${dash.totalMonthlyBills > 0 ? (dash.totalPaid / dash.totalMonthlyBills) * 100 : 0}%`, transition: "width 0.5s" }} />
+        <div style={{ background: t.card, borderRadius: 14, padding: "16px 18px", boxShadow: t.cs }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+            <div style={{ width: 28, height: 28, borderRadius: 8, background: "#6C5CE720", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14 }}>📊</div>
+            <span style={{ fontSize: 11, color: t.sub, fontWeight: 600, textTransform: "uppercase" }}>Progress</span>
+          </div>
+          <div style={{ fontSize: 22, fontWeight: 800, color: "#6C5CE7", fontFamily: H }}>{paidPct}%</div>
+          <div style={{ height: 6, background: t.prog, borderRadius: 3, overflow: "hidden", marginTop: 6 }}>
+            <div style={{ height: "100%", borderRadius: 3, background: "linear-gradient(90deg, #10B981, #6C5CE7)", width: paidPct + "%", transition: "width 0.5s" }} />
+          </div>
         </div>
       </div>
 
       {/* Overdue alert */}
       {dash.overdue.length > 0 && (
-        <div style={{ background: "#EF444415", borderRadius: 14, padding: "14px 18px", borderLeft: "4px solid #EF4444" }}>
-          <div style={{ fontWeight: 700, color: "#EF4444", fontSize: 13, marginBottom: 8 }}>⚠️ {dash.overdue.length} Overdue</div>
+        <div style={{ background: "#EF444410", borderRadius: 14, padding: "16px 18px", borderLeft: "4px solid #EF4444" }}>
+          <div style={{ fontWeight: 700, color: "#EF4444", fontSize: 14, marginBottom: 10 }}>⚠️ {dash.overdue.length} Overdue</div>
           {dash.overdue.map(b => (
-            <div key={b.id} style={{ display: "flex", justifyContent: "space-between", padding: "4px 0", fontSize: 13 }}>
+            <div key={b.id} style={{ display: "flex", justifyContent: "space-between", padding: "5px 0", fontSize: 13 }}>
               <span style={{ color: t.text }}>{getCatIcon2(b.category)} {b.name}</span>
               <span style={{ fontWeight: 700, color: "#EF4444" }}>{formatMoney(b.amount)}</span>
             </div>
@@ -2531,15 +2542,15 @@ function UnifiedDashboard({ dash, bills, t, onToggle, onDelete, onGoTo }) {
 
       {/* Upcoming this week */}
       {dash.upcoming.length > 0 && (
-        <div style={{ background: t.card, borderRadius: 14, padding: "14px 18px", boxShadow: t.cs }}>
-          <div style={{ fontWeight: 700, color: t.text, fontSize: 13, marginBottom: 10 }}>📅 Due This Week</div>
+        <div style={{ background: t.card, borderRadius: 14, padding: "16px 18px", boxShadow: t.cs }}>
+          <div style={{ fontWeight: 700, color: t.text, fontSize: 14, marginBottom: 10 }}>📅 Due This Week</div>
           {dash.upcoming.map(b => (
-            <div key={b.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "6px 0", borderBottom: `1px solid ${t.border}` }}>
+            <div key={b.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 0", borderBottom: `1px solid ${t.border}` }}>
               <div>
-                <span style={{ fontSize: 13, fontWeight: 600, color: t.text }}>{getCatIcon2(b.category)} {b.name}</span>
-                <span style={{ fontSize: 11, color: t.sub, marginLeft: 8 }}>{b.daysUntil === 0 ? "Today" : `in ${b.daysUntil}d`}</span>
+                <span style={{ fontSize: 14, fontWeight: 600, color: t.text }}>{getCatIcon2(b.category)} {b.name}</span>
+                <span style={{ fontSize: 12, color: t.sub, marginLeft: 8 }}>{b.daysUntil === 0 ? "Today" : `in ${b.daysUntil}d`}</span>
               </div>
-              <span style={{ fontWeight: 700, color: t.text, fontSize: 13 }}>{formatMoney(b.amount)}</span>
+              <span style={{ fontWeight: 700, color: t.text, fontSize: 14 }}>{formatMoney(b.amount)}</span>
             </div>
           ))}
         </div>
@@ -2547,19 +2558,27 @@ function UnifiedDashboard({ dash, bills, t, onToggle, onDelete, onGoTo }) {
 
       {/* All bills */}
       <div>
-        <h3 style={{ fontFamily: "'Outfit', sans-serif", color: t.text, margin: "4px 0 10px", fontSize: 16 }}>All Bills</h3>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+          <h3 style={{ fontFamily: H, color: t.text, margin: 0, fontSize: 17 }}>Bills</h3>
+          <span style={{ fontSize: 11, fontWeight: 700, color: "#6C5CE7", background: "#6C5CE715", padding: "3px 10px", borderRadius: 8 }}>{dash.paidCount}/{dash.totalBills} paid</span>
+        </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           {bills.sort((a, b) => a.dueDate - b.dueDate).map(b => <BillRow key={b.id} bill={b} onToggle={onToggle} onDelete={onDelete} t={t} />)}
-          {!bills.length && <div style={{ textAlign: "center", padding: 30, color: t.sub, fontSize: 13 }}>No bills yet — tap "+ Add" to get started</div>}
+          {!bills.length && (
+            <div style={{ textAlign: "center", padding: 40, color: t.sub, fontSize: 14 }}>
+              <div style={{ fontSize: 32, marginBottom: 8 }}>💸</div>
+              No bills yet — tap <span style={{ color: "#6C5CE7", fontWeight: 700 }}>+ Bill</span> to get started
+            </div>
+          )}
         </div>
       </div>
 
       {/* Recent activity */}
       {dash.recentActivity.length > 0 && (
-        <div style={{ background: t.card, borderRadius: 14, padding: "14px 18px", boxShadow: t.cs }}>
-          <div style={{ fontWeight: 700, color: t.text, fontSize: 13, marginBottom: 10 }}>🕐 Recent Activity</div>
-          {dash.recentActivity.map(a => (
-            <div key={a.id} style={{ display: "flex", justifyContent: "space-between", padding: "5px 0", fontSize: 12, borderBottom: `1px solid ${t.border}` }}>
+        <div style={{ background: t.card, borderRadius: 14, padding: "16px 18px", boxShadow: t.cs }}>
+          <div style={{ fontWeight: 700, color: t.text, fontSize: 14, marginBottom: 10 }}>📋 Recent Payments</div>
+          {dash.recentActivity.slice(0, 5).map(a => (
+            <div key={a.id} style={{ display: "flex", justifyContent: "space-between", padding: "7px 0", fontSize: 13, borderBottom: `1px solid ${t.border}` }}>
               <span style={{ color: t.sub }}>{a.status === "on-time" ? "✅" : "⚠️"} {a.billName} · {a.paidDate}</span>
               <span style={{ fontWeight: 700, color: t.text }}>{formatMoney(a.amount)}</span>
             </div>
@@ -2569,7 +2588,6 @@ function UnifiedDashboard({ dash, bills, t, onToggle, onDelete, onGoTo }) {
     </div>
   );
 }
-
 // ─── Money Tab (Bank + Cards + Income combined) ───
 function HouseholdView({ t }) {
   const [hh, setHH] = useState(null);
