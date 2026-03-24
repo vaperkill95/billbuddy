@@ -2953,11 +2953,27 @@ function HouseholdView({ t }) {
 
 function MoneyTab({ t }) {
   const [subTab, setSubTab] = useState("bank");
+  const H = "'Outfit', 'Plus Jakarta Sans', sans-serif";
+  const F = "'Plus Jakarta Sans', 'Outfit', sans-serif";
+  const tabs = [
+    { key: "bank", icon: "🏦", label: "Bank" },
+    { key: "cards", icon: "💳", label: "Cards" },
+    { key: "income", icon: "💰", label: "Income" },
+    { key: "household", icon: "🏠", label: "Household" },
+  ];
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-      <div style={{ display: "flex", gap: 4, background: t.pill, borderRadius: 12, padding: 4, alignSelf: "flex-start", flexWrap: "wrap" }}>
-        {[["bank", "🏦 Bank"], ["cards", "💳 Cards"], ["income", "💰 Income"], ["household", "🏠 Household"]].map(([k, l]) => (
-          <button key={k} onClick={() => setSubTab(k)} style={{ padding: "7px 12px", borderRadius: 10, border: "none", background: subTab === k ? "#6C5CE7" : "transparent", color: subTab === k ? "white" : t.sub, cursor: "pointer", fontWeight: 700, fontSize: 11, fontFamily: "'Plus Jakarta Sans', sans-serif" }}>{l}</button>
+    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+      {/* Segmented control */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 0, background: t.cardAlt, borderRadius: 14, padding: 4 }}>
+        {tabs.map(item => (
+          <button key={item.key} onClick={() => setSubTab(item.key)} style={{
+            padding: "10px 0", borderRadius: 10, border: "none",
+            background: subTab === item.key ? "#6C5CE7" : "transparent",
+            color: subTab === item.key ? "white" : t.sub,
+            cursor: "pointer", fontWeight: 600, fontSize: 12, fontFamily: F,
+            transition: "all 0.2s ease", display: "flex", alignItems: "center",
+            justifyContent: "center", gap: 5,
+          }}><span style={{ fontSize: 14 }}>{item.icon}</span> {item.label}</button>
         ))}
       </div>
       {subTab === "bank" && <BankAccountsView t={t} />}
