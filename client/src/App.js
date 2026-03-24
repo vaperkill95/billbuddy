@@ -84,8 +84,47 @@ function AuthPage({ onAuth, t }) {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  // 2FA state
+  const [needs2FA, setNeeds2FA] = useState(false);
+  const [pending2FAUser, setPending2FAUser] = useState(null);
+  const [tfaCode, setTfaCode] = useState("");
+  const [tfaError, setTfaError] = useState("");
+  const [tfaLoading, setTfaLoading] = useState(false);
+
   const onAuthRef = useRef(onAuth);
   onAuthRef.current = onAuth;
+
+  // Handle auth response - check if 2FA is required
+  const processAuthResponse = async (data) => {
+    if (data.requires2FA) {
+      setNeeds2FA(true);
+      setPending2FAUser({ userId: data.userId, userName: data.userName });
+      return;
+    }
+    api.setToken(data.token);
+    api.setUser(data.user);
+    onAuthRef.current(data.user);
+  };
+
+  // 2FA verification
+  const handle2FASubmit = async () => {
+    if (!tfaCode || tfaCode.length < 6) { setTfaError("Enter 6-digit code"); return; }
+    setTfaLoading(true);
+    setTfaError("");
+    try {
+      const valid = await api.validate2FA(pending2FAUser.userId, tfaCode);
+      if (valid.valid) {
+        const data = await api.complete2FA(pending2FAUser.userId);
+        api.setToken(data.token);
+        api.setUser(data.user);
+        onAuthRef.current(data.user);
+      }
+    } catch (err) {
+      setTfaError(err.message || "Invalid code");
+    } finally {
+      setTfaLoading(false);
+    }
+  };
 
   useEffect(() => {
     if (!GOOGLE_CLIENT_ID) return;
@@ -99,9 +138,7 @@ function AuthPage({ onAuth, t }) {
         callback: async (response) => {
           try {
             const data = await api.googleLogin(response.credential);
-            api.setToken(data.token);
-            api.setUser(data.user);
-            onAuthRef.current(data.user);
+            processAuthResponse(data);
           } catch (err) {
             console.error("Google auth error:", err);
           }
@@ -118,88 +155,109 @@ function AuthPage({ onAuth, t }) {
 
   const handleSubmit = async () => {
     setError("");
-    if (!email || !password || (mode === "signup" && !name)) {
-      setError("Please fill in all fields"); return;
-    }
+    if (!email || !password || (mode === "signup" && !name)) { setError("Please fill in all fields"); return; }
     setLoading(true);
     try {
       const data = mode === "signup"
         ? await api.signup({ name, email, password })
         : await api.login({ email, password });
-      api.setToken(data.token);
-      api.setUser(data.user);
-      onAuth(data.user);
+      processAuthResponse(data);
     } catch (err) {
       setError(err.message);
-    } finally { setLoading(false); }
+    } finally {
+      setLoading(false);
+    }
   };
 
   const is = { width: "100%", padding: "12px 14px", borderRadius: 10, border: `1px solid ${t.border}`, fontSize: 14, fontFamily: "'Plus Jakarta Sans', sans-serif", outline: "none", boxSizing: "border-box", background: t.cardAlt || t.bg, color: t.text, transition: "border 0.2s" };
 
+  // 2FA Challenge Screen
+  if (needs2FA) {
+    return (
+      <div style={{ minHeight: "100vh", background: t.bg, display: "flex", alignItems: "center", justifyContent: "center", padding: 20, fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
+        <div style={{ width: "100%", maxWidth: 380 }}>
+          <div style={{ textAlign: "center", marginBottom: 36 }}>
+            <div style={{ width: 56, height: 56, borderRadius: 16, background: "#6C5CE7", display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 28, marginBottom: 12 }}>🔐</div>
+            <h1 style={{ fontFamily: "'Outfit', sans-serif", fontSize: 24, color: t.text, margin: 0 }}>Two-Factor Auth</h1>
+            <p style={{ color: t.sub, fontSize: 13, marginTop: 4 }}>Hi {pending2FAUser?.userName || "there"}, enter your code</p>
+          </div>
+          <div style={{ background: t.card, borderRadius: 16, padding: "28px 24px", boxShadow: t.cs, border: `1px solid ${t.border}` }}>
+            {tfaError && <div style={{ background: "#EF444410", color: "#EF4444", padding: "10px 14px", borderRadius: 10, fontSize: 13, fontWeight: 600, marginBottom: 14, textAlign: "center", border: "1px solid #EF444420" }}>{tfaError}</div>}
+            <p style={{ color: t.sub, fontSize: 13, textAlign: "center", margin: "0 0 16px" }}>Open your authenticator app and enter the 6-digit code</p>
+            <input
+              value={tfaCode}
+              onChange={e => setTfaCode(e.target.value.replace(/[^0-9A-Za-z]/g, "").substring(0, 8))}
+              placeholder="000000"
+              maxLength={8}
+              style={{ ...is, textAlign: "center", fontSize: 24, fontWeight: 700, letterSpacing: 8, fontFamily: "'Outfit', monospace" }}
+              onKeyDown={e => e.key === "Enter" && handle2FASubmit()}
+              autoFocus
+            />
+            <button onClick={handle2FASubmit} disabled={tfaLoading} style={{
+              width: "100%", padding: "13px", borderRadius: 10, border: "none",
+              background: "#6C5CE7", color: "white", cursor: "pointer",
+              fontWeight: 700, fontSize: 15, fontFamily: "'Plus Jakarta Sans', sans-serif",
+              marginTop: 16, opacity: tfaLoading ? 0.6 : 1,
+            }}>{tfaLoading ? "Verifying..." : "Verify"}</button>
+            <p style={{ color: t.sub, fontSize: 11, textAlign: "center", marginTop: 12 }}>You can also use a backup code</p>
+            <button onClick={() => { setNeeds2FA(false); setPending2FAUser(null); setTfaCode(""); setTfaError(""); }} style={{
+              background: "none", border: "none", color: "#6C5CE7", cursor: "pointer",
+              fontSize: 13, fontWeight: 600, width: "100%", marginTop: 8,
+            }}>← Back to login</button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div style={{ minHeight: "100vh", background: t.bg, display: "flex", alignItems: "center", justifyContent: "center", padding: 20, fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
       <div style={{ width: "100%", maxWidth: 380 }}>
-        {/* Logo */}
         <div style={{ textAlign: "center", marginBottom: 36 }}>
           <div style={{ width: 56, height: 56, borderRadius: 16, background: "#6C5CE7", display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 28, marginBottom: 12 }}>💸</div>
           <h1 style={{ fontFamily: "'Outfit', sans-serif", fontSize: 28, color: t.text, margin: 0, letterSpacing: -0.5 }}>BillBuddy</h1>
           <p style={{ color: t.sub, fontSize: 14, marginTop: 4 }}>Smart money management</p>
         </div>
-
-        {/* Card */}
         <div style={{ background: t.card, borderRadius: 16, padding: "28px 24px", boxShadow: t.cs, border: `1px solid ${t.border}` }}>
           <h2 style={{ fontFamily: "'Outfit', sans-serif", color: t.text, margin: "0 0 20px", fontSize: 18, textAlign: "center" }}>
             {mode === "login" ? "Welcome back" : "Create account"}
           </h2>
-
           {error && <div style={{ background: "#EF444410", color: "#EF4444", padding: "10px 14px", borderRadius: 10, fontSize: 13, fontWeight: 600, marginBottom: 14, textAlign: "center", border: "1px solid #EF444420" }}>{error}</div>}
-
           <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
             {mode === "signup" && (
-              <input value={name} onChange={e => setName(e.target.value)} placeholder="Full name" style={is} onFocus={e => e.target.style.borderColor = "#6C5CE7"} onBlur={e => e.target.style.borderColor = t.border} />
+              <input value={name} onChange={e => setName(e.target.value)} placeholder="Full name" style={is}
+                onFocus={e => e.target.style.borderColor = "#6C5CE7"} onBlur={e => e.target.style.borderColor = t.border} />
             )}
-            <input value={email} onChange={e => setEmail(e.target.value)} placeholder="Email address" type="email" style={is} onFocus={e => e.target.style.borderColor = "#6C5CE7"} onBlur={e => e.target.style.borderColor = t.border} />
-            <input value={password} onChange={e => setPassword(e.target.value)} placeholder="Password" type="password" style={is} onKeyDown={e => e.key === "Enter" && handleSubmit()} onFocus={e => e.target.style.borderColor = "#6C5CE7"} onBlur={e => e.target.style.borderColor = t.border} />
+            <input value={email} onChange={e => setEmail(e.target.value)} placeholder="Email address" type="email" style={is}
+              onFocus={e => e.target.style.borderColor = "#6C5CE7"} onBlur={e => e.target.style.borderColor = t.border} />
+            <input value={password} onChange={e => setPassword(e.target.value)} placeholder="Password" type="password" style={is}
+              onFocus={e => e.target.style.borderColor = "#6C5CE7"} onBlur={e => e.target.style.borderColor = t.border}
+              onKeyDown={e => e.key === "Enter" && handleSubmit()} />
             <button onClick={handleSubmit} disabled={loading} style={{
-              width: "100%", padding: "14px", borderRadius: 14, border: "none",
-              background: "#6C5CE7", color: "white",
-              cursor: "pointer", fontWeight: 700, fontSize: 15, fontFamily: "'Plus Jakarta Sans', sans-serif",
-              boxShadow: "0 4px 16px #6C5CE740", opacity: loading ? 0.7 : 1,
+              width: "100%", padding: "13px", borderRadius: 10, border: "none",
+              background: "#6C5CE7", color: "white", cursor: "pointer",
+              fontWeight: 700, fontSize: 15, fontFamily: "'Plus Jakarta Sans', sans-serif",
+              opacity: loading ? 0.6 : 1,
             }}>{loading ? "Please wait..." : mode === "login" ? "Sign In" : "Create Account"}</button>
           </div>
-
-          {/* Divider */}
           <div style={{ display: "flex", alignItems: "center", gap: 12, margin: "20px 0" }}>
             <div style={{ flex: 1, height: 1, background: t.border }} />
-            <span style={{ fontSize: 12, color: t.muted, fontWeight: 600 }}>OR</span>
+            <span style={{ color: t.sub, fontSize: 12, fontWeight: 500 }}>OR</span>
             <div style={{ flex: 1, height: 1, background: t.border }} />
           </div>
-
-          {/* Google sign-in */}
-          {GOOGLE_CLIENT_ID ? (
-            <div id="google-btn" style={{ display: "flex", justifyContent: "center" }} />
-          ) : (
-            <div style={{ textAlign: "center", fontSize: 12, color: t.muted, padding: "8px 0" }}>
-              Google sign-in available when configured
-            </div>
-          )}
-
-          {/* Toggle mode */}
-          <div style={{ textAlign: "center", marginTop: 20 }}>
-            <span style={{ fontSize: 14, color: t.sub }}>
-              {mode === "login" ? "Don't have an account? " : "Already have an account? "}
+          <div id="google-btn" style={{ display: "flex", justifyContent: "center" }} />
+          <p style={{ textAlign: "center", marginTop: 20, fontSize: 13, color: t.sub }}>
+            {mode === "login" ? "Don't have an account? " : "Already have one? "}
+            <span onClick={() => { setMode(mode === "login" ? "signup" : "login"); setError(""); }}
+              style={{ color: "#6C5CE7", fontWeight: 600, cursor: "pointer" }}>
+              {mode === "login" ? "Sign up" : "Sign in"}
             </span>
-            <button onClick={() => { setMode(mode === "login" ? "signup" : "login"); setError(""); }} style={{
-              background: "none", border: "none", color: "#6C5CE7", fontWeight: 700,
-              fontSize: 14, cursor: "pointer", fontFamily: "'Plus Jakarta Sans', sans-serif",
-            }}>{mode === "login" ? "Sign up" : "Sign in"}</button>
-          </div>
+          </p>
         </div>
       </div>
     </div>
   );
 }
-
 // ─── Dashboard Components ───
 function StatCard({ label, value, sub, color, icon, t }) {
   return (
@@ -4173,6 +4231,178 @@ function AdvisorChat({ t, user }) {
   );
 }
 
+
+// ─── Security View (2FA Setup) ───
+function SecurityView({ t }) {
+  const [status, setStatus] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [setupData, setSetupData] = useState(null);
+  const [verifyCode, setVerifyCode] = useState("");
+  const [disableCode, setDisableCode] = useState("");
+  const [backupCodes, setBackupCodes] = useState(null);
+  const [error, setError] = useState("");
+  const [msg, setMsg] = useState("");
+  const F = "'Plus Jakarta Sans', 'Outfit', sans-serif";
+  const H = "'Outfit', 'Plus Jakarta Sans', sans-serif";
+
+  useEffect(() => {
+    api.get2FAStatus().then(s => { setStatus(s.enabled); setLoading(false); }).catch(() => setLoading(false));
+  }, []);
+
+  const startSetup = async () => {
+    setError("");
+    try {
+      const data = await api.setup2FA();
+      setSetupData(data);
+    } catch (err) { setError(err.message); }
+  };
+
+  const verifySetup = async () => {
+    if (!verifyCode || verifyCode.length < 6) { setError("Enter the 6-digit code"); return; }
+    setError("");
+    try {
+      const result = await api.verify2FA(verifyCode);
+      setBackupCodes(result.backupCodes);
+      setStatus(true);
+      setSetupData(null);
+      setVerifyCode("");
+    } catch (err) { setError(err.message || "Invalid code"); }
+  };
+
+  const handleDisable = async () => {
+    if (!disableCode || disableCode.length < 6) { setError("Enter your current 2FA code"); return; }
+    setError("");
+    try {
+      await api.disable2FA(disableCode);
+      setStatus(false);
+      setDisableCode("");
+      setMsg("2FA has been disabled");
+      setTimeout(() => setMsg(""), 3000);
+    } catch (err) { setError(err.message || "Invalid code"); }
+  };
+
+  if (loading) return <div style={{ textAlign: "center", padding: 40, color: t.sub }}>Loading...</div>;
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+      <div>
+        <h2 style={{ fontFamily: H, color: t.text, margin: 0, fontSize: 20, fontWeight: 700 }}>🔐 Security</h2>
+        <p style={{ margin: "4px 0 0", fontSize: 13, color: t.sub }}>Protect your account</p>
+      </div>
+
+      {error && <div style={{ background: "#EF444410", color: "#EF4444", padding: "12px 16px", borderRadius: 12, fontSize: 13, fontWeight: 600, border: "1px solid #EF444420" }}>{error}</div>}
+      {msg && <div style={{ background: "#10B98110", color: "#10B981", padding: "12px 16px", borderRadius: 12, fontSize: 13, fontWeight: 600, border: "1px solid #10B98120" }}>{msg}</div>}
+
+      {/* Status card */}
+      <div style={{ background: t.card, borderRadius: 16, padding: "18px 20px", boxShadow: t.cs }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <div>
+            <div style={{ fontWeight: 700, color: t.text, fontSize: 15 }}>Two-Factor Authentication</div>
+            <div style={{ fontSize: 12, color: t.sub, marginTop: 2 }}>
+              {status ? "Your account is protected with 2FA" : "Add an extra layer of security"}
+            </div>
+          </div>
+          <div style={{
+            padding: "4px 12px", borderRadius: 8, fontSize: 11, fontWeight: 700,
+            background: status ? "#10B98120" : "#EF444420",
+            color: status ? "#10B981" : "#EF4444",
+          }}>{status ? "ENABLED" : "OFF"}</div>
+        </div>
+      </div>
+
+      {/* Setup flow */}
+      {!status && !setupData && (
+        <button onClick={startSetup} style={{
+          width: "100%", padding: "14px", borderRadius: 12, border: "none",
+          background: "#6C5CE7", color: "white", cursor: "pointer",
+          fontWeight: 700, fontSize: 14, fontFamily: F,
+        }}>Enable Two-Factor Authentication</button>
+      )}
+
+      {/* QR Code setup */}
+      {setupData && (
+        <div style={{ background: t.card, borderRadius: 16, padding: "20px", boxShadow: t.cs }}>
+          <div style={{ fontWeight: 700, color: t.text, fontSize: 14, marginBottom: 12 }}>Step 1: Scan QR Code</div>
+          <p style={{ fontSize: 12, color: t.sub, marginBottom: 12 }}>
+            Open Google Authenticator (or any TOTP app) and scan this QR code
+          </p>
+          <div style={{ textAlign: "center", marginBottom: 16 }}>
+            <img src={setupData.qrCode} alt="2FA QR Code" style={{ width: 200, height: 200, borderRadius: 12 }} />
+          </div>
+          <div style={{ background: t.cardAlt, borderRadius: 10, padding: "10px 14px", marginBottom: 16, wordBreak: "break-all" }}>
+            <div style={{ fontSize: 10, color: t.sub, fontWeight: 600, textTransform: "uppercase", marginBottom: 4 }}>Manual Key</div>
+            <div style={{ fontSize: 12, color: t.text, fontFamily: "monospace", fontWeight: 600 }}>{setupData.secret}</div>
+          </div>
+          <div style={{ fontWeight: 700, color: t.text, fontSize: 14, marginBottom: 8 }}>Step 2: Enter Code</div>
+          <input
+            value={verifyCode}
+            onChange={e => setVerifyCode(e.target.value.replace(/\D/g, "").substring(0, 6))}
+            placeholder="000000"
+            maxLength={6}
+            style={{
+              width: "100%", padding: "12px", borderRadius: 10, border: `1px solid ${t.border}`,
+              fontSize: 20, fontWeight: 700, textAlign: "center", letterSpacing: 6,
+              fontFamily: "'Outfit', monospace", background: t.cardAlt || t.bg, color: t.text,
+              outline: "none", boxSizing: "border-box",
+            }}
+            onKeyDown={e => e.key === "Enter" && verifySetup()}
+          />
+          <button onClick={verifySetup} style={{
+            width: "100%", padding: "13px", borderRadius: 10, border: "none",
+            background: "#10B981", color: "white", cursor: "pointer",
+            fontWeight: 700, fontSize: 14, fontFamily: F, marginTop: 12,
+          }}>Verify & Enable</button>
+        </div>
+      )}
+
+      {/* Backup codes */}
+      {backupCodes && (
+        <div style={{ background: "#F59E0B10", borderRadius: 16, padding: "18px 20px", border: "1px solid #F59E0B30" }}>
+          <div style={{ fontWeight: 700, color: "#F59E0B", fontSize: 14, marginBottom: 8 }}>⚠️ Save Your Backup Codes</div>
+          <p style={{ fontSize: 12, color: t.sub, marginBottom: 12 }}>Store these codes safely. Each can be used once if you lose access to your authenticator.</p>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
+            {backupCodes.map((code, i) => (
+              <div key={i} style={{ background: t.card, padding: "8px 12px", borderRadius: 8, fontFamily: "monospace", fontSize: 13, fontWeight: 700, color: t.text, textAlign: "center" }}>{code}</div>
+            ))}
+          </div>
+          <button onClick={() => setBackupCodes(null)} style={{
+            width: "100%", padding: "10px", borderRadius: 10, border: `1px solid ${t.border}`,
+            background: "transparent", color: t.text, cursor: "pointer",
+            fontWeight: 600, fontSize: 13, fontFamily: F, marginTop: 12,
+          }}>I've saved my codes</button>
+        </div>
+      )}
+
+      {/* Disable 2FA */}
+      {status && !setupData && (
+        <div style={{ background: t.card, borderRadius: 16, padding: "18px 20px", boxShadow: t.cs }}>
+          <div style={{ fontWeight: 700, color: t.text, fontSize: 14, marginBottom: 8 }}>Disable 2FA</div>
+          <p style={{ fontSize: 12, color: t.sub, marginBottom: 12 }}>Enter your current 2FA code to disable</p>
+          <div style={{ display: "flex", gap: 8 }}>
+            <input
+              value={disableCode}
+              onChange={e => setDisableCode(e.target.value.replace(/\D/g, "").substring(0, 6))}
+              placeholder="000000"
+              maxLength={6}
+              style={{
+                flex: 1, padding: "10px", borderRadius: 10, border: `1px solid ${t.border}`,
+                fontSize: 16, fontWeight: 700, textAlign: "center", letterSpacing: 4,
+                fontFamily: "monospace", background: t.cardAlt || t.bg, color: t.text,
+                outline: "none", boxSizing: "border-box",
+              }}
+            />
+            <button onClick={handleDisable} style={{
+              padding: "10px 20px", borderRadius: 10, border: "none",
+              background: "#EF4444", color: "white", cursor: "pointer",
+              fontWeight: 700, fontSize: 13, fontFamily: F,
+            }}>Disable</button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function SettingsTab({ bills, history, hMonths, hFilter, setHFilter, onUpdateReminder, t }) {
   const [subTab, setSubTab] = useState(null);
   const F = "'Plus Jakarta Sans', 'Outfit', sans-serif";
@@ -4214,6 +4444,12 @@ function SettingsTab({ bills, history, hMonths, hFilter, setHFilter, onUpdateRem
         { key: "reminders", icon: "⏰", label: "Reminders", desc: "Bill due date reminders" },
       ]
     },
+    {
+      title: "Security",
+      items: [
+        { key: "security", icon: "🔐", label: "Security", desc: "2FA and account protection" },
+      ]
+    },
   ];
 
   // If a sub-tab is selected, show that view with a back button
@@ -4240,6 +4476,7 @@ function SettingsTab({ bills, history, hMonths, hFilter, setHFilter, onUpdateRem
         {subTab === "credit" && <CreditScoreView t={t} />}
         {subTab === "smartsave" && <SmartSavingsView t={t} />}
         {subTab === "cancel" && <CancelHelperView t={t} />}
+        {subTab === "security" && <SecurityView t={t} />}
       </div>
     );
   }
