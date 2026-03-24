@@ -4140,35 +4140,108 @@ function AdvisorChat({ t, user }) {
 }
 
 function SettingsTab({ bills, history, hMonths, hFilter, setHFilter, onUpdateReminder, t }) {
-  const [subTab, setSubTab] = useState("spending");
-  return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-      <div style={{ display: "flex", gap: 3, background: t.pill, borderRadius: 12, padding: 3, alignSelf: "stretch", flexWrap: "wrap" }}>
-        {[["spending", "💰 Spending"], ["forecast", "📈 Forecast"], ["savings", "🐷 Savings"], ["negotiate", "🤝 Negotiate"], ["subs", "📺 Subs"], ["activity", "📋 Activity"], ["alerts", "🔔 Alerts"], ["reminders", "⏰ Reminders"], ["history", "📜 History"], ["charts", "📊 Charts"], ["aitips", "🧠 AI Tips"], ["goals", "🎯 Goals"], ["credit", "📊 Credit"], ["smartsave", "🤖 AutoSave"], ["cancel", "🚫 Cancel"]].map(([k, l]) => (
-          <button key={k} onClick={() => setSubTab(k)} style={{
-            padding: "6px 10px", borderRadius: 8, border: "none",
-            background: subTab === k ? "#6C5CE7" : "transparent",
-            color: subTab === k ? "white" : t.sub,
-            cursor: "pointer", fontWeight: 700, fontSize: 10,
-            fontFamily: "'Plus Jakarta Sans', sans-serif"
-          }}>{l}</button>
-        ))}
+  const [subTab, setSubTab] = useState(null);
+  const F = "'Plus Jakarta Sans', 'Outfit', sans-serif";
+  const H = "'Outfit', 'Plus Jakarta Sans', sans-serif";
+
+  const groups = [
+    {
+      title: "Money Tools",
+      items: [
+        { key: "spending", icon: "💰", label: "Spending", desc: "Where your money goes" },
+        { key: "forecast", icon: "📈", label: "Forecast", desc: "Predict future expenses" },
+        { key: "charts", icon: "📊", label: "Charts", desc: "Visual breakdowns" },
+        { key: "history", icon: "📜", label: "History", desc: "Payment records" },
+      ]
+    },
+    {
+      title: "Save & Grow",
+      items: [
+        { key: "savings", icon: "🐷", label: "Savings", desc: "Savings advisor" },
+        { key: "goals", icon: "🎯", label: "Goals", desc: "Track financial goals" },
+        { key: "smartsave", icon: "🤖", label: "AutoSave", desc: "Smart savings autopilot" },
+        { key: "credit", icon: "📊", label: "Credit Score", desc: "Credit health report" },
+      ]
+    },
+    {
+      title: "Smart Tools",
+      items: [
+        { key: "aitips", icon: "🧠", label: "AI Tips", desc: "AI spending insights" },
+        { key: "negotiate", icon: "🤝", label: "Negotiate", desc: "Bill negotiation scripts" },
+        { key: "cancel", icon: "🚫", label: "Cancel Helper", desc: "Cancel subscriptions easily" },
+        { key: "subs", icon: "📺", label: "Subscriptions", desc: "Detect recurring charges" },
+      ]
+    },
+    {
+      title: "Manage",
+      items: [
+        { key: "activity", icon: "📋", label: "Activity", desc: "Recent activity feed" },
+        { key: "alerts", icon: "🔔", label: "Alerts", desc: "Smart notifications" },
+        { key: "reminders", icon: "⏰", label: "Reminders", desc: "Bill due date reminders" },
+      ]
+    },
+  ];
+
+  // If a sub-tab is selected, show that view with a back button
+  if (subTab) {
+    return (
+      <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+        <button onClick={() => setSubTab(null)} style={{
+          display: "flex", alignItems: "center", gap: 6, background: "none", border: "none",
+          color: "#6C5CE7", cursor: "pointer", fontWeight: 700, fontSize: 14, fontFamily: F,
+          padding: "4px 0", alignSelf: "flex-start",
+        }}>← More</button>
+        {subTab === "spending" && <SpendingView t={t} />}
+        {subTab === "forecast" && <ForecastView t={t} />}
+        {subTab === "savings" && <SavingsAdvisor t={t} />}
+        {subTab === "negotiate" && <NegotiateView bills={bills} t={t} />}
+        {subTab === "subs" && <SubscriptionDetector t={t} />}
+        {subTab === "activity" && <ActivityView t={t} />}
+        {subTab === "alerts" && <SmartAlertsView t={t} />}
+        {subTab === "reminders" && <RemindersView bills={bills} onUpdate={onUpdateReminder} t={t} />}
+        {subTab === "history" && <HistoryView history={history} months={hMonths} filter={hFilter} setFilter={setHFilter} t={t} />}
+        {subTab === "charts" && <SpendingChart bills={bills} t={t} />}
+        {subTab === "aitips" && <AISpendingInsightsView t={t} />}
+        {subTab === "goals" && <FinancialGoalsView t={t} />}
+        {subTab === "credit" && <CreditScoreView t={t} />}
+        {subTab === "smartsave" && <SmartSavingsView t={t} />}
+        {subTab === "cancel" && <CancelHelperView t={t} />}
       </div>
-      {subTab === "spending" && <SpendingView t={t} />}
-      {subTab === "forecast" && <ForecastView t={t} />}
-      {subTab === "savings" && <SavingsAdvisor t={t} />}
-      {subTab === "negotiate" && <NegotiateView bills={bills} t={t} />}
-      {subTab === "subs" && <SubscriptionDetector t={t} />}
-      {subTab === "activity" && <ActivityView t={t} />}
-      {subTab === "alerts" && <SmartAlertsView t={t} />}
-      {subTab === "reminders" && <RemindersView bills={bills} onUpdate={onUpdateReminder} t={t} />}
-      {subTab === "history" && <HistoryView history={history} months={hMonths} filter={hFilter} setFilter={setHFilter} t={t} />}
-      {subTab === "charts" && <SpendingChart bills={bills} t={t} />}
-      {subTab === "aitips" && <AISpendingInsightsView t={t} />}
-      {subTab === "goals" && <FinancialGoalsView t={t} />}
-      {subTab === "credit" && <CreditScoreView t={t} />}
-      {subTab === "smartsave" && <SmartSavingsView t={t} />}
-      {subTab === "cancel" && <CancelHelperView t={t} />}
+    );
+  }
+
+  // Menu view - grouped cards
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+      <div>
+        <h2 style={{ fontFamily: H, color: t.text, margin: 0, fontSize: 22, fontWeight: 700 }}>More</h2>
+        <p style={{ margin: "4px 0 0", fontSize: 13, color: t.sub }}>All your financial tools in one place</p>
+      </div>
+      {groups.map((group, gi) => (
+        <div key={gi}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: t.sub, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 8, paddingLeft: 2 }}>{group.title}</div>
+          <div style={{ background: t.card, borderRadius: 16, overflow: "hidden", boxShadow: t.cs }}>
+            {group.items.map((item, ii) => (
+              <button key={item.key} onClick={() => setSubTab(item.key)} style={{
+                display: "flex", alignItems: "center", gap: 14, width: "100%",
+                padding: "14px 16px", background: "none", border: "none", cursor: "pointer",
+                borderTop: ii > 0 ? `1px solid ${t.border}` : "none",
+                textAlign: "left", transition: "background 0.15s",
+              }}
+              onMouseEnter={e => e.currentTarget.style.background = t.cardAlt}
+              onMouseLeave={e => e.currentTarget.style.background = "transparent"}
+              >
+                <div style={{ width: 40, height: 40, borderRadius: 10, background: t.cardAlt, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20, flexShrink: 0 }}>{item.icon}</div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontWeight: 600, color: t.text, fontSize: 14, fontFamily: F }}>{item.label}</div>
+                  <div style={{ fontSize: 12, color: t.sub, marginTop: 1 }}>{item.desc}</div>
+                </div>
+                <div style={{ color: t.muted, fontSize: 18, flexShrink: 0 }}>›</div>
+              </button>
+            ))}
+          </div>
+        </div>
+      ))}
     </div>
   );
 }
