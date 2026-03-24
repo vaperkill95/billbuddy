@@ -167,6 +167,15 @@ export const api = {
   // AI Advisor
   askAdvisor: (message, history) => request("/advisor", { method: "POST", body: JSON.stringify({ message, history }) }),
 
+  // Two-Factor Authentication
+  get2FAStatus: () => request("/2fa/status"),
+  setup2FA: () => request("/2fa/setup", { method: "POST" }),
+  verify2FA: (code) => request("/2fa/verify", { method: "POST", body: JSON.stringify({ code }) }),
+  validate2FA: (userId, code) => request("/2fa/validate", { method: "POST", body: JSON.stringify({ userId, code }) }),
+  disable2FA: (code) => request("/2fa/disable", { method: "POST", body: JSON.stringify({ code }) }),
+  complete2FA: (userId) => request("/auth/2fa-complete", { method: "POST", body: JSON.stringify({ userId }) }),
+
+
   // Helpers
   getToken, setToken, clearToken, getUser, setUser,
 };
