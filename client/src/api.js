@@ -120,6 +120,7 @@ export const api = {
   createIncomeEntry: (e) => request("/income/entries", { method: "POST", body: JSON.stringify(e) }),
   deleteIncomeEntry: (id) => request(`/income/entries/${id}`, { method: "DELETE" }),
   getIncomeSummary: () => request("/income/summary"),
+  detectIncome: () => request("/income/detect"),
 
   // Calendar Feed
   getCalendarToken: () => request("/calendar/token", { method: "POST" }),
