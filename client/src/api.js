@@ -121,6 +121,7 @@ export const api = {
   deleteIncomeEntry: (id) => request(`/income/entries/${id}`, { method: "DELETE" }),
   getIncomeSummary: () => request("/income/summary"),
   detectIncome: () => request("/income/detect"),
+  cleanupIncomeEntries: () => request("/income/cleanup-duplicates", { method: "POST" }),
 
   // Calendar Feed
   getCalendarToken: () => request("/calendar/token", { method: "POST" }),
