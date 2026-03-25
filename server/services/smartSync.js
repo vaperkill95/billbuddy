@@ -168,10 +168,10 @@ async function detectIncomeDeposits(userId, transactions) {
     const depAmount = Math.abs(dep.amount);
     const isPayroll = payrollKeywords.some(kw => depName.includes(normalize(kw)));
 
-    // Check if we already logged this deposit
+    // Check if we already logged this deposit (by amount + date — don't rely on name match since source name may differ from transaction name)
     const { rows: existing } = await pool.query(
-      `SELECT id FROM income_entries WHERE user_id = $1 AND amount = $2 AND received_date = $3 AND source_name ILIKE $4`,
-      [userId, depAmount, dep.date, `%${dep.name.substring(0, 20)}%`]
+      `SELECT id FROM income_entries WHERE user_id = $1 AND amount = $2 AND received_date = $3`,
+      [userId, depAmount, dep.date]
     );
     if (existing.length > 0) continue;
 
