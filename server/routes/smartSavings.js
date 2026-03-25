@@ -14,12 +14,12 @@ router.get("/", async (req, res) => {
       pool.query("SELECT amount, frequency FROM income_sources WHERE user_id = $1 AND is_active = true", [userId]),
       pool.query("SELECT amount FROM bills WHERE user_id = $1", [userId]),
       pool.query("SELECT balance, min_payment FROM credit_cards WHERE user_id = $1", [userId]),
-      pool.query("SELECT balance_current FROM bank_accounts WHERE user_id = $1", [userId]),
+      pool.query("SELECT balance_current, account_type FROM bank_accounts WHERE user_id = $1", [userId]),
       pool.query("SELECT * FROM financial_goals WHERE user_id = $1", [userId]).catch(() => ({ rows: [] })),
     ]);
 
     const transactions = txnsRes.rows;
-    const totalBalance = accountsRes.rows.reduce((s, a) => s + parseFloat(a.balance_current || 0), 0);
+    const totalBalance = accountsRes.rows.filter(a => a.account_type !== 'credit').reduce((s, a) => s + parseFloat(a.balance_current || 0), 0);
     const monthlyBills = billsRes.rows.reduce((s, b) => s + parseFloat(b.amount), 0);
     const monthlyMinPayments = cardsRes.rows.reduce((s, c) => s + parseFloat(c.min_payment || 0), 0);
     const monthlyIncome = incomeRes.rows.reduce((s, src) => {
