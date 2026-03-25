@@ -1527,7 +1527,8 @@ function BankAccountsView({ t }) {
             const pendingIn = acctTxns.filter(tx => tx.pending && tx.amount < 0);
             const pendingOutTotal = pendingOut.reduce((s, tx) => s + tx.amount, 0);
             const pendingInTotal = pendingIn.reduce((s, tx) => s + Math.abs(tx.amount), 0);
-            const projectedBalance = a.balanceCurrent - pendingOutTotal + pendingInTotal;
+            // Use balanceAvailable if the bank provides it (already accounts for pending), otherwise use balanceCurrent
+            const projectedBalance = a.balanceAvailable > 0 ? a.balanceAvailable : a.balanceCurrent;
             const hasPending = pendingOut.length > 0 || pendingIn.length > 0;
 
             return (
