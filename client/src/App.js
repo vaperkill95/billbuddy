@@ -4619,7 +4619,7 @@ function SettingsTab({ bills, history, hMonths, hFilter, setHFilter, onUpdateRem
           <div style={{ fontSize: 11, fontWeight: 700, color: t.sub, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 8, paddingLeft: 2 }}>{group.title}</div>
           <div style={{ background: t.card, borderRadius: 16, overflow: "hidden", boxShadow: t.cs }}>
             {group.items.map((item, ii) => (
-              <button key={item.key} onClick={() => setSubTab(item.key)} style={{
+              <button key={item.key} onClick={() => item.link ? window.open(item.link, "_blank") : setSubTab(item.key)} style={{
                 display: "flex", alignItems: "center", gap: 14, width: "100%",
                 padding: "14px 16px", background: "none", border: "none", cursor: "pointer",
                 borderTop: ii > 0 ? `1px solid ${t.border}` : "none",
