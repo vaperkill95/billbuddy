@@ -13,7 +13,7 @@ router.get("/", async (req, res) => {
 
     // Get current bank balance
     const { rows: accts } = await pool.query(
-      "SELECT COALESCE(SUM(balance_available), 0) as available, COALESCE(SUM(balance_current), 0) as current FROM bank_accounts WHERE user_id = $1",
+      "SELECT COALESCE(SUM(balance_available), 0) as available, COALESCE(SUM(balance_current), 0) as current FROM bank_accounts WHERE user_id = $1 AND account_type != 'credit'",
       [userId]
     );
     const startBalance = parseFloat(accts[0].available) || parseFloat(accts[0].current) || 0;
