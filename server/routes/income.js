@@ -173,4 +173,106 @@ router.get("/summary", async (req, res) => {
   } catch (err) { console.error("GET /income/summary error:", err); res.status(500).json({ error: "Failed to get summary" }); }
 });
 
+// ─── Detect Income from Bank Transactions ───
+
+router.get("/detect", async (req, res) => {
+  try {
+    // Get all deposits (negative amounts in Plaid = money in) from last 90 days, bank accounts only
+    const { rows: deposits } = await pool.query(
+      `SELECT bt.name, bt.amount, bt.date, bt.account_id, ba.name as account_name, ba.account_type
+       FROM bank_transactions bt
+       JOIN bank_accounts ba ON bt.account_id = ba.account_id AND bt.user_id = ba.user_id
+       WHERE bt.user_id = $1 AND bt.amount < 0 AND bt.pending = false
+       AND ba.account_type != 'credit'
+       AND bt.date >= CURRENT_DATE - 90
+       ORDER BY bt.date DESC`,
+      [req.user.id]
+    );
+
+    // Get existing income sources so we can mark what's already tracked
+    const { rows: existingSources } = await pool.query(
+      "SELECT name, amount FROM income_sources WHERE user_id = $1", [req.user.id]
+    );
+    const existingNames = existingSources.map(s => s.name.toLowerCase());
+
+    // Group deposits by normalized name to find patterns
+    const normalize = (str) => str.replace(/[^a-zA-Z\s]/g, "").replace(/\s+/g, " ").trim();
+    const groups = {};
+
+    for (const dep of deposits) {
+      const key = normalize(dep.name).toLowerCase();
+      if (!key || key.length < 3) continue;
+      if (!groups[key]) {
+        groups[key] = { name: dep.name, deposits: [], totalAmount: 0 };
+      }
+      const amt = Math.abs(parseFloat(dep.amount));
+      groups[key].deposits.push({ amount: amt, date: dep.date, account: dep.account_name });
+      groups[key].totalAmount += amt;
+    }
+
+    // Analyze each group
+    const detected = [];
+    for (const [key, group] of Object.entries(groups)) {
+      const deps = group.deposits;
+      if (deps.length === 0) continue;
+
+      const avgAmount = group.totalAmount / deps.length;
+      const amounts = deps.map(d => d.amount);
+      const minAmt = Math.min(...amounts);
+      const maxAmt = Math.max(...amounts);
+      const amountVariance = maxAmt > 0 ? (maxAmt - minAmt) / maxAmt : 0;
+
+      // Determine frequency by looking at gaps between deposits
+      let frequency = "monthly";
+      if (deps.length >= 2) {
+        const dates = deps.map(d => new Date(d.date)).sort((a, b) => a - b);
+        const gaps = [];
+        for (let i = 1; i < dates.length; i++) {
+          gaps.push((dates[i] - dates[i - 1]) / (1000 * 60 * 60 * 24));
+        }
+        const avgGap = gaps.reduce((s, g) => s + g, 0) / gaps.length;
+        if (avgGap <= 10) frequency = "weekly";
+        else if (avgGap <= 18) frequency = "biweekly";
+        else if (avgGap <= 35) frequency = "monthly";
+        else frequency = "monthly";
+      }
+
+      // Check if already tracked
+      const alreadyTracked = existingNames.some(en =>
+        key.includes(en) || en.includes(key) ||
+        existingSources.some(s => Math.abs(parseFloat(s.amount) - avgAmount) / avgAmount < 0.15 && key.includes(s.name.toLowerCase().substring(0, 5)))
+      );
+
+      // Only include meaningful deposits (over $50 avg or recurring)
+      if (avgAmount >= 50 || deps.length >= 2) {
+        detected.push({
+          name: group.name,
+          avgAmount: Math.round(avgAmount * 100) / 100,
+          lastAmount: amounts[0],
+          frequency,
+          occurrences: deps.length,
+          lastDate: deps[0].date,
+          account: deps[0].account,
+          amountVaries: amountVariance > 0.1,
+          alreadyTracked,
+          isLikelyPayroll: /payroll|direct dep|paycheck|salary|wages|paychex|adp|gusto|workday/i.test(group.name),
+        });
+      }
+    }
+
+    // Sort: payroll first, then by occurrences, then amount
+    detected.sort((a, b) => {
+      if (a.isLikelyPayroll !== b.isLikelyPayroll) return b.isLikelyPayroll ? 1 : -1;
+      if (a.alreadyTracked !== b.alreadyTracked) return a.alreadyTracked ? 1 : -1;
+      if (b.occurrences !== a.occurrences) return b.occurrences - a.occurrences;
+      return b.avgAmount - a.avgAmount;
+    });
+
+    res.json({ detected, depositCount: deposits.length });
+  } catch (err) {
+    console.error("GET /income/detect error:", err);
+    res.status(500).json({ error: "Failed to detect income" });
+  }
+});
+
 module.exports = router;
