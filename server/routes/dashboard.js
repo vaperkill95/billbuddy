@@ -51,9 +51,9 @@ router.get("/", cacheMiddleware(req => `user:${req.user.id}:dashboard`, 120), as
       id: b.id, name: b.name, amount: parseFloat(b.amount), dueDate: b.due_date, category: b.category, daysOverdue: dayOfMonth - b.due_date,
     }));
 
-    // Bank balances
-    const totalBankBalance = accounts.reduce((s, a) => s + parseFloat(a.balance_current || 0), 0);
-    const totalAvailable = accounts.reduce((s, a) => s + parseFloat(a.balance_available || 0), 0);
+    // Bank balances (exclude credit card accounts)
+    const totalBankBalance = accounts.filter(a => a.account_type !== 'credit').reduce((s, a) => s + parseFloat(a.balance_current || 0), 0);
+    const totalAvailable = accounts.filter(a => a.account_type !== 'credit').reduce((s, a) => s + parseFloat(a.balance_available || 0), 0);
 
     // Credit cards
     const totalCardDebt = cards.reduce((s, c) => s + parseFloat(c.balance), 0);
