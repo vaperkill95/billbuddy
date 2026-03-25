@@ -39,8 +39,8 @@ router.post("/", async (req, res) => {
     const goals = goalsRes.rows;
     const upcoming = upcomingRes.rows;
 
-    const totalBalance = accounts.reduce((s, a) => s + parseFloat(a.balance_current || 0), 0);
-    const totalAvailable = accounts.reduce((s, a) => s + parseFloat(a.balance_available || 0), 0);
+    const totalBalance = accounts.filter(a => a.account_type !== 'credit').reduce((s, a) => s + parseFloat(a.balance_current || 0), 0);
+    const totalAvailable = accounts.filter(a => a.account_type !== 'credit').reduce((s, a) => s + parseFloat(a.balance_available || 0), 0);
     const totalDebt = cards.reduce((s, c) => s + parseFloat(c.balance || 0), 0);
     const totalCreditLimit = cards.reduce((s, c) => s + parseFloat(c.credit_limit || 0), 0);
     const monthlyBills = bills.reduce((s, b) => s + parseFloat(b.amount || 0), 0);
