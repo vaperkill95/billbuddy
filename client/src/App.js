@@ -2608,6 +2608,9 @@ function UnifiedDashboard({ dash, bills, t, onToggle, onDelete, onGoTo }) {
   const F = "'Plus Jakarta Sans', 'Outfit', sans-serif";
   const paidPct = dash.totalMonthlyBills > 0 ? Math.round((dash.totalPaid / dash.totalMonthlyBills) * 100) : 0;
 
+  const [forecast, setForecast] = useState(null);
+  useEffect(() => { api.getPaycheckForecast().then(setForecast).catch(() => {}); }, []);
+
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
       {/* Onboarding */}
@@ -2622,6 +2625,43 @@ function UnifiedDashboard({ dash, bills, t, onToggle, onDelete, onGoTo }) {
             {dash.totalCardDebt > 0 && <span>💳 <span style={{ color: "#EF4444", fontWeight: 600 }}>{formatMoney(dash.totalCardDebt)}</span> debt</span>}
             <span>💰 {formatMoney(dash.incomeThisMonth)} earned</span>
           </div>
+        </div>
+      )}
+
+      {/* Paycheck Forecast */}
+      {forecast && forecast.hasIncome && forecast.periods?.length > 0 && (
+        <div style={{ background: t.card, borderRadius: 16, boxShadow: t.cs, overflow: "hidden", border: `2px solid ${forecast.periods[0].covered ? "#10B98130" : "#EF444430"}` }}>
+          <div style={{ padding: "16px 20px 12px", borderBottom: `1px solid ${t.border}` }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div style={{ fontWeight: 700, color: t.text, fontSize: 15 }}>💰 Until Next Paycheck</div>
+              <div style={{ fontSize: 11, color: t.sub }}>{new Date(forecast.nextPayDate).toLocaleDateString("en-US", { month: "short", day: "numeric" })} · {forecast.periods[0].daysUntilPaycheck}d away</div>
+            </div>
+            <div style={{ fontSize: 11, color: t.sub, marginTop: 2 }}>{forecast.paySource} · {formatMoney(forecast.payAmount)} {forecast.payFrequency}</div>
+          </div>
+          {forecast.periods.slice(0, 2).map((period, pi) => (
+            <div key={pi} style={{ padding: "14px 20px", borderBottom: pi < 1 && forecast.periods.length > 1 ? `1px solid ${t.border}` : "none" }}>
+              {pi > 0 && <div style={{ fontSize: 11, fontWeight: 700, color: "#6C5CE7", textTransform: "uppercase", marginBottom: 8, letterSpacing: 0.5 }}>After Paycheck #{pi} → Next</div>}
+              {period.bills.length > 0 ? (<>
+                {period.bills.map((b, i) => (
+                  <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "5px 0" }}>
+                    <span style={{ fontSize: 13, color: t.text }}>{getCatIcon2(b.category)} {b.name} <span style={{ color: t.sub, fontSize: 11 }}>· due {b.dueDate}th</span></span>
+                    <span style={{ fontSize: 13, fontWeight: 700, color: t.text }}>{formatMoney(b.amount)}</span>
+                  </div>
+                ))}
+                <div style={{ height: 1, background: t.border, margin: "8px 0" }} />
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <span style={{ fontSize: 13, fontWeight: 700, color: t.text }}>Total Due</span>
+                  <span style={{ fontSize: 16, fontWeight: 800, color: "#EF4444", fontFamily: H }}>{formatMoney(period.totalDue)}</span>
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 6, padding: "10px 14px", borderRadius: 10, background: period.covered ? "#10B98110" : "#EF444410" }}>
+                  <span style={{ fontSize: 13, fontWeight: 700, color: period.covered ? "#10B981" : "#EF4444" }}>{period.covered ? "✅ You're covered" : "⚠️ Short by"}</span>
+                  <span style={{ fontSize: 18, fontWeight: 800, fontFamily: H, color: period.covered ? "#10B981" : "#EF4444" }}>{period.covered ? formatMoney(period.balanceAfter) + " left" : formatMoney(period.shortfall)}</span>
+                </div>
+              </>) : (
+                <div style={{ fontSize: 13, color: t.sub, padding: "4px 0" }}>✅ No bills due {pi === 0 ? "before next paycheck" : "in this period"}</div>
+              )}
+            </div>
+          ))}
         </div>
       )}
 
