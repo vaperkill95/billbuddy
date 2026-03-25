@@ -173,6 +173,23 @@ router.get("/summary", async (req, res) => {
   } catch (err) { console.error("GET /income/summary error:", err); res.status(500).json({ error: "Failed to get summary" }); }
 });
 
+// ─── Cleanup duplicate income entries ───
+
+router.post("/cleanup-duplicates", async (req, res) => {
+  try {
+    const result = await pool.query(
+      `DELETE FROM income_entries WHERE id NOT IN (
+        SELECT MIN(id) FROM income_entries WHERE user_id = $1 GROUP BY amount, received_date, source_name
+      ) AND user_id = $1`,
+      [req.user.id]
+    );
+    res.json({ removed: result.rowCount });
+  } catch (err) {
+    console.error("POST /income/cleanup-duplicates error:", err);
+    res.status(500).json({ error: "Failed to cleanup" });
+  }
+});
+
 // ─── Detect Income from Bank Transactions ───
 
 router.get("/detect", async (req, res) => {
