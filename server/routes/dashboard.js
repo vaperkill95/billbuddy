@@ -123,5 +123,118 @@ router.get("/", cacheMiddleware(req => `user:${req.user.id}:dashboard`, 120), as
   }
 });
 
+// ─── Paycheck Forecast: bills due between paychecks ───
+
+router.get("/paycheck-forecast", async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const now = new Date();
+    const dayOfMonth = now.getDate();
+
+    const { rows: incomeSources } = await pool.query(
+      "SELECT * FROM income_sources WHERE user_id = $1 AND is_active = true ORDER BY amount DESC", [userId]
+    );
+
+    const { rows: acctRows } = await pool.query(
+      "SELECT COALESCE(SUM(balance_current), 0) as total FROM bank_accounts WHERE user_id = $1 AND account_type != 'credit'", [userId]
+    );
+    const bankBalance = parseFloat(acctRows[0].total);
+
+    const { rows: bills } = await pool.query(
+      "SELECT * FROM bills WHERE user_id = $1 AND is_paid = false ORDER BY due_date ASC", [userId]
+    );
+
+    if (!incomeSources.length) {
+      return res.json({ hasIncome: false, message: "Add income sources to forecast bills between paychecks" });
+    }
+
+    const primary = incomeSources[0];
+    const freq = primary.frequency;
+    const payAmount = parseFloat(primary.amount);
+
+    function getNextPayDates(frequency, nextPayDate, count) {
+      const dates = [];
+      let base;
+      if (nextPayDate) {
+        base = new Date(nextPayDate);
+        while (base <= now) {
+          switch (frequency) {
+            case "weekly": base.setDate(base.getDate() + 7); break;
+            case "biweekly": base.setDate(base.getDate() + 14); break;
+            case "semimonthly": base.setDate(base.getDate() + 15); break;
+            default: base.setMonth(base.getMonth() + 1);
+          }
+        }
+      } else {
+        base = new Date(now);
+        switch (frequency) {
+          case "weekly": base.setDate(base.getDate() + (7 - base.getDay())); break;
+          case "biweekly": base.setDate(base.getDate() + 14); break;
+          case "semimonthly":
+            if (dayOfMonth <= 15) { base.setDate(15); } else { base.setMonth(base.getMonth() + 1); base.setDate(1); }
+            break;
+          default: base.setMonth(base.getMonth() + 1); base.setDate(1);
+        }
+      }
+      for (let i = 0; i < count; i++) {
+        dates.push(new Date(base));
+        switch (frequency) {
+          case "weekly": base.setDate(base.getDate() + 7); break;
+          case "biweekly": base.setDate(base.getDate() + 14); break;
+          case "semimonthly": base.setDate(base.getDate() + 15); break;
+          default: base.setMonth(base.getMonth() + 1);
+        }
+      }
+      return dates;
+    }
+
+    const payDates = getNextPayDates(freq, primary.next_pay_date, 3);
+    const periods = [];
+    const boundaries = [now, ...payDates];
+
+    for (let i = 0; i < boundaries.length - 1; i++) {
+      const start = boundaries[i];
+      const end = boundaries[i + 1];
+      const startDay = start.getDate();
+      const endDay = end.getDate();
+
+      const periodBills = bills.filter(b => {
+        const due = b.due_date;
+        if (i === 0) return due >= startDay && due < endDay;
+        if (startDay < endDay) return due >= startDay && due < endDay;
+        return due >= startDay || due < endDay;
+      });
+
+      periods.push({
+        label: i === 0 ? "Before Next Paycheck" : "Paycheck " + i + " to " + (i + 1),
+        startDate: start.toISOString().split("T")[0],
+        endDate: end.toISOString().split("T")[0],
+        paycheckDate: end.toISOString().split("T")[0],
+        paycheckAmount: payAmount,
+        bills: periodBills.map(b => ({ id: b.id, name: b.name, amount: parseFloat(b.amount), dueDate: b.due_date, category: b.category })),
+        totalDue: periodBills.reduce((s, b) => s + parseFloat(b.amount), 0),
+        daysUntilPaycheck: Math.ceil((end - start) / (1000 * 60 * 60 * 24)),
+      });
+    }
+
+    let runningBalance = bankBalance;
+    for (const period of periods) {
+      period.balanceBefore = Math.round(runningBalance * 100) / 100;
+      period.balanceAfter = Math.round((runningBalance - period.totalDue) * 100) / 100;
+      period.covered = runningBalance >= period.totalDue;
+      period.shortfall = period.covered ? 0 : Math.round((period.totalDue - runningBalance) * 100) / 100;
+      runningBalance = runningBalance - period.totalDue + period.paycheckAmount;
+    }
+
+    res.json({
+      hasIncome: true, bankBalance, paySource: primary.name, payFrequency: freq,
+      payAmount, nextPayDate: payDates[0].toISOString().split("T")[0], periods,
+    });
+  } catch (err) {
+    console.error("Paycheck forecast error:", err);
+    res.status(500).json({ error: "Failed to generate forecast" });
+  }
+});
+
 module.exports = router;
 
