@@ -218,12 +218,17 @@ router.get("/paycheck-forecast", async (req, res) => {
     }
 
     let runningBalance = bankBalance;
-    for (const period of periods) {
+    for (let i = 0; i < periods.length; i++) {
+      const period = periods[i];
+      // For periods after the first, add the paycheck received at the start of this period
+      if (i > 0) {
+        runningBalance += periods[i - 1].paycheckAmount;
+      }
       period.balanceBefore = Math.round(runningBalance * 100) / 100;
       period.balanceAfter = Math.round((runningBalance - period.totalDue) * 100) / 100;
       period.covered = runningBalance >= period.totalDue;
       period.shortfall = period.covered ? 0 : Math.round((period.totalDue - runningBalance) * 100) / 100;
-      runningBalance = runningBalance - period.totalDue + period.paycheckAmount;
+      runningBalance = runningBalance - period.totalDue;
     }
 
     res.json({
