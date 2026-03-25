@@ -2835,7 +2835,7 @@ function HouseholdView({ t }) {
     return filtered;
   };
   const fd = getFilteredData();
-  const totalBalance = fd.accounts.reduce((s, a) => s + a.balanceCurrent, 0);
+  const totalBalance = fd.accounts.filter(a => a.type !== "credit").reduce((s, a) => s + a.balanceCurrent, 0);
   const totalDebt = fd.cards.reduce((s, c) => s + c.balance, 0);
   const totalBills = fd.bills.reduce((s, b) => s + b.amount, 0);
 
@@ -2908,7 +2908,7 @@ function HouseholdView({ t }) {
           {hh.members.map(m => {
             const d = md[m.id];
             if (!d) return null;
-            const bal = d.accounts.reduce((s, a) => s + a.balanceCurrent, 0);
+            const bal = d.accounts.filter(a => a.type !== "credit").reduce((s, a) => s + a.balanceCurrent, 0);
             const debt = d.cards.reduce((s, c) => s + c.balance, 0);
             const bills = d.bills.reduce((s, b) => s + b.amount, 0);
             return (
