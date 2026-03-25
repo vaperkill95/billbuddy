@@ -3143,7 +3143,7 @@ function MoneyTab({ t }) {
       {/* Segmented control */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 0, background: t.cardAlt, borderRadius: 14, padding: 4 }}>
         {tabs.map(item => (
-          <button key={item.key} onClick={() => setSubTab(item.key)} style={{
+          <button key={item.key} onClick={() => item.link ? window.open(item.link, "_blank") : setSubTab(item.key)} style={{
             padding: "10px 0", borderRadius: 10, border: "none",
             background: subTab === item.key ? "#6C5CE7" : "transparent",
             color: subTab === item.key ? "white" : t.sub,
@@ -4567,6 +4567,13 @@ function SettingsTab({ bills, history, hMonths, hFilter, setHFilter, onUpdateRem
       title: "Security",
       items: [
         { key: "security", icon: "🔐", label: "Security", desc: "2FA and account protection" },
+      ]
+    },
+    {
+      title: "Legal & Support",
+      items: [
+        { key: "link_support", icon: "💬", label: "Support & Help", desc: "FAQ, contact us, get help", link: "/support.html" },
+        { key: "link_privacy", icon: "📄", label: "Privacy Policy", desc: "How we handle your data", link: "/privacy.html" },
       ]
     },
   ];
