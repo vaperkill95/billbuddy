@@ -32,7 +32,7 @@ router.get("/", async (req, res) => {
     const income = incomeRes.rows;
     const prevTxns = prevTxnsRes.rows;
 
-    const totalBalance = accounts.reduce((s, a) => s + parseFloat(a.balance_current || 0), 0);
+    const totalBalance = accounts.filter(a => a.account_type !== 'credit').reduce((s, a) => s + parseFloat(a.balance_current || 0), 0);
     const totalDebt = cards.reduce((s, c) => s + parseFloat(c.balance || 0), 0);
     const totalBills = bills.reduce((s, b) => s + parseFloat(b.amount || 0), 0);
     const thisMonthSpend = txns.reduce((s, t) => s + parseFloat(t.amount || 0), 0);
