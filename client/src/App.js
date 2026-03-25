@@ -2640,7 +2640,8 @@ function UnifiedDashboard({ dash, bills, t, onToggle, onDelete, onGoTo }) {
           </div>
           {forecast.periods.slice(0, 2).map((period, pi) => (
             <div key={pi} style={{ padding: "14px 20px", borderBottom: pi < 1 && forecast.periods.length > 1 ? `1px solid ${t.border}` : "none" }}>
-              {pi > 0 && <div style={{ fontSize: 11, fontWeight: 700, color: "#6C5CE7", textTransform: "uppercase", marginBottom: 8, letterSpacing: 0.5 }}>After Paycheck #{pi} → Next</div>}
+              {pi > 0 && <div style={{ fontSize: 11, fontWeight: 700, color: "#6C5CE7", textTransform: "uppercase", marginBottom: 4, letterSpacing: 0.5 }}>After Paycheck #{pi} → Next</div>}
+              {pi > 0 && <div style={{ fontSize: 11, color: t.sub, marginBottom: 8 }}>You'll have {formatMoney(period.balanceBefore)} (balance + paycheck)</div>}
               {period.bills.length > 0 ? (<>
                 {period.bills.map((b, i) => (
                   <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "5px 0" }}>
