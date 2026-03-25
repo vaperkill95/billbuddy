@@ -1740,6 +1740,8 @@ function IncomeView({ t }) {
 
   const loadData = async () => {
     try {
+      // Auto-cleanup duplicate income entries first
+      await api.cleanupIncomeEntries().catch(() => {});
       const [src, ent, sum] = await Promise.all([
         api.getIncomeSources(), api.getIncomeEntries(), api.getIncomeSummary()
       ]);
