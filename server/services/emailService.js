@@ -20,7 +20,7 @@ async function getWeeklySummary(userId) {
 
     // Bank balance
     const { rows: accounts } = await pool.query(
-      "SELECT COALESCE(SUM(balance_current), 0) as total FROM bank_accounts WHERE user_id = $1", [userId]
+      "SELECT COALESCE(SUM(balance_current), 0) as total FROM bank_accounts WHERE user_id = $1 AND account_type != 'credit'", [userId]
     );
     const bankBalance = parseFloat(accounts[0].total);
 
