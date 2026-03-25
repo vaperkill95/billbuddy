@@ -1734,6 +1734,9 @@ function IncomeView({ t }) {
   const [entryFilter, setEntryFilter] = useState("all");
   const [loading, setLoading] = useState(true);
   const [view, setView] = useState("overview"); // overview | sources | history
+  const [detecting, setDetecting] = useState(false);
+  const [detected, setDetected] = useState(null);
+  const [addingDetected, setAddingDetected] = useState({});
 
   const loadData = async () => {
     try {
@@ -1763,6 +1766,32 @@ function IncomeView({ t }) {
   const deleteEntry = async (id) => {
     setEntries(p => p.filter(e => e.id !== id));
     try { await api.deleteIncomeEntry(id); loadData(); } catch { loadData(); }
+  };
+
+  const detectFromBank = async () => {
+    setDetecting(true);
+    try {
+      const result = await api.detectIncome();
+      setDetected(result);
+    } catch (err) { console.error(err); }
+    finally { setDetecting(false); }
+  };
+
+  const addDetectedAsSource = async (item) => {
+    setAddingDetected(p => ({ ...p, [item.name]: true }));
+    try {
+      await api.createIncomeSource({
+        name: item.name,
+        amount: item.amountVaries ? item.avgAmount : item.lastAmount,
+        frequency: item.frequency,
+      });
+      setDetected(prev => ({
+        ...prev,
+        detected: prev.detected.map(d => d.name === item.name ? { ...d, alreadyTracked: true } : d)
+      }));
+      loadData();
+    } catch (err) { console.error(err); }
+    finally { setAddingDetected(p => ({ ...p, [item.name]: false })); }
   };
 
   const freqLabel = (f) => ({ weekly: "Weekly", biweekly: "Bi-Weekly", semimonthly: "Semi-Monthly", monthly: "Monthly", yearly: "Yearly" }[f] || f);
@@ -1795,6 +1824,7 @@ function IncomeView({ t }) {
           </div>
         </div>
         <div style={{ display: "flex", gap: 8 }}>
+          <button onClick={detectFromBank} disabled={detecting} style={{ padding: "8px 16px", borderRadius: 12, border: "none", background: "#3B82F6", color: "white", cursor: "pointer", fontWeight: 700, fontSize: 12, fontFamily: "'Plus Jakarta Sans', sans-serif", opacity: detecting ? 0.6 : 1 }}>{detecting ? "Scanning..." : "🏦 Detect from Bank"}</button>
           <button onClick={() => setShowAddSource(true)} style={{ padding: "8px 16px", borderRadius: 12, border: "none", background: t.pill, color: t.sub, cursor: "pointer", fontWeight: 700, fontSize: 12, fontFamily: "'Plus Jakarta Sans', sans-serif" }}>+ Income Source</button>
           <button onClick={() => setShowLogIncome(true)} style={{ padding: "8px 16px", borderRadius: 12, border: "none", background: "#10B981", color: "white", cursor: "pointer", fontWeight: 700, fontSize: 12, fontFamily: "'Plus Jakarta Sans', sans-serif" }}>💵 Log Income</button>
         </div>
@@ -1854,6 +1884,51 @@ function IncomeView({ t }) {
               <div style={{ fontSize: 11, color: t.sub }}>Remaining to receive</div>
               <div style={{ fontSize: 20, fontWeight: 800, color: "#F59E0B", fontFamily: "'Outfit', sans-serif" }}>{formatMoney(Math.max(0, summary.estimatedMonthly - summary.actualThisMonth))}</div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Detected Income from Bank */}
+      {detected && (
+        <div style={{ background: t.card, borderRadius: 16, padding: "18px 22px", boxShadow: t.cs, border: "2px solid #3B82F630" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+            <div>
+              <div style={{ fontWeight: 700, color: t.text, fontSize: 15 }}>🏦 Detected Income from Bank</div>
+              <div style={{ fontSize: 11, color: t.sub, marginTop: 2 }}>Found {detected.detected?.length || 0} recurring deposits in your last 90 days</div>
+            </div>
+            <button onClick={() => setDetected(null)} style={{ width: 28, height: 28, borderRadius: 8, border: "none", background: t.pill, cursor: "pointer", color: t.sub, fontSize: 14, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center" }}>×</button>
+          </div>
+          {detected.detected?.length === 0 && (
+            <div style={{ textAlign: "center", padding: 20, color: t.sub, fontSize: 13 }}>No recurring deposits detected. Try connecting your bank or syncing first.</div>
+          )}
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {detected.detected?.map((item, i) => (
+              <div key={i} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 16px", background: item.alreadyTracked ? t.bg : (t.cardAlt || t.bg), borderRadius: 12, border: `1px solid ${item.isLikelyPayroll ? "#10B98130" : t.border}`, opacity: item.alreadyTracked ? 0.6 : 1 }}>
+                <div style={{ fontSize: 20, flexShrink: 0 }}>{item.isLikelyPayroll ? "💼" : "💵"}</div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontWeight: 700, color: t.text, fontSize: 13, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    {item.name}
+                    {item.isLikelyPayroll && <span style={{ marginLeft: 8, fontSize: 9, padding: "2px 6px", borderRadius: 4, background: "#10B98120", color: "#10B981", fontWeight: 800, textTransform: "uppercase" }}>Payroll</span>}
+                    {item.alreadyTracked && <span style={{ marginLeft: 8, fontSize: 9, padding: "2px 6px", borderRadius: 4, background: "#6C5CE720", color: "#6C5CE7", fontWeight: 800, textTransform: "uppercase" }}>Tracked</span>}
+                  </div>
+                  <div style={{ fontSize: 11, color: t.sub, marginTop: 2 }}>
+                    {item.occurrences}x in 90 days · {item.frequency === "weekly" ? "Weekly" : item.frequency === "biweekly" ? "Bi-Weekly" : "Monthly"}
+                    {item.amountVaries ? ` · Varies ($${item.avgAmount.toFixed(0)} avg)` : ""}
+                  </div>
+                </div>
+                <div style={{ textAlign: "right", flexShrink: 0 }}>
+                  <div style={{ fontWeight: 800, fontSize: 16, color: "#10B981", fontFamily: "'Outfit', sans-serif" }}>{formatMoney(item.lastAmount)}</div>
+                  <div style={{ fontSize: 10, color: t.sub }}>last: {new Date(item.lastDate).toLocaleDateString("en-US", { month: "short", day: "numeric" })}</div>
+                </div>
+                {!item.alreadyTracked ? (
+                  <button onClick={() => addDetectedAsSource(item)} disabled={addingDetected[item.name]} style={{ padding: "6px 14px", borderRadius: 8, border: "none", background: "#10B981", color: "white", cursor: "pointer", fontWeight: 700, fontSize: 11, flexShrink: 0, opacity: addingDetected[item.name] ? 0.6 : 1 }}>
+                    {addingDetected[item.name] ? "..." : "+ Add"}
+                  </button>
+                ) : (
+                  <div style={{ fontSize: 16, flexShrink: 0 }}>✅</div>
+                )}
+              </div>
+            ))}
           </div>
         </div>
       )}
