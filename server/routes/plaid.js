@@ -10,7 +10,7 @@ router.use(authMiddleware);
 const plaidEnv = process.env.PLAID_ENV || "sandbox";
 const configuration = new Configuration({
   basePath: PlaidEnvironments[plaidEnv],
-  baseOptions: {
+  baseOptions: {h
     headers: {
       "PLAID-CLIENT-ID": process.env.PLAID_CLIENT_ID,
       "PLAID-SECRET": process.env.PLAID_SECRET,
@@ -197,7 +197,7 @@ router.get("/transactions", async (req, res) => {
   } catch (err) { res.status(500).json({ error: "Failed to fetch transactions" }); }
 });
 
-// GET /api/plaid/summary - Dashboard summary of all bank data
+// GET /api/plaid/summary - Dashboard summary of all bank data (excludes credit cards)
 router.get("/summary", async (req, res) => {
   try {
     // Total balances by type
@@ -208,36 +208,46 @@ router.get("/summary", async (req, res) => {
       [req.user.id]
     );
 
+    // Only count depository accounts (checking, savings, etc.) — exclude credit cards
     let totalChecking = 0, totalSavings = 0, totalOther = 0;
     accounts.forEach(a => {
       const bal = parseFloat(a.balance_current) || 0;
+      if (a.account_type === "credit") return; // Skip credit card accounts
       if (a.account_subtype === "checking") totalChecking += bal;
       else if (a.account_subtype === "savings" || a.account_subtype === "cd" || a.account_subtype === "money market") totalSavings += bal;
       else totalOther += bal;
     });
 
-    // Recent spending (last 30 days, positive amounts = money out in Plaid)
+    // Get account IDs for non-credit accounts only (for transaction filtering)
+    const bankAccountIds = accounts
+      .filter(a => a.account_type !== "credit")
+      .map(a => a.account_id);
+
+    // Recent spending (last 30 days, positive amounts = money out in Plaid) — bank accounts only
     const { rows: spendingRows } = await pool.query(
       `SELECT COALESCE(SUM(amount), 0) as total FROM bank_transactions
-       WHERE user_id = $1 AND amount > 0 AND date >= CURRENT_DATE - 30 AND pending = false`,
-      [req.user.id]
+       WHERE user_id = $1 AND amount > 0 AND date >= CURRENT_DATE - 30 AND pending = false
+       AND account_id = ANY($2)`,
+      [req.user.id, bankAccountIds.length > 0 ? bankAccountIds : ['']]
     );
     const thirtyDaySpending = parseFloat(spendingRows[0].total);
 
-    // Recent income (negative amounts = money in, in Plaid)
+    // Recent income (negative amounts = money in, in Plaid) — bank accounts only
     const { rows: incomeRows } = await pool.query(
       `SELECT COALESCE(SUM(ABS(amount)), 0) as total FROM bank_transactions
-       WHERE user_id = $1 AND amount < 0 AND date >= CURRENT_DATE - 30 AND pending = false`,
-      [req.user.id]
+       WHERE user_id = $1 AND amount < 0 AND date >= CURRENT_DATE - 30 AND pending = false
+       AND account_id = ANY($2)`,
+      [req.user.id, bankAccountIds.length > 0 ? bankAccountIds : ['']]
     );
     const thirtyDayIncome = parseFloat(incomeRows[0].total);
 
-    // Spending by category
+    // Spending by category — bank accounts only
     const { rows: catRows } = await pool.query(
       `SELECT category, SUM(amount) as total FROM bank_transactions
        WHERE user_id = $1 AND amount > 0 AND date >= CURRENT_DATE - 30 AND pending = false
+       AND account_id = ANY($2)
        GROUP BY category ORDER BY total DESC LIMIT 10`,
-      [req.user.id]
+      [req.user.id, bankAccountIds.length > 0 ? bankAccountIds : ['']]
     );
 
     const connectedBanks = [...new Set(accounts.map(a => a.institution_name))];
