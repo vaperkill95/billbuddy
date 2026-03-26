@@ -4853,15 +4853,24 @@ export default function App() {
       try {
         const result = await api.smartSync();
         setLastSync(new Date());
-        if (result.billsMatched > 0 || result.incomeDetected > 0 || result.cardsUpdated > 0) {
-          const [b, h, m, d] = await Promise.all([api.getBills(), api.getHistory(), api.getHistoryMonths(), api.getDashboard()]);
-          setBills(b); setHistory(h); setHMonths(m); setDash(d);
-        }
+        // Always refresh dashboard after sync for real-time accuracy
+        const [b, h, m, d] = await Promise.all([api.getBills(), api.getHistory(), api.getHistoryMonths(), api.getDashboard()]);
+        setBills(b); setHistory(h); setHMonths(m); setDash(d);
       } catch (err) { /* silently fail */ }
     };
     runSync();
-    const interval = setInterval(runSync, 15 * 60 * 1000);
-    return () => clearInterval(interval);
+    const interval = setInterval(runSync, 10 * 60 * 1000);
+
+    // Sync when user returns to the app (tab focus)
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible" && lastSync) {
+        const minsSinceLast = (Date.now() - lastSync.getTime()) / 60000;
+        if (minsSinceLast >= 2) runSync();
+      }
+    };
+    document.addEventListener("visibilitychange", handleVisibility);
+
+    return () => { clearInterval(interval); document.removeEventListener("visibilitychange", handleVisibility); };
   }, [user]);
 
   const handleAuth = (u) => {
