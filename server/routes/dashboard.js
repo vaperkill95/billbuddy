@@ -136,7 +136,7 @@ router.get("/paycheck-forecast", async (req, res) => {
     );
 
     const { rows: acctRows } = await pool.query(
-      "SELECT COALESCE(SUM(balance_current), 0) as total FROM bank_accounts WHERE user_id = $1 AND account_type != 'credit'", [userId]
+      "SELECT COALESCE(SUM(CASE WHEN balance_available > 0 THEN balance_available ELSE balance_current END), 0) as total FROM bank_accounts WHERE user_id = $1 AND account_type != 'credit'", [userId]
     );
     const bankBalance = parseFloat(acctRows[0].total);
 
