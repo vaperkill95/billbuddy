@@ -1,11 +1,14 @@
 const API_BASE = process.env.REACT_APP_API_URL || "/api";
 
+let _authExpiredFired = false;
+
 function getToken() {
   return localStorage.getItem("billbuddy_token");
 }
 
 function setToken(token) {
   localStorage.setItem("billbuddy_token", token);
+  _authExpiredFired = false;
 }
 
 function clearToken() {
@@ -14,12 +17,18 @@ function clearToken() {
 }
 
 function getUser() {
-  const u = localStorage.getItem("billbuddy_user");
-  return u ? JSON.parse(u) : null;
+  try {
+    const u = localStorage.getItem("billbuddy_user");
+    return u && u !== "null" ? JSON.parse(u) : null;
+  } catch { return null; }
 }
 
 function setUser(user) {
-  localStorage.setItem("billbuddy_user", JSON.stringify(user));
+  if (user) {
+    localStorage.setItem("billbuddy_user", JSON.stringify(user));
+  } else {
+    localStorage.removeItem("billbuddy_user");
+  }
 }
 
 async function request(path, options = {}) {
@@ -31,7 +40,12 @@ async function request(path, options = {}) {
 
   if (res.status === 401) {
     clearToken();
-    window.location.reload();
+    // Dispatch event so App can handle logout gracefully without reloading
+    // This prevents the Face ID re-trigger loop on iOS
+    if (!_authExpiredFired) {
+      _authExpiredFired = true;
+      window.dispatchEvent(new Event("bb_auth_expired"));
+    }
     throw new Error("Session expired");
   }
 
@@ -184,6 +198,3 @@ export const api = {
   // Helpers
   getToken, setToken, clearToken, getUser, setUser,
 };
-
-
-
