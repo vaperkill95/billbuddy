@@ -2620,7 +2620,7 @@ function UnifiedDashboard({ dash, bills, t, onToggle, onDelete, onGoTo }) {
       {dash.accountCount > 0 && (
         <div style={{ background: t.card, borderRadius: 18, padding: "22px 22px 18px", boxShadow: t.cs, borderTop: "3px solid #6C5CE7" }}>
           <div style={{ fontSize: 11, color: t.sub, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5 }}>Balance</div>
-          <div style={{ fontSize: 34, fontWeight: 800, color: "#10B981", fontFamily: H, margin: "2px 0 8px", letterSpacing: -1 }}>{formatMoney(dash.totalBankBalance)}</div>
+          <div style={{ fontSize: 34, fontWeight: 800, color: "#10B981", fontFamily: H, margin: "2px 0 8px", letterSpacing: -1 }}>{formatMoney(dash.totalAvailable > 0 ? dash.totalAvailable : dash.totalBankBalance)}</div>
           <div style={{ display: "flex", gap: 20, fontSize: 13, color: t.sub }}>
             {dash.totalCardDebt > 0 && <span>💳 <span style={{ color: "#EF4444", fontWeight: 600 }}>{formatMoney(dash.totalCardDebt)}</span> debt</span>}
             <span>💰 {formatMoney(dash.incomeThisMonth)} earned</span>
