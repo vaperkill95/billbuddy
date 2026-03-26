@@ -4822,6 +4822,8 @@ export default function App() {
   };
   const [hFilter, setHFilter] = useState("all");
   const [loading, setLoading] = useState(false);
+  const [notifs, setNotifs] = useState([]);
+  const [showNotifs, setShowNotifs] = useState(false);
 
   const t = useTheme(dark);
 
@@ -4834,6 +4836,7 @@ export default function App() {
       ]);
       setBills(b); setHistory(h); setHMonths(m); setDash(d);
       try { const c = await api.getCards(); setCalCards(c); } catch(e) {}
+      try { const n = await api.getAlerts(); setNotifs(n.alerts || []); } catch(e) {}
 
       // Auto-cleanup stale bank data if no accounts connected but income still showing
       if (d.accountCount === 0 && d.incomeThisMonth > 0) {
@@ -4872,6 +4875,18 @@ export default function App() {
 
     return () => { clearInterval(interval); document.removeEventListener("visibilitychange", handleVisibility); };
   }, [user]);
+
+  // Request browser notification permission
+  useEffect(() => {
+    if (user && "Notification" in window && Notification.permission === "default") {
+      Notification.requestPermission();
+    }
+    // Browser notification for urgent alerts
+    if (notifs.filter(n => n.severity === "high").length > 0 && "Notification" in window && Notification.permission === "granted") {
+      const urgent = notifs.filter(n => n.severity === "high");
+      new Notification("BillBuddy Alert", { body: urgent[0].title, icon: "/favicon.ico" });
+    }
+  }, [notifs]);
 
   const handleAuth = (u) => {
     setUser(u);
@@ -4983,6 +4998,30 @@ export default function App() {
             <button onClick={toggleDark} style={{ width: 36, height: 36, borderRadius: 10, border: `1px solid ${t.border}`, cursor: "pointer", background: t.cardAlt, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16 }}>
               {dark ? "🌙" : "☀️"}
             </button>
+            <div style={{ position: "relative" }}>
+              <button onClick={() => setShowNotifs(!showNotifs)} style={{ width: 36, height: 36, borderRadius: 10, border: `1px solid ${t.border}`, cursor: "pointer", background: showNotifs ? "#6C5CE7" : t.cardAlt, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16 }}>
+                🔔
+              </button>
+              {notifs.filter(n => n.severity === "high").length > 0 && (
+                <div style={{ position: "absolute", top: -2, right: -2, width: 16, height: 16, borderRadius: "50%", background: "#EF4444", color: "white", fontSize: 9, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center" }}>{notifs.filter(n => n.severity === "high").length}</div>
+              )}
+              {showNotifs && (
+                <div style={{ position: "absolute", top: 42, right: 0, width: 320, maxWidth: "calc(100vw - 32px)", maxHeight: 400, overflowY: "auto", background: t.card, borderRadius: 16, boxShadow: "0 8px 40px rgba(0,0,0,0.3)", border: `1px solid ${t.border}`, zIndex: 100 }}>
+                  <div style={{ padding: "14px 16px", borderBottom: `1px solid ${t.border}`, fontWeight: 700, color: t.text, fontSize: 14 }}>🔔 Notifications {notifs.length > 0 && <span style={{ fontSize: 11, color: t.sub, fontWeight: 500 }}>({notifs.length})</span>}</div>
+                  {notifs.length === 0 ? (
+                    <div style={{ padding: "24px 16px", textAlign: "center", color: t.sub, fontSize: 13 }}>✅ All clear — no alerts right now</div>
+                  ) : notifs.map((n, i) => (
+                    <div key={i} style={{ padding: "12px 16px", borderBottom: i < notifs.length - 1 ? `1px solid ${t.border}` : "none", display: "flex", gap: 10, alignItems: "flex-start" }}>
+                      <div style={{ fontSize: 18, flexShrink: 0, marginTop: 2 }}>{n.icon}</div>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontWeight: 600, color: n.severity === "high" ? "#EF4444" : t.text, fontSize: 13 }}>{n.title}</div>
+                        <div style={{ fontSize: 11, color: t.sub, marginTop: 2 }}>{n.desc}</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
             <button onClick={() => setShowAdd(true)} style={{
               height: 36, padding: "0 16px", borderRadius: 10, border: "none",
               background: "#6C5CE7", color: "white", cursor: "pointer",
