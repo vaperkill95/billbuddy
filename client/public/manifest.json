@@ -1,0 +1,26 @@
+{
+  "short_name": "BillBuddy",
+  "name": "BillBuddy - Money Manager",
+  "description": "Track bills, manage finances, and stay on top of your money.",
+  "icons": [
+    {
+      "src": "logo192.png",
+      "type": "image/png",
+      "sizes": "192x192",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "logo512.png",
+      "type": "image/png",
+      "sizes": "512x512",
+      "purpose": "any maskable"
+    }
+  ],
+  "start_url": "/",
+  "display": "standalone",
+  "theme_color": "#6C5CE7",
+  "background_color": "#1a1a2e",
+  "orientation": "portrait-primary",
+  "scope": "/",
+  "categories": ["finance", "utilities"]
+}
