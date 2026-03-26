@@ -71,6 +71,19 @@ async function syncUserData(userId) {
         // 5. Update credit card balances from Plaid
         results.cardsUpdated += await syncCreditCardBalances(userId, acctResp.data.accounts);
 
+        // 6. Sync liabilities data (APR, min payment, etc.)
+        try {
+          const liabResp = await plaidClient.liabilitiesGet({ access_token: item.access_token });
+          const liabs = liabResp.data.liabilities || {};
+          if (liabs.credit) {
+            results.cardsUpdated += await syncLiabilitiesData(userId, liabs.credit, acctResp.data.accounts);
+          }
+        } catch (liabErr) {
+          if (!liabErr.message?.includes("PRODUCTS_NOT_SUPPORTED")) {
+            console.error("Liabilities sync error:", liabErr.message);
+          }
+        }
+
       } catch (itemErr) {
         console.error(`Sync failed for item ${item.id}:`, itemErr.message);
       }
@@ -245,4 +258,43 @@ async function syncCreditCardBalances(userId, plaidAccounts) {
   return updated;
 }
 
-module.exports = { syncUserData, matchBillPayments, detectIncomeDeposits, syncCreditCardBalances };
+// ─── Sync liabilities data (APR, min payment) from Plaid to credit cards ───
+async function syncLiabilitiesData(userId, creditLiabilities, plaidAccounts) {
+  let updated = 0;
+  const { rows: cards } = await pool.query("SELECT * FROM credit_cards WHERE user_id = $1", [userId]);
+  if (!cards.length || !creditLiabilities.length) return 0;
+
+  const normalize = (str) => str.toLowerCase().replace(/[^a-z0-9]/g, "");
+
+  for (const liab of creditLiabilities) {
+    const plaidAcct = plaidAccounts.find(a => a.account_id === liab.account_id);
+    if (!plaidAcct) continue;
+
+    for (const card of cards) {
+      const cardName = normalize(card.name);
+      const plaidName = normalize(plaidAcct.name);
+
+      if (plaidName.includes(cardName) || cardName.includes(plaidName) ||
+          (card.mask && plaidAcct.mask && card.mask === plaidAcct.mask)) {
+        let apr = card.apr;
+        if (liab.aprs && liab.aprs.length > 0) {
+          const purchaseApr = liab.aprs.find(a => a.apr_type === "purchase_apr");
+          apr = purchaseApr ? purchaseApr.apr_percentage : liab.aprs[0].apr_percentage;
+        }
+        const minPayment = liab.minimum_payment_amount || card.min_payment;
+        const creditLimit = plaidAcct.balances.limit || card.credit_limit;
+        const balance = plaidAcct.balances.current || card.balance;
+
+        await pool.query(
+          `UPDATE credit_cards SET balance = $1, apr = COALESCE($2, apr), min_payment = COALESCE($3, min_payment), credit_limit = COALESCE($4, credit_limit), updated_at = NOW() WHERE id = $5`,
+          [balance, apr, minPayment, creditLimit, card.id]
+        );
+        updated++;
+        break;
+      }
+    }
+  }
+  return updated;
+}
+
+module.exports = { syncUserData, matchBillPayments, detectIncomeDeposits, syncCreditCardBalances, syncLiabilitiesData };
