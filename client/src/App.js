@@ -7,7 +7,7 @@ const CATEGORIES = [
   { name: "Utilities", color: "#10B981", icon: "💡" },
   { name: "Insurance", color: "#3B82F6", icon: "🛡️" },
   { name: "Subscriptions", color: "#96CEB4", icon: "📺" },
-  { name: "Phone/Internet", color: "#FFEAA7", icon: "📱" },h
+  { name: "Phone/Internet", color: "#FFEAA7", icon: "📱" },
   { name: "Transportation", color: "#DDA0DD", icon: "🚗" },
   { name: "Health", color: "#98D8C8", icon: "🏥" },
   { name: "Other", color: "#F7DC6F", icon: "📋" },
