@@ -2063,21 +2063,30 @@ function CreditCardsView({ t }) {
             // After connecting, check for new credit accounts
             const accts = await api.getBankAccounts();
             const creditAccts = accts.filter(a => a.type === "credit");
-            // Auto-add any new credit cards
+            // Auto-add any new credit cards with real liabilities data
+            let liabData = [];
+            try {
+              const liabResp = await api.getLiabilities();
+              liabData = liabResp.accounts || [];
+            } catch {}
+
             for (const ca of creditAccts) {
               const exists = cards.some(card =>
                 card.name.toLowerCase().includes(ca.name.toLowerCase()) ||
                 (card.mask && ca.mask && card.mask === ca.mask)
               );
               if (!exists) {
+                const liab = liabData.find(l => l.accountId === ca.accountId && l.type === "credit_card");
+                const purchaseApr = liab?.aprs?.find(a => a.apr_type === "purchase_apr");
+                const apr = purchaseApr ? purchaseApr.apr_percentage : (liab?.aprs?.[0]?.apr_percentage || 0);
                 try {
                   await api.createCard({
                     name: ca.name,
                     balance: ca.balanceCurrent,
                     creditLimit: ca.balanceAvailable ? ca.balanceCurrent + ca.balanceAvailable : 0,
-                    apr: 0,
-                    minPayment: Math.max(25, Math.round(ca.balanceCurrent * 0.02)),
-                    dueDate: 1,
+                    apr: apr,
+                    minPayment: liab?.minimumPayment || Math.max(25, Math.round(ca.balanceCurrent * 0.02)),
+                    dueDate: liab?.nextPaymentDue ? new Date(liab.nextPaymentDue).getDate() : 1,
                   });
                 } catch {}
               }
@@ -2093,13 +2102,20 @@ function CreditCardsView({ t }) {
 
   const importPlaidCard = async (pa) => {
     try {
+      let liab = null;
+      try {
+        const liabResp = await api.getLiabilities();
+        liab = (liabResp.accounts || []).find(l => l.accountId === pa.accountId && l.type === "credit_card");
+      } catch {}
+      const purchaseApr = liab?.aprs?.find(a => a.apr_type === "purchase_apr");
+      const apr = purchaseApr ? purchaseApr.apr_percentage : (liab?.aprs?.[0]?.apr_percentage || 0);
       await api.createCard({
         name: pa.name,
         balance: pa.balanceCurrent,
         creditLimit: pa.balanceAvailable ? pa.balanceCurrent + pa.balanceAvailable : 0,
-        apr: 0,
-        minPayment: Math.max(25, Math.round(pa.balanceCurrent * 0.02)),
-        dueDate: 1,
+        apr: apr,
+        minPayment: liab?.minimumPayment || Math.max(25, Math.round(pa.balanceCurrent * 0.02)),
+        dueDate: liab?.nextPaymentDue ? new Date(liab.nextPaymentDue).getDate() : 1,
       });
       setPlaidCards(p => p.filter(c => c.accountId !== pa.accountId));
       loadCards();
@@ -2239,7 +2255,10 @@ function CreditCardsView({ t }) {
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12 }}>
                     <div>
                       <div style={{ fontWeight: 700, color: t.text, fontSize: 16 }}>💳 {card.name}</div>
-                      <div style={{ fontSize: 12, color: t.sub, marginTop: 2 }}>APR: {card.apr}% · Due: {card.dueDate}th · Min: {formatMoney(card.minPayment)}</div>
+                      <div style={{ fontSize: 12, color: t.sub, marginTop: 2 }}>
+                        APR: {card.apr}% · Due: {card.dueDate}th · Min: {formatMoney(card.minPayment)}
+                        {card.apr > 0 && <span style={{ marginLeft: 6, background: "#10B98120", color: "#10B981", fontSize: 9, fontWeight: 700, padding: "1px 5px", borderRadius: 4 }}>PLAID</span>}
+                      </div>
                     </div>
                     <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
                       <label style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 10, color: t.sub, cursor: "pointer" }}>
