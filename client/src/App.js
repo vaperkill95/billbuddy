@@ -3117,8 +3117,8 @@ function HouseholdView({ t }) {
               <div style={{ fontSize: 11, color: t.sub }}>{a.owner} · {a.institution} · ••••{a.mask}</div>
             </div>
             <div style={{ textAlign: "right" }}>
-              <div style={{ fontWeight: 800, color: t.text, fontSize: 16, fontFamily: "'Outfit', sans-serif" }}>{formatMoney(a.balanceCurrent)}</div>
-              {a.balanceAvailable > 0 && a.balanceAvailable !== a.balanceCurrent && <div style={{ fontSize: 10, color: "#10B981" }}>{formatMoney(a.balanceAvailable)} avail</div>}
+              <div style={{ fontWeight: 800, color: t.text, fontSize: 16, fontFamily: "'Outfit', sans-serif" }}>{formatMoney(a.balanceAvailable > 0 ? a.balanceAvailable : a.balanceCurrent)}</div>
+              {a.balanceAvailable > 0 && a.balanceAvailable !== a.balanceCurrent && <div style={{ fontSize: 10, color: t.sub }}>{formatMoney(a.balanceCurrent)} current</div>}
             </div>
           </div>
         </div>
@@ -4999,27 +4999,37 @@ export default function App() {
               {dark ? "🌙" : "☀️"}
             </button>
             <div style={{ position: "relative" }}>
-              <button onClick={() => setShowNotifs(!showNotifs)} style={{ width: 36, height: 36, borderRadius: 10, border: `1px solid ${t.border}`, cursor: "pointer", background: showNotifs ? "#6C5CE7" : t.cardAlt, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16 }}>
+              <button onClick={() => setShowNotifs(!showNotifs)} style={{ width: 36, height: 36, borderRadius: 10, border: `1px solid ${t.border}`, cursor: "pointer", background: showNotifs ? "#6C5CE7" : t.cardAlt, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, position: "relative", zIndex: 101 }}>
                 🔔
               </button>
-              {notifs.filter(n => n.severity === "high").length > 0 && (
-                <div style={{ position: "absolute", top: -2, right: -2, width: 16, height: 16, borderRadius: "50%", background: "#EF4444", color: "white", fontSize: 9, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center" }}>{notifs.filter(n => n.severity === "high").length}</div>
+              {notifs.length > 0 && !showNotifs && (
+                <div style={{ position: "absolute", top: -4, right: -4, minWidth: 18, height: 18, borderRadius: 9, background: "#EF4444", color: "white", fontSize: 10, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center", padding: "0 4px", pointerEvents: "none" }}>{notifs.length}</div>
               )}
               {showNotifs && (
-                <div style={{ position: "absolute", top: 42, right: 0, width: 320, maxWidth: "calc(100vw - 32px)", maxHeight: 400, overflowY: "auto", background: t.card, borderRadius: 16, boxShadow: "0 8px 40px rgba(0,0,0,0.3)", border: `1px solid ${t.border}`, zIndex: 100 }}>
-                  <div style={{ padding: "14px 16px", borderBottom: `1px solid ${t.border}`, fontWeight: 700, color: t.text, fontSize: 14 }}>🔔 Notifications {notifs.length > 0 && <span style={{ fontSize: 11, color: t.sub, fontWeight: 500 }}>({notifs.length})</span>}</div>
-                  {notifs.length === 0 ? (
-                    <div style={{ padding: "24px 16px", textAlign: "center", color: t.sub, fontSize: 13 }}>✅ All clear — no alerts right now</div>
-                  ) : notifs.map((n, i) => (
-                    <div key={i} style={{ padding: "12px 16px", borderBottom: i < notifs.length - 1 ? `1px solid ${t.border}` : "none", display: "flex", gap: 10, alignItems: "flex-start" }}>
-                      <div style={{ fontSize: 18, flexShrink: 0, marginTop: 2 }}>{n.icon}</div>
-                      <div style={{ flex: 1 }}>
-                        <div style={{ fontWeight: 600, color: n.severity === "high" ? "#EF4444" : t.text, fontSize: 13 }}>{n.title}</div>
-                        <div style={{ fontSize: 11, color: t.sub, marginTop: 2 }}>{n.desc}</div>
-                      </div>
+                <>
+                  <div onClick={() => setShowNotifs(false)} style={{ position: "fixed", inset: 0, zIndex: 99 }} />
+                  <div style={{ position: "absolute", top: 42, right: 0, width: 340, maxWidth: "calc(100vw - 32px)", maxHeight: 440, overflowY: "auto", background: t.card, borderRadius: 16, boxShadow: "0 8px 40px rgba(0,0,0,0.3)", border: `1px solid ${t.border}`, zIndex: 100 }}>
+                    <div style={{ padding: "14px 16px", borderBottom: `1px solid ${t.border}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                      <span style={{ fontWeight: 700, color: t.text, fontSize: 14 }}>🔔 Notifications {notifs.length > 0 && <span style={{ fontSize: 11, color: t.sub, fontWeight: 500 }}>({notifs.length})</span>}</span>
+                      {notifs.length > 0 && <button onClick={() => { setNotifs([]); setShowNotifs(false); }} style={{ background: "none", border: "none", color: "#6C5CE7", fontSize: 11, fontWeight: 700, cursor: "pointer", padding: "4px 8px" }}>Mark all read</button>}
                     </div>
-                  ))}
-                </div>
+                    {notifs.length === 0 ? (
+                      <div style={{ padding: "30px 16px", textAlign: "center", color: t.sub, fontSize: 13 }}>
+                        <div style={{ fontSize: 24, marginBottom: 6 }}>✅</div>
+                        All clear — no alerts right now
+                      </div>
+                    ) : notifs.map((n, i) => (
+                      <div key={i} style={{ padding: "12px 16px", borderBottom: i < notifs.length - 1 ? `1px solid ${t.border}` : "none", display: "flex", gap: 10, alignItems: "flex-start" }}>
+                        <div style={{ fontSize: 18, flexShrink: 0, marginTop: 2 }}>{n.icon}</div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontWeight: 600, color: n.severity === "high" ? "#EF4444" : n.severity === "positive" ? "#10B981" : t.text, fontSize: 13 }}>{n.title}</div>
+                          <div style={{ fontSize: 11, color: t.sub, marginTop: 2, lineHeight: 1.4 }}>{n.desc}</div>
+                        </div>
+                        <button onClick={() => setNotifs(prev => prev.filter((_, j) => j !== i))} style={{ background: "none", border: "none", color: t.sub, fontSize: 14, cursor: "pointer", padding: "2px 4px", flexShrink: 0, opacity: 0.6 }}>✕</button>
+                      </div>
+                    ))}
+                  </div>
+                </>
               )}
             </div>
             <button onClick={() => setShowAdd(true)} style={{
