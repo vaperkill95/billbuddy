@@ -7,7 +7,7 @@ const CATEGORIES = [
   { name: "Utilities", color: "#10B981", icon: "💡" },
   { name: "Insurance", color: "#3B82F6", icon: "🛡️" },
   { name: "Subscriptions", color: "#96CEB4", icon: "📺" },
-  { name: "Phone/Internet", color: "#FFEAA7", icon: "📱" },
+  { name: "Phone/Internet", color: "#FFEAA7", icon: "📱" },h
   { name: "Transportation", color: "#DDA0DD", icon: "🚗" },
   { name: "Health", color: "#98D8C8", icon: "🏥" },
   { name: "Other", color: "#F7DC6F", icon: "📋" },
@@ -4945,6 +4945,13 @@ export default function App() {
     setCalCards([]);
     setTab("dashboard");
   };
+
+  // Listen for auth expiration (prevents reload loop on iOS)
+  useEffect(() => {
+    const handler = () => handleLogout();
+    window.addEventListener("bb_auth_expired", handler);
+    return () => window.removeEventListener("bb_auth_expired", handler);
+  }, []);
 
   const togglePaid = async (bill) => {
     const np = !bill.isPaid;
