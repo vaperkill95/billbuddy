@@ -5023,7 +5023,7 @@ export default function App() {
               {dark ? "🌙" : "☀️"}
             </button>
             <div style={{ position: "relative", overflow: "visible" }}>
-              <button onClick={() => setShowNotifs(!showNotifs)} style={{ width: 36, height: 36, borderRadius: 10, border: `1px solid ${t.border}`, cursor: "pointer", background: showNotifs ? "#6C5CE7" : t.cardAlt, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16 }}>
+              <button onClick={() => setShowNotifs(!showNotifs)} style={{ width: 36, height: 36, borderRadius: 10, border: `1px solid ${t.border}`, cursor: "pointer", background: showNotifs ? "#6C5CE7" : t.cardAlt, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, position: "relative", zIndex: 101 }}>
                 🔔
               </button>
               {notifs.length > 0 && !showNotifs && (
@@ -5035,7 +5035,7 @@ export default function App() {
                   <div style={{ position: "absolute", top: 42, right: 0, width: 340, maxWidth: "calc(100vw - 32px)", maxHeight: 440, overflowY: "auto", background: t.card, borderRadius: 16, boxShadow: "0 8px 40px rgba(0,0,0,0.3)", border: `1px solid ${t.border}`, zIndex: 100 }}>
                     <div style={{ padding: "14px 16px", borderBottom: `1px solid ${t.border}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                       <span style={{ fontWeight: 700, color: t.text, fontSize: 14 }}>🔔 Notifications {notifs.length > 0 && <span style={{ fontSize: 11, color: t.sub, fontWeight: 500 }}>({notifs.length})</span>}</span>
-                      {notifs.length > 0 && <button onClick={() => markAllRead} style={{ background: "none", border: "none", color: "#6C5CE7", fontSize: 11, fontWeight: 700, cursor: "pointer", padding: "4px 8px" }}>Mark all read</button>}
+                      {notifs.length > 0 && <button onClick={() => markAllRead()} style={{ background: "none", border: "none", color: "#6C5CE7", fontSize: 11, fontWeight: 700, cursor: "pointer", padding: "4px 8px" }}>Mark all read</button>}
                     </div>
                     {notifs.length === 0 ? (
                       <div style={{ padding: "30px 16px", textAlign: "center", color: t.sub, fontSize: 13 }}>
