@@ -52,6 +52,7 @@ app.use("/api/spending", require("./routes/spending"));
 app.use("/api/spending-insights", require("./routes/spendingInsights"));
 app.use("/api/goals", require("./routes/goals"));
 app.use("/api/credit", require("./routes/credit"));
+app.use("/api/report", require("./routes/report"));
 app.use("/api/smart-savings", require("./routes/smartSavings"));
 app.use("/api/cancel-helper", require("./routes/cancelHelper"));
 app.use("/api/advisor", require("./routes/advisor"));
