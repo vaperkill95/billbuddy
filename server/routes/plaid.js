@@ -284,6 +284,15 @@ router.delete("/disconnect/:itemId", async (req, res) => {
     await pool.query("DELETE FROM bank_accounts WHERE plaid_item_id = $1", [req.params.itemId]);
     await pool.query("DELETE FROM plaid_items WHERE id = $1", [req.params.itemId]);
 
+    // Check if user has ANY remaining bank connections
+    const { rows: remaining } = await pool.query("SELECT id FROM plaid_items WHERE user_id = $1", [req.user.id]);
+    if (remaining.length === 0) {
+      // No banks left — clean up bank-derived data
+      await pool.query("DELETE FROM income_entries WHERE user_id = $1", [req.user.id]);
+      await pool.query("DELETE FROM bank_transactions WHERE user_id = $1", [req.user.id]);
+      await pool.query("DELETE FROM bank_accounts WHERE user_id = $1", [req.user.id]);
+    }
+
     res.json({ success: true });
   } catch (err) { res.status(500).json({ error: "Failed to disconnect" }); }
 });
@@ -400,6 +409,7 @@ router.post("/cleanup", async (req, res) => {
     if (items.length === 0) {
       await pool.query("DELETE FROM bank_transactions WHERE user_id = $1", [req.user.id]);
       await pool.query("DELETE FROM bank_accounts WHERE user_id = $1", [req.user.id]);
+      await pool.query("DELETE FROM income_entries WHERE user_id = $1", [req.user.id]);
       res.json({ success: true, message: "Cleaned up orphaned bank data" });
     } else {
       res.json({ success: true, message: "Active connections exist, no cleanup needed" });
