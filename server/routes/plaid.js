@@ -315,7 +315,9 @@ router.get("/items", async (req, res) => {
 router.post("/smart-sync", async (req, res) => {
   try {
     const { syncUserData } = require("../services/smartSync");
+    const { invalidateCache } = require("../middleware/cache");
     const results = await syncUserData(req.user.id);
+    invalidateCache(`user:${req.user.id}`);
     res.json({ success: true, ...results });
   } catch (err) {
     console.error("Smart sync error:", err);
