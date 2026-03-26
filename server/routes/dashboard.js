@@ -78,7 +78,7 @@ router.get("/", cacheMiddleware(req => `user:${req.user.id}:dashboard`, 120), as
     // Leftover after all expenses
     const totalExpenses = totalMonthlyBills + totalCardMin;
     const leftoverEstimated = estimatedMonthlyIncome - totalExpenses;
-    const leftoverFromBank = totalBankBalance - totalUnpaid;
+    const leftoverFromBank = (totalAvailable > 0 ? totalAvailable : totalBankBalance) - totalUnpaid;
 
     // Recent activity
     const recentActivity = historyRes.rows.slice(0, 5).map(r => ({
