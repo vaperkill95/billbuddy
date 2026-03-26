@@ -4834,6 +4834,11 @@ export default function App() {
       ]);
       setBills(b); setHistory(h); setHMonths(m); setDash(d);
       try { const c = await api.getCards(); setCalCards(c); } catch(e) {}
+
+      // Auto-cleanup stale bank data if no accounts connected but income still showing
+      if (d.accountCount === 0 && d.incomeThisMonth > 0) {
+        try { await api.cleanupBankData(); const d2 = await api.getDashboard(); setDash(d2); } catch {}
+      }
     } catch (err) { console.error("Load error:", err); }
     finally { setLoading(false); }
   }, [user]);
