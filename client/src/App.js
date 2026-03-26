@@ -4218,6 +4218,130 @@ function CancelHelperView({ t }) {
   );
 }
 
+function FloatingCalculator({ t }) {
+  const [open, setOpen] = useState(false);
+  const [display, setDisplay] = useState("0");
+  const [prev, setPrev] = useState(null);
+  const [op, setOp] = useState(null);
+  const [fresh, setFresh] = useState(true);
+  const H = "'Outfit', 'Plus Jakarta Sans', sans-serif";
+
+  const handleNum = (n) => {
+    if (fresh) { setDisplay(n === "." ? "0." : n); setFresh(false); }
+    else { setDisplay(display === "0" && n !== "." ? n : display + n); }
+  };
+
+  const handleOp = (nextOp) => {
+    const current = parseFloat(display);
+    if (prev !== null && op && !fresh) {
+      let result;
+      switch (op) {
+        case "+": result = prev + current; break;
+        case "-": result = prev - current; break;
+        case "×": result = prev * current; break;
+        case "÷": result = current !== 0 ? prev / current : 0; break;
+        default: result = current;
+      }
+      setPrev(result);
+      setDisplay(String(parseFloat(result.toFixed(10))));
+    } else {
+      setPrev(current);
+    }
+    setOp(nextOp);
+    setFresh(true);
+  };
+
+  const handleEquals = () => {
+    if (prev === null || !op) return;
+    const current = parseFloat(display);
+    let result;
+    switch (op) {
+      case "+": result = prev + current; break;
+      case "-": result = prev - current; break;
+      case "×": result = prev * current; break;
+      case "÷": result = current !== 0 ? prev / current : 0; break;
+      default: result = current;
+    }
+    setDisplay(String(parseFloat(result.toFixed(10))));
+    setPrev(null);
+    setOp(null);
+    setFresh(true);
+  };
+
+  const handleClear = () => { setDisplay("0"); setPrev(null); setOp(null); setFresh(true); };
+  const handlePercent = () => { setDisplay(String(parseFloat(display) / 100)); setFresh(true); };
+  const handlePlusMinus = () => { setDisplay(String(parseFloat(display) * -1)); };
+
+  const btnStyle = (bg, color) => ({
+    width: 56, height: 48, borderRadius: 12, border: "none", cursor: "pointer",
+    fontSize: 18, fontWeight: 700, fontFamily: H, background: bg, color: color,
+    display: "flex", alignItems: "center", justifyContent: "center",
+    transition: "opacity 0.15s",
+  });
+
+  return (
+    <>
+      {!open && (
+        <button onClick={() => setOpen(true)} style={{
+          position: "fixed", bottom: 155, right: 20, width: 48, height: 48,
+          borderRadius: "50%", background: "linear-gradient(135deg, #F59E0B, #F97316)",
+          border: "none", cursor: "pointer", zIndex: 999,
+          boxShadow: "0 4px 16px rgba(245,158,11,0.5)",
+          display: "flex", alignItems: "center", justifyContent: "center",
+          transition: "transform 0.2s",
+        }}
+        onMouseEnter={e => e.currentTarget.style.transform = "scale(1.1)"}
+        onMouseLeave={e => e.currentTarget.style.transform = "scale(1)"}
+        >
+          <span style={{ fontSize: 22, lineHeight: 1 }}>🧮</span>
+        </button>
+      )}
+
+      {open && (
+        <div style={{
+          position: "fixed", bottom: 90, right: 20,
+          width: 280, background: t.card, borderRadius: 20, zIndex: 1000,
+          boxShadow: "0 8px 40px rgba(0,0,0,0.3)", overflow: "hidden",
+          border: `1px solid ${t.border}`,
+        }}>
+          <div style={{
+            background: "linear-gradient(135deg, #F59E0B, #F97316)",
+            padding: "12px 16px", display: "flex", justifyContent: "space-between", alignItems: "center",
+          }}>
+            <span style={{ color: "white", fontWeight: 700, fontSize: 14, fontFamily: H }}>🧮 Calculator</span>
+            <button onClick={() => setOpen(false)} style={{ background: "rgba(255,255,255,0.2)", border: "none", borderRadius: 8, width: 28, height: 28, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: "white", fontSize: 16, fontWeight: 700 }}>✕</button>
+          </div>
+          <div style={{ padding: "16px 16px 8px" }}>
+            {prev !== null && op && <div style={{ fontSize: 11, color: t.sub, textAlign: "right", marginBottom: 2 }}>{prev} {op}</div>}
+            <div style={{ fontSize: 28, fontWeight: 800, color: t.text, textAlign: "right", fontFamily: H, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{display}</div>
+          </div>
+          <div style={{ padding: "8px 12px 14px", display: "flex", flexDirection: "column", gap: 6 }}>
+            {[
+              [{ l: "C", fn: handleClear, bg: t.cardAlt || "#333", c: t.text }, { l: "±", fn: handlePlusMinus, bg: t.cardAlt || "#333", c: t.text }, { l: "%", fn: handlePercent, bg: t.cardAlt || "#333", c: t.text }, { l: "÷", fn: () => handleOp("÷"), bg: "#F59E0B", c: "white" }],
+              [{ l: "7", fn: () => handleNum("7") }, { l: "8", fn: () => handleNum("8") }, { l: "9", fn: () => handleNum("9") }, { l: "×", fn: () => handleOp("×"), bg: "#F59E0B", c: "white" }],
+              [{ l: "4", fn: () => handleNum("4") }, { l: "5", fn: () => handleNum("5") }, { l: "6", fn: () => handleNum("6") }, { l: "-", fn: () => handleOp("-"), bg: "#F59E0B", c: "white" }],
+              [{ l: "1", fn: () => handleNum("1") }, { l: "2", fn: () => handleNum("2") }, { l: "3", fn: () => handleNum("3") }, { l: "+", fn: () => handleOp("+"), bg: "#F59E0B", c: "white" }],
+              [{ l: "0", fn: () => handleNum("0"), wide: true }, { l: ".", fn: () => handleNum(".") }, { l: "=", fn: handleEquals, bg: "#10B981", c: "white" }],
+            ].map((row, ri) => (
+              <div key={ri} style={{ display: "flex", gap: 6, justifyContent: "center" }}>
+                {row.map((btn, bi) => (
+                  <button key={bi} onClick={btn.fn} style={{
+                    ...btnStyle(btn.bg || (t.prog || "#2a2a3e"), btn.c || t.text),
+                    ...(btn.wide ? { width: 118 } : {}),
+                  }}
+                  onMouseEnter={e => e.currentTarget.style.opacity = "0.8"}
+                  onMouseLeave={e => e.currentTarget.style.opacity = "1"}
+                  >{btn.l}</button>
+                ))}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
 function AdvisorChat({ t, user }) {
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState([]);
@@ -4911,6 +5035,7 @@ export default function App() {
         })}
       </div>
 
+      {user && <FloatingCalculator t={t} />}
       {user && <AdvisorChat t={t} user={user} />}
       {showAdd && <AddBillModal onClose={() => setShowAdd(false)} onAdd={addBill} t={t} />}
     </div>
