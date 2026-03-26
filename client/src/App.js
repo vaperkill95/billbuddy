@@ -2300,23 +2300,39 @@ function CreditCardsView({ t }) {
 
       {/* Transactions view — credit card transactions from Plaid */}
       {view === "transactions" && (
-        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
           {cardTxnsLoading ? (
             <div style={{ textAlign: "center", padding: 30, color: t.sub, fontSize: 13 }}>Loading transactions...</div>
-          ) : cardTxns.length > 0 ? cardTxns.map(tx => (
-            <div key={tx.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", background: t.card, borderRadius: 10, boxShadow: t.cs }}>
-              <div style={{ width: 32, height: 32, borderRadius: 8, background: tx.amount > 0 ? "#EF444410" : "#10B98110", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, flexShrink: 0 }}>
-                {tx.pending ? "⏳" : tx.amount > 0 ? "💸" : "💵"}
+          ) : cardTxns.length > 0 ? (() => {
+            const grouped = {};
+            cardTxns.forEach(tx => {
+              const key = tx.accountName || "Unknown Card";
+              if (!grouped[key]) grouped[key] = [];
+              grouped[key].push(tx);
+            });
+            return Object.entries(grouped).map(([cardName, txns]) => (
+              <div key={cardName} style={{ background: t.card, borderRadius: 14, overflow: "hidden", boxShadow: t.cs }}>
+                <div style={{ padding: "12px 16px", borderBottom: `1px solid ${t.border}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <div style={{ fontWeight: 700, color: t.text, fontSize: 14 }}>💳 {cardName}</div>
+                  <div style={{ fontSize: 12, color: t.sub }}>{txns.length} transaction{txns.length !== 1 ? "s" : ""}</div>
+                </div>
+                {txns.map(tx => (
+                  <div key={tx.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 16px", borderBottom: `1px solid ${t.border}` }}>
+                    <div style={{ width: 32, height: 32, borderRadius: 8, background: tx.amount > 0 ? "#EF444410" : "#10B98110", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, flexShrink: 0 }}>
+                      {tx.pending ? "⏳" : tx.amount > 0 ? "💸" : "💵"}
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: t.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{tx.name}</div>
+                      <div style={{ fontSize: 11, color: t.sub }}>{tx.date}{tx.pending ? " · Pending" : ""}</div>
+                    </div>
+                    <div style={{ fontWeight: 700, fontSize: 13, color: tx.amount > 0 ? "#EF4444" : "#10B981", fontFamily: "'Outfit', sans-serif", flexShrink: 0 }}>
+                      {tx.amount > 0 ? "-" : "+"}{formatMoney(Math.abs(tx.amount))}
+                    </div>
+                  </div>
+                ))}
               </div>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 13, fontWeight: 600, color: t.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{tx.name}</div>
-                <div style={{ fontSize: 11, color: t.sub }}>{tx.date} · {tx.accountName}{tx.pending ? " · Pending" : ""}</div>
-              </div>
-              <div style={{ fontWeight: 700, fontSize: 13, color: tx.amount > 0 ? "#EF4444" : "#10B981", fontFamily: "'Outfit', sans-serif", flexShrink: 0 }}>
-                {tx.amount > 0 ? "-" : "+"}{formatMoney(Math.abs(tx.amount))}
-              </div>
-            </div>
-          )) : (
+            ));
+          })() : (
             <div style={{ textAlign: "center", padding: 30, color: t.sub, fontSize: 13 }}>
               <div style={{ fontSize: 24, marginBottom: 8 }}>📋</div>
               Connect your credit card issuer through Plaid to see transactions here.
