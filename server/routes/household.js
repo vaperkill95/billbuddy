@@ -74,7 +74,7 @@ router.get("/", async (req, res) => {
 
       const allMembers = Object.values(memberData);
       result.combined = {
-        totalBankBalance: allMembers.reduce((s, m) => s + m.accounts.reduce((a, acc) => a + acc.balanceCurrent, 0), 0),
+        totalBankBalance: allMembers.reduce((s, m) => s + m.accounts.reduce((a, acc) => a + (acc.balanceAvailable > 0 ? acc.balanceAvailable : acc.balanceCurrent), 0), 0),
         totalCardDebt: allMembers.reduce((s, m) => s + m.cards.reduce((a, c) => a + c.balance, 0), 0),
         totalMonthlyBills: allMembers.reduce((s, m) => s + m.bills.reduce((a, b) => a + b.amount, 0), 0),
         totalMonthlyIncome: allMembers.reduce((s, m) => {
