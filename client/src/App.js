@@ -1546,8 +1546,8 @@ function BankAccountsView({ t }) {
                 <div style={{ padding: "0 22px 18px" }}>
                   {/* Current balance - big number */}
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-                    <span style={{ fontSize: 13, fontWeight: 600, color: t.sub }}>Current Balance</span>
-                    <span style={{ fontSize: 26, fontWeight: 800, color: t.text, fontFamily: "'Outfit', sans-serif" }}>{formatMoney(a.balanceCurrent)}</span>
+                    <span style={{ fontSize: 13, fontWeight: 600, color: t.sub }}>Available Balance</span>
+                    <span style={{ fontSize: 26, fontWeight: 800, color: t.text, fontFamily: "'Outfit', sans-serif" }}>{formatMoney(a.balanceAvailable > 0 ? a.balanceAvailable : a.balanceCurrent)}</span>
                   </div>
 
                   {hasPending && (
@@ -2970,7 +2970,7 @@ function HouseholdView({ t }) {
     return filtered;
   };
   const fd = getFilteredData();
-  const totalBalance = fd.accounts.filter(a => a.type !== "credit").reduce((s, a) => s + a.balanceCurrent, 0);
+  const totalBalance = fd.accounts.filter(a => a.type !== "credit").reduce((s, a) => s + (a.balanceAvailable > 0 ? a.balanceAvailable : a.balanceCurrent), 0);
   const totalDebt = fd.cards.reduce((s, c) => s + c.balance, 0);
   const totalBills = fd.bills.reduce((s, b) => s + b.amount, 0);
 
@@ -3043,7 +3043,7 @@ function HouseholdView({ t }) {
           {hh.members.map(m => {
             const d = md[m.id];
             if (!d) return null;
-            const bal = d.accounts.filter(a => a.type !== "credit").reduce((s, a) => s + a.balanceCurrent, 0);
+            const bal = d.accounts.filter(a => a.type !== "credit").reduce((s, a) => s + (a.balanceAvailable > 0 ? a.balanceAvailable : a.balanceCurrent), 0);
             const debt = d.cards.reduce((s, c) => s + c.balance, 0);
             const bills = d.bills.reduce((s, b) => s + b.amount, 0);
             return (
