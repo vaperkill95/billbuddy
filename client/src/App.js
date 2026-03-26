@@ -4824,6 +4824,8 @@ export default function App() {
   const [loading, setLoading] = useState(false);
   const [notifs, setNotifs] = useState([]);
   const [showNotifs, setShowNotifs] = useState(false);
+  const [installPrompt, setInstallPrompt] = useState(null);
+  const [showInstallBanner, setShowInstallBanner] = useState(false);
   const getDismissedNotifs = () => {
     try {
       const stored = JSON.parse(localStorage.getItem("bb_dismissed_notifs") || "{}");
@@ -4847,6 +4849,20 @@ export default function App() {
     saveDismissed(dismissed);
     setNotifs([]);
     setShowNotifs(false);
+  };
+
+  // PWA Install prompt
+  useEffect(() => {
+    const handler = (e) => { e.preventDefault(); setInstallPrompt(e); setShowInstallBanner(true); };
+    window.addEventListener("beforeinstallprompt", handler);
+    return () => window.removeEventListener("beforeinstallprompt", handler);
+  }, []);
+  const handleInstall = async () => {
+    if (!installPrompt) return;
+    installPrompt.prompt();
+    const result = await installPrompt.userChoice;
+    if (result.outcome === "accepted") setShowInstallBanner(false);
+    setInstallPrompt(null);
   };
 
   const t = useTheme(dark);
@@ -5069,6 +5085,14 @@ export default function App() {
           </div>
         </div>
       </div>
+      {/* PWA Install Banner */}
+      {showInstallBanner && (
+        <div style={{ background: "linear-gradient(135deg, #6C5CE7, #a78bfa)", padding: "10px 16px", display: "flex", alignItems: "center", justifyContent: "center", gap: 12 }}>
+          <span style={{ color: "white", fontSize: 13, fontWeight: 600 }}>📱 Install BillBuddy for a better experience</span>
+          <button onClick={handleInstall} style={{ padding: "6px 16px", borderRadius: 8, border: "none", background: "white", color: "#6C5CE7", fontWeight: 700, fontSize: 12, cursor: "pointer" }}>Install</button>
+          <button onClick={() => setShowInstallBanner(false)} style={{ background: "none", border: "none", color: "rgba(255,255,255,0.7)", fontSize: 16, cursor: "pointer", padding: "0 4px" }}>✕</button>
+        </div>
+      )}
       {/* ── Desktop Nav ── */}
       <div className="bb-desktop-nav" style={{ display: "none", maxWidth: 720, margin: "12px auto 0", padding: "0 16px", justifyContent: "center" }}>
         <div style={{ display: "inline-flex", gap: 2, background: t.cardAlt, borderRadius: 12, padding: 3 }}>
