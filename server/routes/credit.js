@@ -72,6 +72,7 @@ router.get("/", async (req, res) => {
     const totalBills = billsRes.rows.length;
     const paidBills = billsRes.rows.filter(b => b.is_paid).length;
     const monthlyBills = billsRes.rows.reduce((s, b) => s + parseFloat(b.amount), 0);
+    const bankAccountCount = accountsRes.rows.filter(a => a.account_type !== 'credit').length;
     const accountCount = accountsRes.rows.length + cardsRes.rows.length;
     const monthlyIncome = incomeRes.rows.reduce((s, src) => {
       const amt = parseFloat(src.amount);
