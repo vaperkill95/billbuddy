@@ -25,7 +25,7 @@ router.post("/", async (req, res) => {
     const today = new Date();
     const paidDate = today.toISOString().split("T")[0];
     const monthLabel = `${FULL_MONTHS[today.getMonth()]} ${today.getFullYear()}`;
-    const status = dueDate && today.getDate() > dueDate ? "late" : "on-time";
+    const status = dueDate && today.getDate() > (dueDate + 3) ? "late" : "on-time";
     const { rows } = await pool.query(
       `INSERT INTO payment_history (user_id, bill_name, amount, category, paid_date, month_label, status) VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *`,
       [req.user.id, billName, amount, category, paidDate, monthLabel, status]
