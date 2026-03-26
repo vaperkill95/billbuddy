@@ -122,6 +122,7 @@ export const api = {
   getIncomeSummary: () => request("/income/summary"),
   detectIncome: () => request("/income/detect"),
   cleanupIncomeEntries: () => request("/income/cleanup-duplicates", { method: "POST" }),
+  cleanupBankData: () => request("/plaid/cleanup", { method: "POST" }),
   getPaycheckForecast: () => request("/dashboard/paycheck-forecast"),
 
   // Calendar Feed
