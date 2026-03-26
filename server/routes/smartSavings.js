@@ -19,7 +19,7 @@ router.get("/", async (req, res) => {
     ]);
 
     const transactions = txnsRes.rows;
-    const totalBalance = accountsRes.rows.filter(a => a.account_type !== 'credit').reduce((s, a) => s + parseFloat(a.balance_current || 0), 0);
+    const totalBalance = accountsRes.rows.filter(a => a.account_type !== 'credit').reduce((s, a) => s + (parseFloat(a.balance_available || 0) > 0 ? parseFloat(a.balance_available) : parseFloat(a.balance_current || 0)), 0);
     const monthlyBills = billsRes.rows.reduce((s, b) => s + parseFloat(b.amount), 0);
     const monthlyMinPayments = cardsRes.rows.reduce((s, c) => s + parseFloat(c.min_payment || 0), 0);
     const monthlyIncome = incomeRes.rows.reduce((s, src) => {
