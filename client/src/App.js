@@ -4824,6 +4824,30 @@ export default function App() {
   const [loading, setLoading] = useState(false);
   const [notifs, setNotifs] = useState([]);
   const [showNotifs, setShowNotifs] = useState(false);
+  const getDismissedNotifs = () => {
+    try {
+      const stored = JSON.parse(localStorage.getItem("bb_dismissed_notifs") || "{}");
+      const today = new Date().toISOString().split("T")[0];
+      if (stored.date !== today) { localStorage.setItem("bb_dismissed_notifs", JSON.stringify({ date: today, items: [] })); return []; }
+      return stored.items || [];
+    } catch { return []; }
+  };
+  const saveDismissed = (items) => {
+    const today = new Date().toISOString().split("T")[0];
+    localStorage.setItem("bb_dismissed_notifs", JSON.stringify({ date: today, items }));
+  };
+  const dismissNotif = (title) => {
+    const dismissed = getDismissedNotifs();
+    if (!dismissed.includes(title)) { dismissed.push(title); saveDismissed(dismissed); }
+    setNotifs(prev => prev.filter(n => n.title !== title));
+  };
+  const markAllRead = () => {
+    const dismissed = getDismissedNotifs();
+    notifs.forEach(n => { if (!dismissed.includes(n.title)) dismissed.push(n.title); });
+    saveDismissed(dismissed);
+    setNotifs([]);
+    setShowNotifs(false);
+  };
 
   const t = useTheme(dark);
 
@@ -4836,7 +4860,7 @@ export default function App() {
       ]);
       setBills(b); setHistory(h); setHMonths(m); setDash(d);
       try { const c = await api.getCards(); setCalCards(c); } catch(e) {}
-      try { const n = await api.getAlerts(); setNotifs(n.alerts || []); } catch(e) {}
+      try { const n = await api.getAlerts(); const dismissed = getDismissedNotifs(); setNotifs((n.alerts || []).filter(a => !dismissed.includes(a.title))); } catch(e) {}
 
       // Auto-cleanup stale bank data if no accounts connected but income still showing
       if (d.accountCount === 0 && d.incomeThisMonth > 0) {
@@ -5011,7 +5035,7 @@ export default function App() {
                   <div style={{ position: "absolute", top: 42, right: 0, width: 340, maxWidth: "calc(100vw - 32px)", maxHeight: 440, overflowY: "auto", background: t.card, borderRadius: 16, boxShadow: "0 8px 40px rgba(0,0,0,0.3)", border: `1px solid ${t.border}`, zIndex: 100 }}>
                     <div style={{ padding: "14px 16px", borderBottom: `1px solid ${t.border}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                       <span style={{ fontWeight: 700, color: t.text, fontSize: 14 }}>🔔 Notifications {notifs.length > 0 && <span style={{ fontSize: 11, color: t.sub, fontWeight: 500 }}>({notifs.length})</span>}</span>
-                      {notifs.length > 0 && <button onClick={() => { setNotifs([]); setShowNotifs(false); }} style={{ background: "none", border: "none", color: "#6C5CE7", fontSize: 11, fontWeight: 700, cursor: "pointer", padding: "4px 8px" }}>Mark all read</button>}
+                      {notifs.length > 0 && <button onClick={() => markAllRead} style={{ background: "none", border: "none", color: "#6C5CE7", fontSize: 11, fontWeight: 700, cursor: "pointer", padding: "4px 8px" }}>Mark all read</button>}
                     </div>
                     {notifs.length === 0 ? (
                       <div style={{ padding: "30px 16px", textAlign: "center", color: t.sub, fontSize: 13 }}>
