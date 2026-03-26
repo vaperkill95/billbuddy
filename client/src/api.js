@@ -123,6 +123,7 @@ export const api = {
   detectIncome: () => request("/income/detect"),
   cleanupIncomeEntries: () => request("/income/cleanup-duplicates", { method: "POST" }),
   cleanupBankData: () => request("/plaid/cleanup", { method: "POST" }),
+  getMonthlyReport: (month, year) => request(`/report/monthly?month=${month}&year=${year}`),
   getPaycheckForecast: () => request("/dashboard/paycheck-forecast"),
 
   // Calendar Feed
