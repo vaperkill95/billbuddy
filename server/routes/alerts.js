@@ -110,7 +110,7 @@ router.get("/", async (req, res) => {
 
     // Low balance warning
     const { rows: balRows } = await pool.query(
-      "SELECT COALESCE(SUM(balance_available), 0) as total FROM bank_accounts WHERE user_id = $1", [userId]
+      "SELECT COALESCE(SUM(balance_available), 0) as total FROM bank_accounts WHERE user_id = $1 AND account_type != 'credit'", [userId]
     );
     const totalAvailable = parseFloat(balRows[0].total);
     const { rows: upcomingBills } = await pool.query(
@@ -128,6 +128,35 @@ router.get("/", async (req, res) => {
         desc: `You have $${totalAvailable.toFixed(2)} available but $${upcomingTotal.toFixed(2)} in bills due this week. Make sure you have enough to cover them.`,
         severity: "high",
       });
+    }
+
+    // Bill due reminders — bills due in next 3 days or overdue
+    const dayOfMonth = new Date().getDate();
+    const { rows: allBills } = await pool.query(
+      "SELECT * FROM bills WHERE user_id = $1 AND is_paid = false ORDER BY due_date ASC", [userId]
+    );
+    for (const bill of allBills) {
+      const dueDay = bill.due_date;
+      const daysUntil = dueDay - dayOfMonth;
+      if (daysUntil >= 0 && daysUntil <= 3) {
+        alerts.push({
+          type: "bill_due_soon",
+          icon: "📅",
+          title: daysUntil === 0 ? `${bill.name} is due TODAY` : `${bill.name} due in ${daysUntil} day${daysUntil !== 1 ? "s" : ""}`,
+          desc: `$${parseFloat(bill.amount).toFixed(2)} · ${bill.category}${daysUntil === 0 ? " — don't forget to pay!" : ""}`,
+          severity: daysUntil === 0 ? "high" : "medium",
+          billId: bill.id,
+        });
+      } else if (daysUntil < 0 && daysUntil >= -5) {
+        alerts.push({
+          type: "bill_overdue",
+          icon: "🚨",
+          title: `${bill.name} is ${Math.abs(daysUntil)} day${Math.abs(daysUntil) !== 1 ? "s" : ""} overdue`,
+          desc: `$${parseFloat(bill.amount).toFixed(2)} · ${bill.category} — pay now to avoid late fees`,
+          severity: "high",
+          billId: bill.id,
+        });
+      }
     }
 
     // Sort: high severity first
