@@ -211,8 +211,8 @@ router.get("/summary", async (req, res) => {
     // Only count depository accounts (checking, savings, etc.) — exclude credit cards
     let totalChecking = 0, totalSavings = 0, totalOther = 0;
     accounts.forEach(a => {
-      const bal = parseFloat(a.balance_current) || 0;
       if (a.account_type === "credit") return; // Skip credit card accounts
+      const bal = parseFloat(a.balance_available) > 0 ? parseFloat(a.balance_available) : (parseFloat(a.balance_current) || 0);
       if (a.account_subtype === "checking") totalChecking += bal;
       else if (a.account_subtype === "savings" || a.account_subtype === "cd" || a.account_subtype === "money market") totalSavings += bal;
       else totalOther += bal;
