@@ -4824,6 +4824,10 @@ export default function App() {
   const [loading, setLoading] = useState(false);
   const [notifs, setNotifs] = useState([]);
   const [showNotifs, setShowNotifs] = useState(false);
+  const getDismissedNotifs = () => { try { const s = JSON.parse(localStorage.getItem("bb_dn") || "{}"); const d = new Date().toISOString().split("T")[0]; if (s.d !== d) { localStorage.setItem("bb_dn", JSON.stringify({d, i:[]})); return []; } return s.i || []; } catch { return []; } };
+  const saveDismissed = (items) => { localStorage.setItem("bb_dn", JSON.stringify({d: new Date().toISOString().split("T")[0], i: items})); };
+  const dismissNotif = (title) => { const d = getDismissedNotifs(); if (!d.includes(title)) { d.push(title); saveDismissed(d); } setNotifs(p => p.filter(n => n.title !== title)); };
+  const markAllRead = () => { const d = getDismissedNotifs(); notifs.forEach(n => { if (!d.includes(n.title)) d.push(n.title); }); saveDismissed(d); setNotifs([]); setShowNotifs(false); };
   const getDismissedNotifs = () => {
     try {
       const stored = JSON.parse(localStorage.getItem("bb_dismissed_notifs") || "{}");
@@ -5049,7 +5053,7 @@ export default function App() {
                           <div style={{ fontWeight: 600, color: n.severity === "high" ? "#EF4444" : n.severity === "positive" ? "#10B981" : t.text, fontSize: 13 }}>{n.title}</div>
                           <div style={{ fontSize: 11, color: t.sub, marginTop: 2, lineHeight: 1.4 }}>{n.desc}</div>
                         </div>
-                        <button onClick={() => setNotifs(prev => prev.filter((_, j) => j !== i))} style={{ background: "none", border: "none", color: t.sub, fontSize: 14, cursor: "pointer", padding: "2px 4px", flexShrink: 0, opacity: 0.6 }}>✕</button>
+                        <button onClick={() => dismissNotif(n.title)} style={{ background: "none", border: "none", color: t.sub, fontSize: 14, cursor: "pointer", padding: "2px 4px", flexShrink: 0, opacity: 0.6 }}>✕</button>
                       </div>
                     ))}
                   </div>
