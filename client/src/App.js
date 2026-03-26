@@ -4998,12 +4998,12 @@ export default function App() {
             <button onClick={toggleDark} style={{ width: 36, height: 36, borderRadius: 10, border: `1px solid ${t.border}`, cursor: "pointer", background: t.cardAlt, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16 }}>
               {dark ? "🌙" : "☀️"}
             </button>
-            <div style={{ position: "relative" }}>
-              <button onClick={() => setShowNotifs(!showNotifs)} style={{ width: 36, height: 36, borderRadius: 10, border: `1px solid ${t.border}`, cursor: "pointer", background: showNotifs ? "#6C5CE7" : t.cardAlt, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, position: "relative", zIndex: 101 }}>
+            <div style={{ position: "relative", overflow: "visible" }}>
+              <button onClick={() => setShowNotifs(!showNotifs)} style={{ width: 36, height: 36, borderRadius: 10, border: `1px solid ${t.border}`, cursor: "pointer", background: showNotifs ? "#6C5CE7" : t.cardAlt, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16 }}>
                 🔔
               </button>
               {notifs.length > 0 && !showNotifs && (
-                <div style={{ position: "absolute", top: -4, right: -4, minWidth: 18, height: 18, borderRadius: 9, background: "#EF4444", color: "white", fontSize: 10, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center", padding: "0 4px", pointerEvents: "none" }}>{notifs.length}</div>
+                <div style={{ position: "absolute", top: -6, right: -6, minWidth: 20, height: 20, borderRadius: 10, background: "#EF4444", color: "white", fontSize: 11, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center", padding: "0 5px", pointerEvents: "none", zIndex: 102, border: "2px solid " + t.card }}>{notifs.length}</div>
               )}
               {showNotifs && (
                 <>
