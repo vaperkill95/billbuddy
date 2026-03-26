@@ -2652,7 +2652,7 @@ function UnifiedDashboard({ dash, bills, t, onToggle, onDelete, onGoTo }) {
       {!dash.onboardingComplete && <OnboardingWizard steps={dash.onboardingSteps} t={t} onGoTo={onGoTo} />}
 
       {/* Balance hero */}
-      {dash.accountCount > 0 && (
+      {dash.accountCount > 0 ? (
         <div style={{ background: t.card, borderRadius: 18, padding: "22px 22px 18px", boxShadow: t.cs, borderTop: "3px solid #6C5CE7" }}>
           <div style={{ fontSize: 11, color: t.sub, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5 }}>Balance</div>
           <div style={{ fontSize: 34, fontWeight: 800, color: "#10B981", fontFamily: H, margin: "2px 0 8px", letterSpacing: -1 }}>{formatMoney(dash.totalAvailable > 0 ? dash.totalAvailable : dash.totalBankBalance)}</div>
@@ -2661,7 +2661,7 @@ function UnifiedDashboard({ dash, bills, t, onToggle, onDelete, onGoTo }) {
             <span>💰 {formatMoney(dash.incomeThisMonth)} earned</span>
           </div>
         </div>
-      )}
+      ) : null}
 
       {/* Paycheck Forecast */}
       {forecast && forecast.hasIncome && forecast.periods?.length > 0 && (
@@ -2676,7 +2676,7 @@ function UnifiedDashboard({ dash, bills, t, onToggle, onDelete, onGoTo }) {
           {forecast.periods.slice(0, 2).map((period, pi) => (
             <div key={pi} style={{ padding: "14px 20px", borderBottom: pi < 1 && forecast.periods.length > 1 ? `1px solid ${t.border}` : "none" }}>
               {pi > 0 && <div style={{ fontSize: 11, fontWeight: 700, color: "#6C5CE7", textTransform: "uppercase", marginBottom: 4, letterSpacing: 0.5 }}>After Paycheck #{pi} → Next</div>}
-              {pi > 0 && <div style={{ fontSize: 11, color: t.sub, marginBottom: 8 }}>You'll have {formatMoney(period.balanceBefore)} (balance + paycheck)</div>}
+              {pi > 0 && <div style={{ fontSize: 11, color: t.sub, marginBottom: 8 }}>You'll have {formatMoney(period.balanceBefore)}{dash.accountCount > 0 ? " (balance + paycheck)" : " (paycheck only)"}</div>}
               {period.bills.length > 0 ? (<>
                 {period.bills.map((b, i) => (
                   <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "5px 0" }}>
@@ -2725,7 +2725,7 @@ function UnifiedDashboard({ dash, bills, t, onToggle, onDelete, onGoTo }) {
             <span style={{ fontSize: 11, color: t.sub, fontWeight: 600, textTransform: "uppercase" }}>Left Over</span>
           </div>
           <div style={{ fontSize: 22, fontWeight: 800, color: (dash.accountCount > 0 ? dash.leftoverFromBank : dash.leftoverEstimated) >= 0 ? "#10B981" : "#EF4444", fontFamily: H }}>{dash.accountCount > 0 ? formatMoney(dash.leftoverFromBank) : formatMoney(dash.leftoverEstimated)}</div>
-          <div style={{ fontSize: 12, color: t.sub, marginTop: 2 }}>after bills</div>
+          <div style={{ fontSize: 12, color: t.sub, marginTop: 2 }}>{dash.accountCount > 0 ? "after bills" : "estimated · connect bank for accuracy"}</div>
         </div>
         <div style={{ background: t.card, borderRadius: 14, padding: "16px 18px", boxShadow: t.cs }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
@@ -2791,7 +2791,7 @@ function UnifiedDashboard({ dash, bills, t, onToggle, onDelete, onGoTo }) {
           <div style={{ fontWeight: 700, color: t.text, fontSize: 14, marginBottom: 10 }}>📋 Recent Payments</div>
           {dash.recentActivity.slice(0, 5).map(a => (
             <div key={a.id} style={{ display: "flex", justifyContent: "space-between", padding: "7px 0", fontSize: 13, borderBottom: `1px solid ${t.border}` }}>
-              <span style={{ color: t.sub }}>{a.status === "on-time" ? "✅" : "⚠️"} {a.billName} · {a.paidDate}</span>
+              <span style={{ color: t.sub }}>{"✅"} {a.billName} · {a.paidDate}</span>
               <span style={{ fontWeight: 700, color: t.text }}>{formatMoney(a.amount)}</span>
             </div>
           ))}
