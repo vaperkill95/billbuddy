@@ -51,7 +51,7 @@ router.get("/advisor", async (req, res) => {
 
     // Get bank balance
     const { rows: balRows } = await pool.query(
-      "SELECT COALESCE(SUM(balance_current), 0) as total FROM bank_accounts WHERE user_id = $1", [userId]
+      "SELECT COALESCE(SUM(CASE WHEN balance_available > 0 THEN balance_available ELSE balance_current END), 0) as total FROM bank_accounts WHERE user_id = $1 AND account_type != 'credit'", [userId]
     );
     const bankBalance = parseFloat(balRows[0].total);
 
