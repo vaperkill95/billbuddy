@@ -907,6 +907,79 @@ function ForecastView({ t }) {
   );
 }
 
+// ─── Smart Suggestions (P4) ───
+function SmartSuggestions({ t }) {
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [dismissed, setDismissed] = useState([]);
+  const H = "'Outfit', 'Plus Jakarta Sans', sans-serif";
+  const F = "'Plus Jakarta Sans', 'Outfit', sans-serif";
+
+  useEffect(() => {
+    (async () => {
+      try { const result = await api.getSuggestions(); setData(result); }
+      catch (err) { console.error("Suggestions error:", err); }
+      finally { setLoading(false); }
+    })();
+  }, []);
+
+  if (loading) return (
+    <div style={{ background: t.card, borderRadius: 16, padding: "18px 20px", boxShadow: t.cs }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
+        <span style={{ fontSize: 18 }}>🤖</span>
+        <span style={{ fontWeight: 700, color: t.text, fontSize: 14 }}>Smart Suggestions</span>
+      </div>
+      <div style={{ fontSize: 12, color: t.sub, textAlign: "center", padding: "10px 0" }}>Analyzing your finances...</div>
+    </div>
+  );
+
+  if (!data || !data.suggestions || data.suggestions.length === 0) return null;
+
+  const visible = data.suggestions.filter(s => !dismissed.includes(s.title));
+  if (visible.length === 0) return null;
+
+  const priorityColors = { high: "#EF4444", medium: "#F59E0B", low: "#10B981" };
+  const priorityBgs = { high: "#EF444412", medium: "#F59E0B12", low: "#10B98112" };
+
+  return (
+    <div style={{ background: t.card, borderRadius: 16, padding: "18px 20px", boxShadow: t.cs }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <span style={{ fontSize: 18 }}>🤖</span>
+          <span style={{ fontWeight: 700, color: t.text, fontSize: 14 }}>Smart Suggestions</span>
+        </div>
+        <span style={{ fontSize: 10, color: t.sub, fontWeight: 600, padding: "3px 8px", background: t.cardAlt, borderRadius: 6 }}>{visible.length} tip{visible.length !== 1 ? "s" : ""}</span>
+      </div>
+
+      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+        {visible.slice(0, 4).map((s, i) => (
+          <div key={i} style={{
+            background: priorityBgs[s.priority] || t.cardAlt,
+            borderRadius: 12, padding: "12px 14px",
+            borderLeft: `3px solid ${priorityColors[s.priority] || t.border}`,
+          }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 4 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, flex: 1 }}>
+                <span style={{ fontSize: 16 }}>{s.icon}</span>
+                <span style={{ fontWeight: 700, color: t.text, fontSize: 13 }}>{s.title}</span>
+              </div>
+              <button onClick={() => setDismissed(prev => [...prev, s.title])} style={{
+                background: "none", border: "none", color: t.sub, cursor: "pointer", fontSize: 14, padding: "0 0 0 8px", lineHeight: 1,
+              }}>×</button>
+            </div>
+            <div style={{ fontSize: 12, color: t.sub, marginBottom: 6, paddingLeft: 24 }}>{s.description}</div>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingLeft: 24 }}>
+              <span style={{ fontSize: 11, fontWeight: 700, color: "#6C5CE7" }}>{s.action}</span>
+              {s.impact && <span style={{ fontSize: 10, color: priorityColors[s.priority] || t.sub, fontWeight: 600 }}>{s.impact}</span>}
+            </div>
+            {s.isAI && <div style={{ fontSize: 9, color: t.muted, marginTop: 4, paddingLeft: 24 }}>AI-generated suggestion</div>}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function SmartAlertsView({ t }) {
   const [alerts, setAlerts] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -2875,6 +2948,9 @@ function UnifiedDashboard({ dash, bills, t, onToggle, onDelete, onGoTo }) {
           ))}
         </div>
       )}
+
+      {/* Smart Suggestions */}
+      <SmartSuggestions t={t} />
 
       {/* Stats grid - 2x2 */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>

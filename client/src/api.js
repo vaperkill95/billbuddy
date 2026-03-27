@@ -187,6 +187,9 @@ export const api = {
   // AI Advisor
   askAdvisor: (message, history) => request("/advisor", { method: "POST", body: JSON.stringify({ message, history }) }),
 
+  // Smart Suggestions
+  getSuggestions: () => request("/suggestions"),
+
   // Two-Factor Authentication
   get2FAStatus: () => request("/2fa/status"),
   setup2FA: () => request("/2fa/setup", { method: "POST" }),
