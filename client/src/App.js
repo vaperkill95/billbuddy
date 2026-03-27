@@ -5358,51 +5358,46 @@ function SettingsTab({ bills, history, hMonths, hFilter, setHFilter, onUpdateRem
 
   const groups = [
     {
-      title: "Money Tools",
+      title: "Track & Plan",
       items: [
-        { key: "spending", icon: "💰", label: "Spending", desc: "Where your money goes" },
+        { key: "spending", icon: "💰", label: "Spending", desc: "Budgets & category tracking" },
         { key: "forecast", icon: "📊", label: "Cash Flow", desc: "30-day money timeline" },
-        { key: "charts", icon: "📊", label: "Charts", desc: "Visual breakdowns" },
+        { key: "goals", icon: "🎯", label: "Goals", desc: "Track financial goals" },
         { key: "history", icon: "📜", label: "History", desc: "Payment records" },
+      ]
+    },
+    {
+      title: "AI & Insights",
+      items: [
+        { key: "aitips", icon: "🧠", label: "AI Tips", desc: "AI spending insights" },
+        { key: "negotiate", icon: "🤝", label: "Negotiate", desc: "Bill negotiation scripts" },
+        { key: "cancel", icon: "🚫", label: "Cancel Helper", desc: "Cancel subscriptions" },
+        { key: "credit", icon: "📊", label: "Credit Score", desc: "Credit health report" },
       ]
     },
     {
       title: "Save & Grow",
       items: [
         { key: "savings", icon: "🐷", label: "Savings", desc: "Savings advisor" },
-        { key: "goals", icon: "🎯", label: "Goals", desc: "Track financial goals" },
         { key: "smartsave", icon: "🤖", label: "AutoSave", desc: "Smart savings autopilot" },
-        { key: "credit", icon: "📊", label: "Credit Score", desc: "Credit health report" },
-      ]
-    },
-    {
-      title: "Smart Tools",
-      items: [
-        { key: "aitips", icon: "🧠", label: "AI Tips", desc: "AI spending insights" },
-        { key: "negotiate", icon: "🤝", label: "Negotiate", desc: "Bill negotiation scripts" },
-        { key: "cancel", icon: "🚫", label: "Cancel Helper", desc: "Cancel subscriptions easily" },
-        { key: "subs", icon: "📺", label: "Subscriptions", desc: "Detect recurring charges" },
       ]
     },
     {
       title: "Manage",
       items: [
-        { key: "activity", icon: "📋", label: "Activity", desc: "Recent activity feed" },
-        { key: "alerts", icon: "🔔", label: "Alerts", desc: "Smart notifications" },
         { key: "reminders", icon: "⏰", label: "Reminders", desc: "Bill due date reminders" },
+        { key: "alerts", icon: "🔔", label: "Alerts", desc: "Smart notifications" },
+        { key: "activity", icon: "📋", label: "Activity", desc: "Recent activity feed" },
+        { key: "charts", icon: "📊", label: "Charts", desc: "Visual breakdowns" },
       ]
     },
     {
-      title: "Security",
+      title: "Account",
       items: [
         { key: "security", icon: "🔐", label: "Security", desc: "2FA and account protection" },
-      ]
-    },
-    {
-      title: "Legal & Support",
-      items: [
-        { key: "link_support", icon: "💬", label: "Support & Help", desc: "FAQ, contact us, get help", link: "/support.html" },
-        { key: "link_privacy", icon: "📄", label: "Privacy Policy", desc: "How we handle your data", link: "/privacy.html" },
+        { key: "help", icon: "❓", label: "Help Guide", desc: "How to use BillBuddy" },
+        { key: "link_support", icon: "💬", label: "Support", desc: "FAQ & contact us", link: "/support.html" },
+        { key: "link_privacy", icon: "📄", label: "Privacy", desc: "Privacy policy", link: "/privacy.html" },
       ]
     },
   ];
@@ -5432,6 +5427,7 @@ function SettingsTab({ bills, history, hMonths, hFilter, setHFilter, onUpdateRem
         {subTab === "smartsave" && <SmartSavingsView t={t} />}
         {subTab === "cancel" && <CancelHelperView t={t} />}
         {subTab === "security" && <SecurityView t={t} />}
+        {subTab === "help" && <HelpGuide t={t} />}
       </div>
     );
   }
