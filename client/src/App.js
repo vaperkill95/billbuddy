@@ -918,6 +918,49 @@ function ForecastView({ t }) {
   );
 }
 
+// ─── Weekly Spending Recap ───
+function WeeklyRecap({ t }) {
+  const [data, setData] = useState(null);
+  const H = "'Outfit', 'Plus Jakarta Sans', sans-serif";
+  useEffect(() => {
+    (async () => { try { const r = await api.getWeeklySpending(); setData(r); } catch {} })();
+  }, []);
+  if (!data || data.total === 0) return null;
+  const topCats = data.breakdown.slice(0, 3);
+  return (
+    <div style={{ background: t.card, borderRadius: 16, padding: "14px 16px", boxShadow: t.cs }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <span style={{ fontSize: 16 }}>📅</span>
+          <span style={{ fontWeight: 700, color: t.text, fontSize: 13 }}>This Week</span>
+        </div>
+        <span style={{ fontWeight: 800, color: "#EF4444", fontFamily: H, fontSize: 16 }}>{formatMoney(data.total)}</span>
+      </div>
+      <div style={{ display: "flex", gap: 6, marginBottom: 8 }}>
+        {topCats.map((cat, i) => {
+          const pct = Math.round((cat.amount / data.total) * 100);
+          const colors = ["#6C5CE7", "#10B981", "#F59E0B", "#EF4444", "#3B82F6"];
+          return (
+            <div key={cat.name} style={{ flex: pct, height: 8, background: colors[i % colors.length], borderRadius: i === 0 ? "4px 0 0 4px" : i === topCats.length - 1 ? "0 4px 4px 0" : 0 }} />
+          );
+        })}
+      </div>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: "4px 12px" }}>
+        {topCats.map((cat, i) => {
+          const colors = ["#6C5CE7", "#10B981", "#F59E0B"];
+          return (
+            <span key={cat.name} style={{ fontSize: 11, color: t.sub }}>
+              <span style={{ display: "inline-block", width: 6, height: 6, borderRadius: 3, background: colors[i % colors.length], marginRight: 4 }} />
+              {cat.name} {formatMoney(cat.amount)}
+            </span>
+          );
+        })}
+        <span style={{ fontSize: 11, color: t.muted }}>{data.txnCount} transactions</span>
+      </div>
+    </div>
+  );
+}
+
 // ─── Budget Alerts for Dashboard ───
 function BudgetAlerts({ t }) {
   const [data, setData] = useState(null);
@@ -3114,6 +3157,9 @@ function UnifiedDashboard({ dash, bills, t, onToggle, onDelete, onGoTo }) {
           ))}
         </div>
       )}
+
+      {/* Weekly Spending Recap */}
+      <WeeklyRecap t={t} />
 
       {/* Budget Alerts */}
       <BudgetAlerts t={t} />
@@ -5492,6 +5538,8 @@ export default function App() {
   const [dash, setDash] = useState(null);
   const [tab, setTab] = useState("dashboard");
   const [showAdd, setShowAdd] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const pullRef = useRef({ startY: 0, pulling: false });
   const [dark, setDark] = useState(() => {
     try { return localStorage.getItem("bb_dark") === "true"; } catch { return false; }
   });
@@ -5574,6 +5622,19 @@ export default function App() {
     } catch (err) { console.error("Load error:", err); }
     finally { setLoading(false); }
   }, [user]);
+
+  // Pull-to-refresh handler
+  const refreshAll = useCallback(async () => {
+    if (refreshing) return;
+    setRefreshing(true);
+    try {
+      try { await api.refreshTransactions(); } catch {}
+      await api.smartSync();
+      await loadData();
+      if (window.bbToast) window.bbToast("Refreshed", "success");
+    } catch {}
+    finally { setRefreshing(false); }
+  }, [refreshing, loadData]);
 
   useEffect(() => { loadData(); }, [loadData]);
 
@@ -5804,7 +5865,17 @@ export default function App() {
       </div>
 
       {/* ── Content ── */}
-      <div className="bb-content" style={{ paddingTop: 16, paddingBottom: 100 }}>
+      <div className="bb-content" style={{ paddingTop: 16, paddingBottom: 100 }}
+        onTouchStart={e => { if (window.scrollY === 0) pullRef.current = { startY: e.touches[0].clientY, pulling: true }; }}
+        onTouchMove={e => { if (pullRef.current.pulling && e.touches[0].clientY - pullRef.current.startY > 80 && window.scrollY === 0) { pullRef.current.pulling = false; refreshAll(); } }}
+        onTouchEnd={() => { pullRef.current.pulling = false; }}
+      >
+        {/* Pull-to-refresh indicator */}
+        {refreshing && (
+          <div style={{ textAlign: "center", padding: "8px 0 12px", fontSize: 12, color: "#6C5CE7", fontWeight: 600 }}>
+            🔄 Refreshing...
+          </div>
+        )}
         {loading && !bills.length ? (
           <div style={{ textAlign: "center", padding: 80 }}>
             <div style={{ width: 52, height: 52, borderRadius: 14, background: "#6C5CE7", display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 26 }}>💸</div>
