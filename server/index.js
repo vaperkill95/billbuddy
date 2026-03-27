@@ -1,5 +1,6 @@
 const express = require("express");
 const cors = require("cors");
+const helmet = require("helmet");
 const path = require("path");
 require("dotenv").config();
 
@@ -21,9 +22,19 @@ const pool = require("./db/pool");
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-app.use(cors());
+app.use(helmet({ contentSecurityPolicy: false }));
+app.use(cors({
+  origin: process.env.NODE_ENV === "production"
+    ? ["https://billbuddy.us", "https://www.billbuddy.us"]
+    : true,
+  credentials: true,
+}));
 app.use(express.json({ limit: "2mb" }));
 app.set("trust proxy", 1);
+
+// Global rate limiter for all API routes (200 req/min per user)
+const { rateLimiter } = require("./middleware/rateLimit");
+app.use("/api", rateLimiter(200, 60000));
 
 // Make checkMonthlyReset available to routes
 app.use((req, res, next) => {

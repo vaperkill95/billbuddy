@@ -907,6 +907,45 @@ function ForecastView({ t }) {
   );
 }
 
+// ─── Budget Alerts for Dashboard ───
+function BudgetAlerts({ t }) {
+  const [data, setData] = useState(null);
+  const H = "'Outfit', 'Plus Jakarta Sans', sans-serif";
+  useEffect(() => {
+    (async () => {
+      try { const result = await api.getSpendingSummary(30); setData(result); } catch {}
+    })();
+  }, []);
+  if (!data || !data.budgets || data.budgets.length === 0) return null;
+  const alerts = data.budgets.filter(b => b.spent >= b.limit * 0.8);
+  if (alerts.length === 0) return null;
+  return (
+    <div style={{ background: t.card, borderRadius: 16, padding: "14px 16px", boxShadow: t.cs }}>
+      <div style={{ fontWeight: 700, color: t.text, fontSize: 13, marginBottom: 10, display: "flex", alignItems: "center", gap: 8 }}>
+        <span style={{ fontSize: 16 }}>📊</span> Budget Alerts
+      </div>
+      {alerts.map(b => {
+        const pct = Math.round((b.spent / b.limit) * 100);
+        const over = b.spent > b.limit;
+        return (
+          <div key={b.category} style={{ marginBottom: 8, padding: "8px 10px", background: over ? "#EF444410" : "#F59E0B10", borderRadius: 10, borderLeft: `3px solid ${over ? "#EF4444" : "#F59E0B"}` }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+              <span style={{ fontWeight: 700, color: t.text, fontSize: 12 }}>{b.category}</span>
+              <span style={{ fontWeight: 800, color: over ? "#EF4444" : "#F59E0B", fontSize: 12, fontFamily: H }}>{formatMoney(b.spent)} / {formatMoney(b.limit)}</span>
+            </div>
+            <div style={{ height: 6, background: t.cardAlt, borderRadius: 3, overflow: "hidden" }}>
+              <div style={{ height: "100%", borderRadius: 3, background: over ? "#EF4444" : pct >= 90 ? "#F59E0B" : "#10B981", width: `${Math.min(pct, 100)}%`, transition: "width 0.5s" }} />
+            </div>
+            <div style={{ fontSize: 10, color: over ? "#EF4444" : "#F59E0B", fontWeight: 600, marginTop: 3 }}>
+              {over ? `Over budget by ${formatMoney(b.spent - b.limit)}` : `${pct}% used — ${formatMoney(b.limit - b.spent)} left`}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 // ─── Smart Suggestions (P4) ───
 function SmartSuggestions({ t }) {
   const [data, setData] = useState(null);
@@ -1458,12 +1497,15 @@ function AIInsights({ t }) {
 }
 
 function BankTransactionsTab({ accounts, transactions, acctFilter, setAcctFilter, txnDays, setTxnDays, setTransactions, t }) {
+  const [search, setSearch] = useState("");
   const acctTypes = [...new Set(accounts.map(a => a.type))];
-  const filteredTxns = acctFilter === "all" ? transactions :
+  const searchLower = search.toLowerCase();
+  const filteredTxns = (acctFilter === "all" ? transactions :
     transactions.filter(tx => {
       const acct = accounts.find(a => a.accountId === tx.accountId);
       return acct && acct.type === acctFilter;
-    });
+    })
+  ).filter(tx => !search || tx.name?.toLowerCase().includes(searchLower) || tx.category?.toLowerCase().includes(searchLower) || tx.accountName?.toLowerCase().includes(searchLower));
   const pending = filteredTxns.filter(tx => tx.pending);
   const completed = filteredTxns.filter(tx => !tx.pending);
   const pendingTotal = pending.reduce((s, tx) => s + tx.amount, 0);
@@ -1506,6 +1548,28 @@ function BankTransactionsTab({ accounts, transactions, acctFilter, setAcctFilter
         )}
         {acctTypes.includes("credit") && (
           <button onClick={() => setAcctFilter("credit")} style={{ flex: 1, padding: "7px 8px", borderRadius: 6, border: "none", background: acctFilter === "credit" ? "#EF4444" : "transparent", color: acctFilter === "credit" ? "white" : t.sub, cursor: "pointer", fontWeight: 600, fontSize: 11 }}>💳 Credit</button>
+        )}
+      </div>
+      {/* Search bar */}
+      <div style={{ position: "relative" }}>
+        <input
+          type="text"
+          placeholder="Search transactions..."
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          style={{
+            width: "100%", padding: "10px 14px 10px 36px", borderRadius: 10,
+            border: `1px solid ${search ? "#6C5CE7" : t.border}`, background: t.card,
+            color: t.text, fontSize: 13, fontFamily: "'Plus Jakarta Sans', sans-serif",
+            outline: "none", boxSizing: "border-box",
+          }}
+        />
+        <span style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", fontSize: 14, color: t.sub }}>🔍</span>
+        {search && (
+          <button onClick={() => setSearch("")} style={{
+            position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)",
+            background: "none", border: "none", color: t.sub, cursor: "pointer", fontSize: 16, padding: 0,
+          }}>×</button>
         )}
       </div>
       <div style={{ display: "flex", gap: 6 }}>
@@ -3039,6 +3103,9 @@ function UnifiedDashboard({ dash, bills, t, onToggle, onDelete, onGoTo }) {
           ))}
         </div>
       )}
+
+      {/* Budget Alerts */}
+      <BudgetAlerts t={t} />
 
       {/* Smart Suggestions */}
       <SmartSuggestions t={t} />
