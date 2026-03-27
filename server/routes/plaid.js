@@ -26,7 +26,7 @@ router.post("/create-link-token", async (req, res) => {
       user: { client_user_id: String(req.user.id) },
       client_name: "BillBuddy",
       products: [Products.Transactions],
-      optional_products: [Products.Liabilities],
+      optional_products: [Products.Liabilities, Products.Investments],
       country_codes: [CountryCode.Us],
       language: "en",
     });
@@ -418,6 +418,162 @@ router.post("/cleanup", async (req, res) => {
       res.json({ success: true, message: "Active connections exist, no cleanup needed" });
     }
   } catch (err) { res.status(500).json({ error: "Cleanup failed" }); }
+});
+
+// POST /api/plaid/refresh - Force refresh transactions for fresher data
+router.post("/refresh", async (req, res) => {
+  try {
+    const { rows: items } = await pool.query("SELECT * FROM plaid_items WHERE user_id = $1", [req.user.id]);
+    let refreshed = 0;
+    for (const item of items) {
+      try {
+        await plaidClient.transactionsRefresh({ access_token: item.access_token });
+        refreshed++;
+      } catch (err) {
+        // transactions/refresh may not be available for all items
+        console.error("Refresh error for item:", item.id, err.response?.data?.error_code || err.message);
+      }
+    }
+    res.json({ refreshed, total: items.length });
+  } catch (err) {
+    console.error("Refresh error:", err);
+    res.status(500).json({ error: "Failed to refresh transactions" });
+  }
+});
+
+// GET /api/plaid/recurring - Get Plaid-detected recurring transactions
+router.get("/recurring", async (req, res) => {
+  try {
+    const { rows: items } = await pool.query("SELECT * FROM plaid_items WHERE user_id = $1", [req.user.id]);
+    const allInflows = [];
+    const allOutflows = [];
+
+    for (const item of items) {
+      try {
+        const { rows: accounts } = await pool.query(
+          "SELECT account_id FROM bank_accounts WHERE plaid_item_id = $1", [item.id]
+        );
+        const accountIds = accounts.map(a => a.account_id);
+        if (accountIds.length === 0) continue;
+
+        const response = await plaidClient.transactionsRecurringGet({
+          access_token: item.access_token,
+          account_ids: accountIds,
+        });
+
+        if (response.data.inflow_streams) {
+          allInflows.push(...response.data.inflow_streams.map(s => ({
+            ...s, institution: item.institution_name || "Unknown",
+          })));
+        }
+        if (response.data.outflow_streams) {
+          allOutflows.push(...response.data.outflow_streams.map(s => ({
+            ...s, institution: item.institution_name || "Unknown",
+          })));
+        }
+      } catch (err) {
+        const code = err.response?.data?.error_code;
+        if (code !== "PRODUCTS_NOT_SUPPORTED" && code !== "PRODUCT_NOT_READY") {
+          console.error("Recurring get error:", code || err.message);
+        }
+      }
+    }
+
+    // Format for frontend
+    const formatStream = (s, type) => ({
+      id: s.stream_id || s.transaction_ids?.[0] || Math.random().toString(36),
+      name: s.merchant_name || s.description || "Unknown",
+      amount: Math.abs(s.last_amount?.amount || s.average_amount?.amount || 0),
+      frequency: s.frequency || "unknown",
+      category: s.personal_finance_category?.primary || s.category?.[0] || "Other",
+      lastDate: s.last_date || null,
+      nextDate: s.predicted_next_date || null,
+      status: s.status || "mature",
+      isActive: s.is_active !== false,
+      type,
+      transactionCount: s.transaction_ids?.length || 0,
+      institution: s.institution || "",
+    });
+
+    res.json({
+      inflows: allInflows.map(s => formatStream(s, "inflow")),
+      outflows: allOutflows.map(s => formatStream(s, "outflow")),
+      totalMonthlyInflow: allInflows.reduce((s, i) => s + Math.abs(i.last_amount?.amount || i.average_amount?.amount || 0), 0),
+      totalMonthlyOutflow: allOutflows.reduce((s, o) => s + Math.abs(o.last_amount?.amount || o.average_amount?.amount || 0), 0),
+    });
+  } catch (err) {
+    console.error("Plaid recurring error:", err);
+    res.status(500).json({ error: "Failed to get recurring transactions" });
+  }
+});
+
+// GET /api/plaid/investments - Get investment holdings
+router.get("/investments", async (req, res) => {
+  try {
+    const { rows: items } = await pool.query("SELECT * FROM plaid_items WHERE user_id = $1", [req.user.id]);
+    const allHoldings = [];
+    const allAccounts = [];
+    let totalValue = 0;
+
+    for (const item of items) {
+      try {
+        const response = await plaidClient.investmentsHoldingsGet({
+          access_token: item.access_token,
+        });
+
+        const accounts = response.data.accounts || [];
+        const holdings = response.data.holdings || [];
+        const securities = response.data.securities || [];
+
+        const secMap = {};
+        for (const sec of securities) {
+          secMap[sec.security_id] = sec;
+        }
+
+        for (const acct of accounts) {
+          if (acct.type === "investment") {
+            allAccounts.push({
+              id: acct.account_id,
+              name: acct.name,
+              balance: acct.balances?.current || 0,
+              institution: item.institution_name || "Unknown",
+              subtype: acct.subtype || "investment",
+              mask: acct.mask || "",
+            });
+            totalValue += acct.balances?.current || 0;
+          }
+        }
+
+        for (const h of holdings) {
+          const sec = secMap[h.security_id] || {};
+          allHoldings.push({
+            name: sec.name || "Unknown",
+            ticker: sec.ticker_symbol || "",
+            type: sec.type || "other",
+            quantity: h.quantity || 0,
+            price: h.institution_price || sec.close_price || 0,
+            value: h.institution_value || (h.quantity * (h.institution_price || sec.close_price || 0)),
+            costBasis: h.cost_basis || null,
+            accountName: accounts.find(a => a.account_id === h.account_id)?.name || "",
+          });
+        }
+      } catch (err) {
+        const code = err.response?.data?.error_code;
+        if (code !== "PRODUCTS_NOT_SUPPORTED" && code !== "PRODUCT_NOT_READY" && code !== "NO_INVESTMENT_ACCOUNTS") {
+          console.error("Investments error:", code || err.message);
+        }
+      }
+    }
+
+    res.json({
+      accounts: allAccounts,
+      holdings: allHoldings.sort((a, b) => b.value - a.value),
+      totalValue: Math.round(totalValue * 100) / 100,
+    });
+  } catch (err) {
+    console.error("Investments error:", err);
+    res.status(500).json({ error: "Failed to get investments" });
+  }
 });
 
 module.exports = router;

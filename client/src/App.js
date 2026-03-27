@@ -1595,6 +1595,8 @@ function BankAccountsView({ t }) {
     setSyncing(true);
     setSyncResult(null);
     try {
+      // Force Plaid to refresh data first, then run smart sync
+      try { await api.refreshTransactions(); } catch (e) { /* refresh may not be enabled yet */ }
       const result = await api.smartSync();
       setSyncResult(result);
       await loadData();

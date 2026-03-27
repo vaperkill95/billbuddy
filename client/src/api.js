@@ -157,6 +157,9 @@ export const api = {
   disconnectBank: (itemId) => request(`/plaid/disconnect/${itemId}`, { method: "DELETE" }),
   getLiabilities: () => request("/plaid/liabilities"),
   smartSync: () => request("/plaid/smart-sync", { method: "POST" }),
+  refreshTransactions: () => request("/plaid/refresh", { method: "POST" }),
+  getPlaidRecurring: () => request("/plaid/recurring"),
+  getInvestments: () => request("/plaid/investments"),
 
   // Spending
   getSpendingSummary: (days) => request(`/spending/summary?days=${days || 30}`),
