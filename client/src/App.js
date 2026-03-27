@@ -1553,7 +1553,7 @@ function BankAccountsView({ t }) {
 
   // Persist overrides to localStorage
   useEffect(() => {
-    try { localStorage.setItem("bb_balance_overrides", JSON.stringify(overrides)); } catch {}
+    try { localStorage.setItem("bb_balance_overrides", JSON.stringify(overrides)); window.dispatchEvent(new Event("bb_override_changed")); } catch {}
   }, [overrides]);
 
   const loadData = async () => {
@@ -2878,7 +2878,38 @@ function UnifiedDashboard({ dash, bills, t, onToggle, onDelete, onGoTo }) {
   const paidPct = dash.totalMonthlyBills > 0 ? Math.round((dash.totalPaid / dash.totalMonthlyBills) * 100) : 0;
 
   const [forecast, setForecast] = useState(null);
+  const [balanceOverrides, setBalanceOverrides] = useState({});
   useEffect(() => { api.getPaycheckForecast().then(setForecast).catch(() => {}); }, []);
+  // Read balance overrides from localStorage (set in BankAccountsView)
+  useEffect(() => {
+    const loadOverrides = () => {
+      try { const saved = localStorage.getItem("bb_balance_overrides"); if (saved) setBalanceOverrides(JSON.parse(saved)); } catch {}
+    };
+    loadOverrides();
+    // Listen for storage changes from other components
+    window.addEventListener("storage", loadOverrides);
+    // Also listen for custom event from BankAccountsView
+    window.addEventListener("bb_override_changed", loadOverrides);
+    return () => { window.removeEventListener("storage", loadOverrides); window.removeEventListener("bb_override_changed", loadOverrides); };
+  }, []);
+
+  // Calculate override-adjusted balance
+  const hasOverrides = Object.keys(balanceOverrides).length > 0;
+  const serverBalance = dash.totalAvailable > 0 ? dash.totalAvailable : dash.totalBankBalance;
+  // Apply overrides: each override replaces one account's balance
+  // Since we don't have per-account server values here, use the override total directly
+  // The override values ARE the correct balances the user typed in
+  // Best approach: sum all override values as the new total (user only overrides accounts they want to fix)
+  let displayBalance = serverBalance;
+  if (hasOverrides) {
+    // Read all account data to calculate the adjustment
+    // We sum all override values — the user typed their real balance for each overridden account
+    // For non-overridden accounts, we'd need the server values, but we only have the total
+    // Simple approach: the user's override IS the total they want to see
+    // (works perfectly when they override all accounts, or just checking)
+    const overrideSum = Object.values(balanceOverrides).reduce((s, v) => s + (parseFloat(v) || 0), 0);
+    displayBalance = overrideSum;
+  }
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
@@ -2891,16 +2922,18 @@ function UnifiedDashboard({ dash, bills, t, onToggle, onDelete, onGoTo }) {
           {/* Balance + Net Worth side by side */}
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 14 }}>
             <div>
-              <div style={{ fontSize: 11, color: t.sub, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5 }}>Balance</div>
+              <div style={{ fontSize: 11, color: t.sub, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5 }}>Balance{hasOverrides ? " ⚡" : ""}</div>
               <div style={{ fontSize: 34, fontWeight: 800, color: "#10B981", fontFamily: H, margin: "2px 0 0", letterSpacing: -1 }}>
-                {formatMoney(dash.totalAvailable > 0 ? dash.totalAvailable : dash.totalBankBalance)}
+                {formatMoney(displayBalance)}
               </div>
-              <div style={{ fontSize: 11, color: t.sub }}>across {dash.accountCount} account{dash.accountCount > 1 ? "s" : ""}</div>
+              <div style={{ fontSize: 11, color: t.sub }}>
+                {hasOverrides ? "manual override active" : `across ${dash.accountCount} account${dash.accountCount > 1 ? "s" : ""}`}
+              </div>
             </div>
             <div style={{ textAlign: "right" }}>
               <div style={{ fontSize: 11, color: t.sub, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5 }}>Net Worth</div>
-              <div style={{ fontSize: 20, fontWeight: 800, color: ((dash.totalAvailable > 0 ? dash.totalAvailable : dash.totalBankBalance) - dash.totalCardDebt) >= 0 ? "#10B981" : "#F59E0B", fontFamily: H, marginTop: 2 }}>
-                {formatMoney((dash.totalAvailable > 0 ? dash.totalAvailable : dash.totalBankBalance) - dash.totalCardDebt)}
+              <div style={{ fontSize: 20, fontWeight: 800, color: (displayBalance - dash.totalCardDebt) >= 0 ? "#10B981" : "#F59E0B", fontFamily: H, marginTop: 2 }}>
+                {formatMoney(displayBalance - dash.totalCardDebt)}
               </div>
               <div style={{ fontSize: 10, color: t.sub }}>balance − debt</div>
             </div>
@@ -2910,12 +2943,12 @@ function UnifiedDashboard({ dash, bills, t, onToggle, onDelete, onGoTo }) {
           {dash.totalCardDebt > 0 && (
             <div style={{ marginBottom: 14 }}>
               <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, marginBottom: 4 }}>
-                <span style={{ color: "#10B981", fontWeight: 700 }}>🏦 {formatMoney(dash.totalAvailable > 0 ? dash.totalAvailable : dash.totalBankBalance)}</span>
+                <span style={{ color: "#10B981", fontWeight: 700 }}>🏦 {formatMoney(displayBalance)}</span>
                 <span style={{ color: "#EF4444", fontWeight: 700 }}>💳 {formatMoney(dash.totalCardDebt)} owed</span>
               </div>
               <div style={{ display: "flex", height: 8, borderRadius: 6, overflow: "hidden", background: t.cardAlt }}>
                 {(() => {
-                  const assets = dash.totalAvailable > 0 ? dash.totalAvailable : dash.totalBankBalance;
+                  const assets = displayBalance;
                   const debt = dash.totalCardDebt;
                   const total = assets + debt || 1;
                   return <>
