@@ -1659,13 +1659,13 @@ function BankAccountsView({ t }) {
     setSyncing(true);
     setSyncResult(null);
     try {
-      // Force Plaid to refresh data first, then run smart sync
       try { await api.refreshTransactions(); } catch (e) { /* refresh may not be enabled yet */ }
       const result = await api.smartSync();
       setSyncResult(result);
       await loadData();
+      if (window.bbToast) window.bbToast(`Synced: ${result.balancesUpdated} balance${result.balancesUpdated !== 1 ? "s" : ""} updated`, "success");
       setTimeout(() => setSyncResult(null), 5000);
-    } catch (err) { console.error(err); }
+    } catch (err) { if (window.bbToast) window.bbToast("Sync failed — try again", "error"); }
     finally { setSyncing(false); }
   };
 
@@ -3610,11 +3610,15 @@ function RecurringView({ t }) {
         recurring: prev.recurring.map(r => r.id === item.id ? { ...r, status: "tracked", isTracked: true } : r),
         summary: { ...prev.summary, tracked: prev.summary.tracked + 1, untracked: prev.summary.untracked - 1 },
       }));
-    } catch (err) { console.error(err); }
+      if (window.bbToast) window.bbToast(`${item.name} added as a bill`, "success");
+    } catch (err) { if (window.bbToast) window.bbToast("Failed to add bill", "error"); }
     finally { setAdding(null); }
   };
 
-  const dismiss = (id) => setDismissedIds(prev => [...prev, id]);
+  const dismiss = (id) => {
+    setDismissedIds(prev => [...prev, id]);
+    if (window.bbToast) window.bbToast("Dismissed", "info");
+  };
 
   if (loading) return (
     <div style={{ textAlign: "center", padding: 60 }}>
@@ -5490,6 +5494,14 @@ export default function App() {
   const [loading, setLoading] = useState(false);
   const [notifs, setNotifs] = useState([]);
   const [showNotifs, setShowNotifs] = useState(false);
+  const [toasts, setToasts] = useState([]);
+  const showToast = useCallback((message, type = "info") => {
+    const id = Date.now();
+    setToasts(prev => [...prev, { id, message, type }]);
+    setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 4000);
+  }, []);
+  // Make showToast available globally for any component
+  useEffect(() => { window.bbToast = showToast; }, [showToast]);
   const [installPrompt, setInstallPrompt] = useState(null);
   const [showInstallBanner, setShowInstallBanner] = useState(false);
   const getDismissedNotifs = () => {
@@ -5624,25 +5636,26 @@ export default function App() {
       await api.updateBill(bill.id, { isPaid: np });
       if (np) {
         await api.recordPayment({ billName: bill.name, amount: bill.amount, category: bill.category, dueDate: bill.dueDate });
-        // Track total paid and auto-delete if end amount reached
+        showToast(`${bill.name} marked as paid`, "success");
         if (bill.endAmount && newTotalPaid >= bill.endAmount) {
           await api.deleteBill(bill.id);
           setBills(p => p.filter(b => b.id !== bill.id));
+          showToast(`${bill.name} fully paid off!`, "success");
         }
       }
       const [h, m, d] = await Promise.all([api.getHistory(), api.getHistoryMonths(), api.getDashboard()]);
       setHistory(h); setHMonths(m); setDash(d);
-    } catch (err) { setBills(p => p.map(b => b.id === bill.id ? { ...b, isPaid: !np } : b)); }
+    } catch (err) { setBills(p => p.map(b => b.id === bill.id ? { ...b, isPaid: !np } : b)); showToast("Failed to update bill", "error"); }
   };
 
   const deleteBill = async (id) => {
     const prev = bills;
     setBills(p => p.filter(b => b.id !== id));
-    try { await api.deleteBill(id); const d = await api.getDashboard(); setDash(d); } catch { setBills(prev); }
+    try { await api.deleteBill(id); const d = await api.getDashboard(); setDash(d); showToast("Bill deleted", "info"); } catch { setBills(prev); showToast("Failed to delete bill", "error"); }
   };
 
   const addBill = async (bill) => {
-    try { const c = await api.createBill(bill); setBills(p => [...p, c]); setShowAdd(false); const d = await api.getDashboard(); setDash(d); } catch (err) { console.error(err); }
+    try { const c = await api.createBill(bill); setBills(p => [...p, c]); setShowAdd(false); const d = await api.getDashboard(); setDash(d); showToast(`${bill.name || "Bill"} added`, "success"); } catch (err) { showToast("Failed to add bill", "error"); }
   };
 
   const updateReminder = async (id, val) => {
@@ -5679,6 +5692,7 @@ export default function App() {
     <div style={{ fontFamily: F, minHeight: "100vh", background: t.bg, transition: "background 0.3s ease" }}>
       <style>{`
         select option { background: ${t.card}; color: ${t.text}; }
+        @keyframes slideDown { from { transform: translateY(-20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
         * { -webkit-tap-highlight-color: transparent; box-sizing: border-box; }
         @media (min-width: 768px) {
           .bb-bottom-nav { display: none !important; }
@@ -5838,6 +5852,24 @@ export default function App() {
       {user && <FloatingCalculator t={t} />}
       {user && <AdvisorChat t={t} user={user} />}
       {showAdd && <AddBillModal onClose={() => setShowAdd(false)} onAdd={addBill} t={t} />}
+
+      {/* Toast notifications */}
+      {toasts.length > 0 && (
+        <div style={{ position: "fixed", top: 20, left: "50%", transform: "translateX(-50%)", zIndex: 10000, display: "flex", flexDirection: "column", gap: 8, maxWidth: 360, width: "90%" }}>
+          {toasts.map(toast => (
+            <div key={toast.id} style={{
+              padding: "12px 16px", borderRadius: 12, boxShadow: "0 8px 32px rgba(0,0,0,0.3)",
+              background: toast.type === "error" ? "#EF4444" : toast.type === "success" ? "#10B981" : toast.type === "warning" ? "#F59E0B" : "#6C5CE7",
+              color: "white", fontSize: 13, fontWeight: 600, fontFamily: "'Plus Jakarta Sans', sans-serif",
+              display: "flex", justifyContent: "space-between", alignItems: "center",
+              animation: "slideDown 0.3s ease",
+            }}>
+              <span>{toast.type === "error" ? "❌ " : toast.type === "success" ? "✅ " : toast.type === "warning" ? "⚠️ " : "ℹ️ "}{toast.message}</span>
+              <button onClick={() => setToasts(prev => prev.filter(t => t.id !== toast.id))} style={{ background: "none", border: "none", color: "white", cursor: "pointer", fontSize: 16, padding: "0 0 0 12px" }}>×</button>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
