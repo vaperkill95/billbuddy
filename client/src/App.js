@@ -704,6 +704,11 @@ function SavingsAdvisor({ t }) {
 function ForecastView({ t }) {
   const [forecast, setForecast] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [selectedDay, setSelectedDay] = useState(null);
+  const [dangerThreshold, setDangerThreshold] = useState(100);
+  const [showAll, setShowAll] = useState(false);
+  const F = "'Plus Jakarta Sans', 'Outfit', sans-serif";
+  const H = "'Outfit', 'Plus Jakarta Sans', sans-serif";
 
   useEffect(() => {
     (async () => {
@@ -713,90 +718,188 @@ function ForecastView({ t }) {
     })();
   }, []);
 
-  if (loading) return <div style={{ textAlign: "center", padding: 60, color: t.sub }}>Building your forecast...</div>;
-  if (!forecast || !forecast.days.length) return <div style={{ textAlign: "center", padding: 40, color: t.sub }}>Connect your bank to see a spending forecast</div>;
+  if (loading) return <div style={{ textAlign: "center", padding: 60, color: t.sub }}>Building your cash flow timeline...</div>;
+  if (!forecast || !forecast.days.length) return <div style={{ textAlign: "center", padding: 40, color: t.sub }}>Connect your bank to see your cash flow timeline</div>;
 
   const maxBal = Math.max(...forecast.days.map(d => d.balance), 0);
   const minBal = Math.min(...forecast.days.map(d => d.balance), 0);
   const range = maxBal - minBal || 1;
-  const chartH = 180;
+  const chartH = 160;
+  const daysWithEvents = forecast.days.filter(d => d.events.length > 0);
+  const dangerDays = forecast.days.filter(d => d.balance < dangerThreshold);
+  const totalIn = forecast.days.reduce((s, d) => s + d.events.filter(e => e.amount > 0).reduce((a, e) => a + e.amount, 0), 0);
+  const totalOut = forecast.days.reduce((s, d) => s + d.events.filter(e => e.amount < 0).reduce((a, e) => a + Math.abs(e.amount), 0), 0);
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-        <div style={{ fontSize: 32 }}>📈</div>
+        <div style={{ fontSize: 28 }}>📊</div>
         <div>
-          <h3 style={{ fontFamily: "'Outfit', sans-serif", color: t.text, margin: 0, fontSize: 20 }}>30-Day Forecast</h3>
-          <p style={{ margin: "2px 0 0", fontSize: 13, color: t.sub }}>Projected balance based on upcoming bills & income</p>
+          <h3 style={{ fontFamily: H, color: t.text, margin: 0, fontSize: 18 }}>Cash Flow Timeline</h3>
+          <p style={{ margin: "2px 0 0", fontSize: 12, color: t.sub }}>30-day projection — every dollar in and out</p>
         </div>
       </div>
 
-      {/* Summary cards */}
+      {/* Summary row */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
-        <div style={{ background: t.card, borderRadius: 12, padding: "12px 14px", boxShadow: t.cs }}>
-          <div style={{ fontSize: 10, color: t.sub, fontWeight: 600, textTransform: "uppercase" }}>Today</div>
-          <div style={{ fontSize: 18, fontWeight: 800, color: "#10B981", fontFamily: "'Outfit', sans-serif" }}>{formatMoney(forecast.startBalance)}</div>
+        <div style={{ background: t.card, borderRadius: 12, padding: "12px 10px", boxShadow: t.cs, textAlign: "center" }}>
+          <div style={{ fontSize: 10, color: t.sub, fontWeight: 600, textTransform: "uppercase" }}>Now</div>
+          <div style={{ fontSize: 17, fontWeight: 800, color: "#10B981", fontFamily: H }}>{formatMoney(forecast.startBalance)}</div>
         </div>
-        <div style={{ background: t.card, borderRadius: 12, padding: "12px 14px", boxShadow: t.cs }}>
-          <div style={{ fontSize: 10, color: t.sub, fontWeight: 600, textTransform: "uppercase" }}>Lowest Point</div>
-          <div style={{ fontSize: 18, fontWeight: 800, color: forecast.lowestBalance >= 0 ? "#F59E0B" : "#EF4444", fontFamily: "'Outfit', sans-serif" }}>{formatMoney(forecast.lowestBalance)}</div>
-          <div style={{ fontSize: 10, color: t.sub }}>{forecast.lowestDate}</div>
+        <div style={{ background: t.card, borderRadius: 12, padding: "12px 10px", boxShadow: t.cs, textAlign: "center" }}>
+          <div style={{ fontSize: 10, color: t.sub, fontWeight: 600, textTransform: "uppercase" }}>Lowest</div>
+          <div style={{ fontSize: 17, fontWeight: 800, color: forecast.lowestBalance < dangerThreshold ? "#EF4444" : "#F59E0B", fontFamily: H }}>{formatMoney(forecast.lowestBalance)}</div>
+          <div style={{ fontSize: 9, color: t.sub }}>{forecast.lowestDate}</div>
         </div>
-        <div style={{ background: t.card, borderRadius: 12, padding: "12px 14px", boxShadow: t.cs }}>
-          <div style={{ fontSize: 10, color: t.sub, fontWeight: 600, textTransform: "uppercase" }}>In 30 Days</div>
-          <div style={{ fontSize: 18, fontWeight: 800, color: forecast.endBalance >= 0 ? "#10B981" : "#EF4444", fontFamily: "'Outfit', sans-serif" }}>{formatMoney(forecast.endBalance)}</div>
+        <div style={{ background: t.card, borderRadius: 12, padding: "12px 10px", boxShadow: t.cs, textAlign: "center" }}>
+          <div style={{ fontSize: 10, color: t.sub, fontWeight: 600, textTransform: "uppercase" }}>Day 30</div>
+          <div style={{ fontSize: 17, fontWeight: 800, color: forecast.endBalance >= 0 ? "#10B981" : "#EF4444", fontFamily: H }}>{formatMoney(forecast.endBalance)}</div>
         </div>
       </div>
 
-      {/* Chart */}
-      <div style={{ background: t.card, borderRadius: 16, padding: "18px 12px 10px", boxShadow: t.cs, overflow: "hidden" }}>
-        <svg width="100%" height={chartH + 30} viewBox={`0 0 ${forecast.days.length * 24} ${chartH + 30}`} style={{ display: "block" }}>
+      {/* Money flow summary */}
+      <div style={{ background: t.card, borderRadius: 14, padding: "14px 16px", boxShadow: t.cs }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+          <span style={{ fontSize: 12, fontWeight: 700, color: t.text }}>30-Day Cash Flow</span>
+          <span style={{ fontSize: 12, fontWeight: 800, color: totalIn - totalOut >= 0 ? "#10B981" : "#EF4444", fontFamily: H }}>
+            Net: {totalIn - totalOut >= 0 ? "+" : ""}{formatMoney(totalIn - totalOut)}
+          </span>
+        </div>
+        <div style={{ display: "flex", gap: 8, height: 8, borderRadius: 6, overflow: "hidden", background: t.cardAlt }}>
+          <div style={{ width: `${(totalIn / (totalIn + totalOut || 1)) * 100}%`, background: "#10B981", borderRadius: 6, transition: "width 0.5s" }} />
+          <div style={{ width: `${(totalOut / (totalIn + totalOut || 1)) * 100}%`, background: "#EF4444", borderRadius: 6, transition: "width 0.5s" }} />
+        </div>
+        <div style={{ display: "flex", justifyContent: "space-between", marginTop: 6, fontSize: 11 }}>
+          <span style={{ color: "#10B981", fontWeight: 600 }}>+{formatMoney(totalIn)} in</span>
+          <span style={{ color: "#EF4444", fontWeight: 600 }}>-{formatMoney(totalOut)} out</span>
+        </div>
+      </div>
+
+      {/* Danger zone alert */}
+      {dangerDays.length > 0 && (
+        <div style={{ background: "#EF444410", border: "1px solid #EF444430", borderRadius: 12, padding: "10px 14px", display: "flex", alignItems: "center", gap: 10 }}>
+          <span style={{ fontSize: 18 }}>🚨</span>
+          <div>
+            <div style={{ fontWeight: 700, color: "#EF4444", fontSize: 12 }}>Balance drops below {formatMoney(dangerThreshold)} on {dangerDays.length} day{dangerDays.length > 1 ? "s" : ""}</div>
+            <div style={{ fontSize: 11, color: t.sub }}>Lowest: {formatMoney(forecast.lowestBalance)} on {forecast.lowestDate}</div>
+          </div>
+        </div>
+      )}
+
+      {/* Balance chart */}
+      <div style={{ background: t.card, borderRadius: 16, padding: "14px 8px 6px", boxShadow: t.cs, overflow: "hidden" }}>
+        <div style={{ fontSize: 11, fontWeight: 700, color: t.text, paddingLeft: 8, marginBottom: 6 }}>Balance Projection</div>
+        <svg width="100%" height={chartH + 32} viewBox={`0 0 ${forecast.days.length * 22} ${chartH + 32}`} style={{ display: "block" }}>
+          {/* Danger zone fill */}
+          {minBal < dangerThreshold && (() => {
+            const dangerY = chartH - ((dangerThreshold - minBal) / range) * chartH;
+            return <rect x="0" y={dangerY} width={forecast.days.length * 22} height={chartH - dangerY} fill="#EF4444" opacity="0.06" />;
+          })()}
+          {/* Danger line */}
+          <line x1="0" y1={chartH - ((dangerThreshold - minBal) / range) * chartH} x2={forecast.days.length * 22} y2={chartH - ((dangerThreshold - minBal) / range) * chartH}
+            stroke="#EF4444" strokeWidth="0.8" strokeDasharray="3 3" opacity="0.5" />
           {/* Zero line */}
-          {minBal < 0 && <line x1="0" y1={chartH - ((0 - minBal) / range) * chartH} x2={forecast.days.length * 24} y2={chartH - ((0 - minBal) / range) * chartH} stroke="#EF4444" strokeWidth="1" strokeDasharray="4" opacity="0.4" />}
+          {minBal < 0 && <line x1="0" y1={chartH - ((0 - minBal) / range) * chartH} x2={forecast.days.length * 22} y2={chartH - ((0 - minBal) / range) * chartH}
+            stroke="#EF4444" strokeWidth="1" strokeDasharray="4" opacity="0.4" />}
           {/* Area fill */}
-          <path d={
-            `M 0 ${chartH} ` +
-            forecast.days.map((d, i) => `L ${i * 24 + 12} ${chartH - ((d.balance - minBal) / range) * chartH}`).join(" ") +
-            ` L ${(forecast.days.length - 1) * 24 + 12} ${chartH} Z`
-          } fill="url(#forecastGrad)" opacity="0.15" />
           <defs>
-            <linearGradient id="forecastGrad" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="#6C5CE7" /><stop offset="100%" stopColor="#6C5CE700" />
+            <linearGradient id="cfGrad" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="#6C5CE7" stopOpacity="0.2" /><stop offset="100%" stopColor="#6C5CE7" stopOpacity="0" />
             </linearGradient>
           </defs>
+          <path d={
+            `M 0 ${chartH} ` +
+            forecast.days.map((d, i) => `L ${i * 22 + 11} ${chartH - ((d.balance - minBal) / range) * chartH}`).join(" ") +
+            ` L ${(forecast.days.length - 1) * 22 + 11} ${chartH} Z`
+          } fill="url(#cfGrad)" />
           {/* Line */}
           <polyline
-            points={forecast.days.map((d, i) => `${i * 24 + 12},${chartH - ((d.balance - minBal) / range) * chartH}`).join(" ")}
-            fill="none" stroke="#6C5CE7" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
+            points={forecast.days.map((d, i) => `${i * 22 + 11},${chartH - ((d.balance - minBal) / range) * chartH}`).join(" ")}
+            fill="none" stroke="#6C5CE7" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
           />
-          {/* Event dots */}
+          {/* Event bars (income/expense) */}
+          {forecast.days.map((d, i) => {
+            const dayIn = d.events.filter(e => e.amount > 0).reduce((s, e) => s + e.amount, 0);
+            const dayOut = d.events.filter(e => e.amount < 0).reduce((s, e) => s + Math.abs(e.amount), 0);
+            const maxEvent = Math.max(totalIn, totalOut) / 30 * 3 || 1;
+            return (
+              <g key={i} onClick={() => setSelectedDay(selectedDay === i ? null : i)} style={{ cursor: "pointer" }}>
+                {dayIn > 0 && <rect x={i * 22 + 5} y={chartH + 4} width={14} height={Math.max(2, (dayIn / maxEvent) * 14)} rx="2" fill="#10B981" opacity="0.7" />}
+                {dayOut > 0 && <rect x={i * 22 + 5} y={chartH + 4 + (dayIn > 0 ? Math.max(2, (dayIn / maxEvent) * 14) + 1 : 0)} width={14} height={Math.max(2, (dayOut / maxEvent) * 14)} rx="2" fill="#EF4444" opacity="0.7" />}
+              </g>
+            );
+          })}
+          {/* Selected day highlight */}
+          {selectedDay !== null && (
+            <rect x={selectedDay * 22 + 2} y="0" width={18} height={chartH} fill="#6C5CE7" opacity="0.08" rx="3" />
+          )}
+          {/* Dots for event days */}
           {forecast.days.map((d, i) => d.events.length > 0 ? (
-            <circle key={i} cx={i * 24 + 12} cy={chartH - ((d.balance - minBal) / range) * chartH} r="4"
-              fill={d.events.some(e => e.amount > 0) ? "#10B981" : "#EF4444"} stroke="white" strokeWidth="1.5" />
+            <circle key={`dot${i}`} cx={i * 22 + 11} cy={chartH - ((d.balance - minBal) / range) * chartH} r={selectedDay === i ? 5 : 3.5}
+              fill={d.balance < dangerThreshold ? "#EF4444" : d.events.some(e => e.amount > 0) ? "#10B981" : "#F59E0B"}
+              stroke={t.card} strokeWidth="1.5" onClick={() => setSelectedDay(selectedDay === i ? null : i)} style={{ cursor: "pointer" }} />
           ) : null)}
-          {/* Day labels (every 5 days) */}
-          {forecast.days.map((d, i) => i % 5 === 0 ? (
-            <text key={i} x={i * 24 + 12} y={chartH + 20} textAnchor="middle" fontSize="9" fill={t.sub} fontFamily="Plus Jakarta Sans">{d.label}</text>
+          {/* Day labels */}
+          {forecast.days.map((d, i) => i % 7 === 0 ? (
+            <text key={`lbl${i}`} x={i * 22 + 11} y={chartH + 30} textAnchor="middle" fontSize="8" fill={t.sub} fontFamily="Plus Jakarta Sans">{d.label}</text>
           ) : null)}
         </svg>
       </div>
 
-      {/* Day by day breakdown */}
-      <div style={{ background: t.card, borderRadius: 16, padding: "14px 18px", boxShadow: t.cs }}>
-        <div style={{ fontWeight: 700, color: t.text, fontSize: 13, marginBottom: 10 }}>📋 Upcoming Events</div>
-        {forecast.days.filter(d => d.events.length > 0).slice(0, 10).map((d, i) => (
-          <div key={i} style={{ padding: "8px 0", borderBottom: `1px solid ${t.border}` }}>
-            <div style={{ fontSize: 12, fontWeight: 700, color: t.text, marginBottom: 4 }}>{d.label}</div>
+      {/* Selected day detail */}
+      {selectedDay !== null && forecast.days[selectedDay] && (
+        <div style={{ background: "#6C5CE710", border: "1px solid #6C5CE730", borderRadius: 12, padding: "12px 16px" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+            <span style={{ fontWeight: 700, color: t.text, fontSize: 13 }}>{forecast.days[selectedDay].label}{forecast.days[selectedDay].isWeekend ? " (weekend)" : ""}</span>
+            <span style={{ fontWeight: 800, color: forecast.days[selectedDay].balance >= dangerThreshold ? "#10B981" : "#EF4444", fontFamily: H, fontSize: 15 }}>
+              {formatMoney(forecast.days[selectedDay].balance)}
+            </span>
+          </div>
+          {forecast.days[selectedDay].events.length === 0 ? (
+            <div style={{ fontSize: 11, color: t.sub }}>No transactions expected this day</div>
+          ) : (
+            forecast.days[selectedDay].events.map((e, j) => (
+              <div key={j} style={{ display: "flex", justifyContent: "space-between", padding: "3px 0", fontSize: 12 }}>
+                <span style={{ color: t.sub }}>{e.type === "income" ? "💵" : e.type === "card" ? "💳" : "📋"} {e.name}</span>
+                <span style={{ fontWeight: 700, color: e.amount > 0 ? "#10B981" : "#EF4444" }}>{e.amount > 0 ? "+" : ""}{formatMoney(e.amount)}</span>
+              </div>
+            ))
+          )}
+          <button onClick={() => setSelectedDay(null)} style={{ marginTop: 6, background: "none", border: "none", color: "#6C5CE7", cursor: "pointer", fontSize: 11, fontWeight: 600, padding: 0, fontFamily: F }}>Close</button>
+        </div>
+      )}
+
+      {/* Danger threshold control */}
+      <div style={{ background: t.card, borderRadius: 14, padding: "12px 16px", boxShadow: t.cs }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+          <span style={{ fontSize: 12, fontWeight: 700, color: t.text }}>🚨 Low Balance Alert</span>
+          <span style={{ fontSize: 12, fontWeight: 700, color: "#EF4444", fontFamily: H }}>{formatMoney(dangerThreshold)}</span>
+        </div>
+        <input type="range" min="0" max="1000" step="50" value={dangerThreshold} onChange={e => setDangerThreshold(Number(e.target.value))}
+          style={{ width: "100%", accentColor: "#6C5CE7" }} />
+        <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10, color: t.sub }}><span>$0</span><span>$500</span><span>$1,000</span></div>
+      </div>
+
+      {/* Day-by-day breakdown */}
+      <div style={{ background: t.card, borderRadius: 16, padding: "14px 16px", boxShadow: t.cs }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+          <span style={{ fontWeight: 700, color: t.text, fontSize: 13 }}>📋 Upcoming Events</span>
+          <button onClick={() => setShowAll(!showAll)} style={{ background: "none", border: "none", color: "#6C5CE7", cursor: "pointer", fontSize: 11, fontWeight: 600, fontFamily: F }}>
+            {showAll ? "Show less" : `Show all (${daysWithEvents.length})`}
+          </button>
+        </div>
+        {(showAll ? daysWithEvents : daysWithEvents.slice(0, 8)).map((d, i) => (
+          <div key={i} style={{ padding: "8px 0", borderBottom: i < (showAll ? daysWithEvents.length : Math.min(8, daysWithEvents.length)) - 1 ? `1px solid ${t.border}` : "none" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 3 }}>
+              <span style={{ fontSize: 12, fontWeight: 700, color: t.text }}>{d.label}{d.isToday ? " (today)" : ""}{d.isWeekend ? " 🌙" : ""}</span>
+              <span style={{ fontSize: 12, fontWeight: 800, color: d.balance >= dangerThreshold ? t.text : "#EF4444", fontFamily: H }}>{formatMoney(d.balance)}</span>
+            </div>
             {d.events.map((e, j) => (
-              <div key={j} style={{ display: "flex", justifyContent: "space-between", padding: "2px 8px", fontSize: 12 }}>
+              <div key={j} style={{ display: "flex", justifyContent: "space-between", padding: "2px 8px", fontSize: 11 }}>
                 <span style={{ color: t.sub }}>{e.type === "income" ? "💵" : e.type === "card" ? "💳" : "📋"} {e.name}</span>
                 <span style={{ fontWeight: 700, color: e.amount > 0 ? "#10B981" : "#EF4444" }}>{e.amount > 0 ? "+" : ""}{formatMoney(e.amount)}</span>
               </div>
             ))}
-            <div style={{ display: "flex", justifyContent: "space-between", padding: "2px 8px", fontSize: 11, color: t.sub, marginTop: 2 }}>
-              <span>Balance after</span>
-              <span style={{ fontWeight: 700, color: d.balance >= 0 ? t.text : "#EF4444" }}>{formatMoney(d.balance)}</span>
-            </div>
           </div>
         ))}
       </div>
@@ -4880,7 +4983,7 @@ function SettingsTab({ bills, history, hMonths, hFilter, setHFilter, onUpdateRem
       title: "Money Tools",
       items: [
         { key: "spending", icon: "💰", label: "Spending", desc: "Where your money goes" },
-        { key: "forecast", icon: "📈", label: "Forecast", desc: "Predict future expenses" },
+        { key: "forecast", icon: "📊", label: "Cash Flow", desc: "30-day money timeline" },
         { key: "charts", icon: "📊", label: "Charts", desc: "Visual breakdowns" },
         { key: "history", icon: "📜", label: "History", desc: "Payment records" },
       ]
