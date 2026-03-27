@@ -3475,18 +3475,27 @@ function HouseholdView({ t }) {
 // ─── Recurring Transactions View ───
 function RecurringView({ t }) {
   const [data, setData] = useState(null);
+  const [plaidStreams, setPlaidStreams] = useState(null);
   const [loading, setLoading] = useState(true);
   const [adding, setAdding] = useState(null);
   const [filter, setFilter] = useState("all");
   const [dismissedIds, setDismissedIds] = useState([]);
+  const [dataSource, setDataSource] = useState("combined"); // combined, plaid, custom
   const F = "'Plus Jakarta Sans', 'Outfit', sans-serif";
   const H = "'Outfit', 'Plus Jakarta Sans', sans-serif";
 
   useEffect(() => {
     (async () => {
       try {
-        const result = await api.getRecurring(180);
-        setData(result);
+        // Fetch both sources in parallel
+        const [customResult, plaidResult] = await Promise.all([
+          api.getRecurring(180),
+          api.getPlaidRecurring().catch(() => null),
+        ]);
+        setData(customResult);
+        if (plaidResult && (plaidResult.outflows?.length > 0 || plaidResult.inflows?.length > 0)) {
+          setPlaidStreams(plaidResult);
+        }
       } catch (err) { console.error("Recurring load error:", err); }
       finally { setLoading(false); }
     })();
@@ -3655,6 +3664,69 @@ function RecurringView({ t }) {
           </div>
         </div>
       ))}
+
+      {/* Plaid ML-Powered Recurring Streams */}
+      {plaidStreams && (plaidStreams.outflows?.length > 0 || plaidStreams.inflows?.length > 0) && (
+        <>
+          <div style={{ height: 1, background: t.border, margin: "8px 0" }} />
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+            <span style={{ fontSize: 16 }}>🤖</span>
+            <div>
+              <div style={{ fontWeight: 700, color: t.text, fontSize: 14 }}>Plaid Smart Detection</div>
+              <div style={{ fontSize: 11, color: t.sub }}>ML-powered recurring streams from your bank data</div>
+            </div>
+          </div>
+
+          {/* Plaid outflows (subscriptions, bills) */}
+          {plaidStreams.outflows?.length > 0 && (
+            <div style={{ background: t.card, borderRadius: 14, padding: "14px 16px", boxShadow: t.cs }}>
+              <div style={{ fontWeight: 700, color: t.text, fontSize: 12, marginBottom: 10, display: "flex", justifyContent: "space-between" }}>
+                <span>📤 Recurring Outflows ({plaidStreams.outflows.length})</span>
+                <span style={{ color: "#EF4444", fontFamily: H }}>{formatMoney(plaidStreams.totalMonthlyOutflow)}/mo</span>
+              </div>
+              {plaidStreams.outflows.map((s, i) => (
+                <div key={s.id || i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 0", borderBottom: i < plaidStreams.outflows.length - 1 ? `1px solid ${t.border}` : "none" }}>
+                  <div>
+                    <div style={{ fontWeight: 600, color: t.text, fontSize: 13 }}>{s.name}</div>
+                    <div style={{ fontSize: 10, color: t.sub }}>
+                      {s.frequency} · {s.category}{s.nextDate ? ` · Next: ${new Date(s.nextDate).toLocaleDateString("en-US", { month: "short", day: "numeric" })}` : ""}
+                      {s.status === "early_detection" && <span style={{ color: "#F59E0B", fontWeight: 600 }}> · NEW</span>}
+                    </div>
+                  </div>
+                  <div style={{ textAlign: "right" }}>
+                    <div style={{ fontWeight: 800, color: "#EF4444", fontSize: 14, fontFamily: H }}>{formatMoney(s.amount)}</div>
+                    {s.transactionCount > 0 && <div style={{ fontSize: 9, color: t.sub }}>{s.transactionCount}x seen</div>}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Plaid inflows (income, deposits) */}
+          {plaidStreams.inflows?.length > 0 && (
+            <div style={{ background: t.card, borderRadius: 14, padding: "14px 16px", boxShadow: t.cs }}>
+              <div style={{ fontWeight: 700, color: t.text, fontSize: 12, marginBottom: 10, display: "flex", justifyContent: "space-between" }}>
+                <span>📥 Recurring Income ({plaidStreams.inflows.length})</span>
+                <span style={{ color: "#10B981", fontFamily: H }}>+{formatMoney(plaidStreams.totalMonthlyInflow)}/mo</span>
+              </div>
+              {plaidStreams.inflows.map((s, i) => (
+                <div key={s.id || i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 0", borderBottom: i < plaidStreams.inflows.length - 1 ? `1px solid ${t.border}` : "none" }}>
+                  <div>
+                    <div style={{ fontWeight: 600, color: t.text, fontSize: 13 }}>{s.name}</div>
+                    <div style={{ fontSize: 10, color: t.sub }}>
+                      {s.frequency} · {s.category}{s.nextDate ? ` · Next: ${new Date(s.nextDate).toLocaleDateString("en-US", { month: "short", day: "numeric" })}` : ""}
+                    </div>
+                  </div>
+                  <div style={{ textAlign: "right" }}>
+                    <div style={{ fontWeight: 800, color: "#10B981", fontSize: 14, fontFamily: H }}>+{formatMoney(s.amount)}</div>
+                    {s.transactionCount > 0 && <div style={{ fontSize: 9, color: t.sub }}>{s.transactionCount}x seen</div>}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </>
+      )}
     </div>
   );
 }
