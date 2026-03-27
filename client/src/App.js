@@ -3163,32 +3163,221 @@ function HouseholdView({ t }) {
   );
 }
 
+// ─── Recurring Transactions View ───
+function RecurringView({ t }) {
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [adding, setAdding] = useState(null);
+  const [filter, setFilter] = useState("all");
+  const [dismissedIds, setDismissedIds] = useState([]);
+  const F = "'Plus Jakarta Sans', 'Outfit', sans-serif";
+  const H = "'Outfit', 'Plus Jakarta Sans', sans-serif";
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const result = await api.getRecurring(180);
+        setData(result);
+      } catch (err) { console.error("Recurring load error:", err); }
+      finally { setLoading(false); }
+    })();
+  }, []);
+
+  const addAsBill = async (item) => {
+    setAdding(item.id);
+    try {
+      await api.createBill({ name: item.name, amount: item.latestAmount || item.amount, dueDate: item.suggestedDueDate, category: item.category, isRecurring: true });
+      setData(prev => ({
+        ...prev,
+        recurring: prev.recurring.map(r => r.id === item.id ? { ...r, status: "tracked", isTracked: true } : r),
+        summary: { ...prev.summary, tracked: prev.summary.tracked + 1, untracked: prev.summary.untracked - 1 },
+      }));
+    } catch (err) { console.error(err); }
+    finally { setAdding(null); }
+  };
+
+  const dismiss = (id) => setDismissedIds(prev => [...prev, id]);
+
+  if (loading) return (
+    <div style={{ textAlign: "center", padding: 60 }}>
+      <div style={{ fontSize: 32, marginBottom: 12 }}>🔄</div>
+      <div style={{ fontWeight: 700, color: t.text, fontSize: 14 }}>Scanning 6 months of transactions...</div>
+      <div style={{ fontSize: 12, color: t.sub, marginTop: 4 }}>Detecting recurring charges, price changes, and patterns</div>
+    </div>
+  );
+
+  if (!data) return <div style={{ textAlign: "center", padding: 40, color: t.sub }}>Connect a bank account to detect recurring charges.</div>;
+
+  const { recurring, priceChanges, summary } = data;
+  const filtered = recurring.filter(r => {
+    if (dismissedIds.includes(r.id)) return false;
+    if (filter === "all") return true;
+    return r.status === filter;
+  });
+
+  const statusColors = { untracked: "#EF4444", tracked: "#10B981", possibly_cancelled: "#F59E0B" };
+  const statusLabels = { untracked: "Not tracked", tracked: "Tracked", possibly_cancelled: "May be cancelled" };
+  const freqLabels = { weekly: "Weekly", biweekly: "Every 2 weeks", monthly: "Monthly", quarterly: "Quarterly", yearly: "Yearly" };
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+      {/* Summary cards */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+        <div style={{ background: t.card, borderRadius: 14, padding: "16px 14px", boxShadow: t.cs }}>
+          <div style={{ fontSize: 11, color: t.sub, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5 }}>Monthly recurring</div>
+          <div style={{ fontSize: 22, fontWeight: 800, color: "#6C5CE7", fontFamily: H, marginTop: 4 }}>{formatMoney(summary.totalMonthlyEstimate)}</div>
+          <div style={{ fontSize: 11, color: t.sub }}>{summary.totalRecurring} charges detected</div>
+        </div>
+        <div style={{ background: t.card, borderRadius: 14, padding: "16px 14px", boxShadow: t.cs }}>
+          <div style={{ fontSize: 11, color: t.sub, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5 }}>Annual estimate</div>
+          <div style={{ fontSize: 22, fontWeight: 800, color: t.text, fontFamily: H, marginTop: 4 }}>{formatMoney(summary.totalAnnualEstimate)}</div>
+          <div style={{ fontSize: 11, color: t.sub }}>{formatMoney(summary.totalMonthlyEstimate)}/mo across all</div>
+        </div>
+      </div>
+
+      {/* Alert: untracked charges */}
+      {summary.untracked > 0 && (
+        <div style={{ background: "#EF444410", border: "1px solid #EF444430", borderRadius: 12, padding: "12px 14px", display: "flex", alignItems: "center", gap: 10 }}>
+          <span style={{ fontSize: 20 }}>⚠️</span>
+          <div>
+            <div style={{ fontWeight: 700, color: "#EF4444", fontSize: 13 }}>{summary.untracked} untracked recurring charge{summary.untracked > 1 ? "s" : ""}</div>
+            <div style={{ fontSize: 11, color: t.sub }}>{formatMoney(summary.untrackedMonthly)}/mo not in your bills — tap to add</div>
+          </div>
+        </div>
+      )}
+
+      {/* Alert: price changes */}
+      {priceChanges.length > 0 && (
+        <div style={{ background: "#F59E0B10", border: "1px solid #F59E0B30", borderRadius: 12, padding: "12px 14px", display: "flex", alignItems: "center", gap: 10 }}>
+          <span style={{ fontSize: 20 }}>💰</span>
+          <div>
+            <div style={{ fontWeight: 700, color: "#F59E0B", fontSize: 13 }}>{priceChanges.length} price change{priceChanges.length > 1 ? "s" : ""} detected</div>
+            <div style={{ fontSize: 11, color: t.sub }}>{priceChanges.map(p => p.name).join(", ")}</div>
+          </div>
+        </div>
+      )}
+
+      {/* Filter tabs */}
+      <div style={{ display: "flex", gap: 6 }}>
+        {[
+          { key: "all", label: `All (${recurring.length})` },
+          { key: "untracked", label: `Untracked (${summary.untracked})` },
+          { key: "tracked", label: `Tracked (${summary.tracked})` },
+          { key: "possibly_cancelled", label: `Inactive (${summary.possiblyCancelled})` },
+        ].map(f => (
+          <button key={f.key} onClick={() => setFilter(f.key)} style={{
+            padding: "6px 12px", borderRadius: 8, border: `1px solid ${filter === f.key ? "#6C5CE7" : t.border}`,
+            background: filter === f.key ? "#6C5CE710" : "transparent",
+            color: filter === f.key ? "#6C5CE7" : t.sub,
+            cursor: "pointer", fontWeight: 600, fontSize: 11, fontFamily: F,
+          }}>{f.label}</button>
+        ))}
+      </div>
+
+      {/* Recurring items list */}
+      {filtered.length === 0 && (
+        <div style={{ background: t.card, borderRadius: 14, padding: "24px 18px", boxShadow: t.cs, textAlign: "center" }}>
+          <div style={{ fontSize: 28, marginBottom: 8 }}>✅</div>
+          <div style={{ fontWeight: 700, color: t.text, fontSize: 14 }}>All clear!</div>
+          <div style={{ fontSize: 12, color: t.sub, marginTop: 4 }}>No recurring charges match this filter.</div>
+        </div>
+      )}
+      {filtered.map(item => (
+        <div key={item.id} style={{ background: t.card, borderRadius: 14, padding: "14px 16px", boxShadow: t.cs, borderLeft: `3px solid ${statusColors[item.status] || t.border}` }}>
+          {/* Header row */}
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 6 }}>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontWeight: 700, color: t.text, fontSize: 14 }}>{item.name}</div>
+              <div style={{ fontSize: 11, color: t.sub, marginTop: 2 }}>
+                {item.category} · {freqLabels[item.frequency] || item.frequency} · {item.occurrences}x in 6 months
+              </div>
+            </div>
+            <div style={{ textAlign: "right" }}>
+              <div style={{ fontSize: 16, fontWeight: 800, color: t.text, fontFamily: H }}>{formatMoney(item.latestAmount || item.amount)}</div>
+              <div style={{ fontSize: 10, color: t.sub }}>{formatMoney(item.annualCost)}/yr</div>
+            </div>
+          </div>
+
+          {/* Price change alert */}
+          {item.priceChange && (
+            <div style={{
+              background: item.priceChange.direction === "increase" ? "#EF444410" : "#10B98110",
+              borderRadius: 8, padding: "6px 10px", marginBottom: 8, fontSize: 11, fontWeight: 600,
+              color: item.priceChange.direction === "increase" ? "#EF4444" : "#10B981",
+            }}>
+              {item.priceChange.direction === "increase" ? "📈" : "📉"} Price {item.priceChange.direction}: {formatMoney(item.priceChange.previousAmount)} → {formatMoney(item.priceChange.currentAmount)} ({item.priceChange.percentChange > 0 ? "+" : ""}{item.priceChange.percentChange}%)
+            </div>
+          )}
+
+          {/* Status + confidence */}
+          <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
+            <span style={{
+              fontSize: 10, fontWeight: 700, padding: "2px 8px", borderRadius: 6,
+              background: statusColors[item.status] + "15",
+              color: statusColors[item.status],
+              textTransform: "uppercase", letterSpacing: 0.5,
+            }}>{statusLabels[item.status]}</span>
+            {item.frequencyConfidence === "high" && <span style={{ fontSize: 10, color: t.sub }}>🎯 High confidence</span>}
+            <span style={{ fontSize: 10, color: t.sub, marginLeft: "auto" }}>Last charged {item.lastDate}</span>
+          </div>
+
+          {/* Action buttons */}
+          <div style={{ display: "flex", gap: 8 }}>
+            {item.status === "untracked" && (
+              <button onClick={() => addAsBill(item)} disabled={adding === item.id} style={{
+                flex: 1, padding: "8px", borderRadius: 8, border: "none",
+                background: "#6C5CE7", color: "white", cursor: "pointer",
+                fontWeight: 700, fontSize: 11, fontFamily: F,
+                opacity: adding === item.id ? 0.6 : 1,
+              }}>{adding === item.id ? "Adding..." : "📋 Add as Bill"}</button>
+            )}
+            {item.status === "untracked" && (
+              <button onClick={() => dismiss(item.id)} style={{
+                padding: "8px 12px", borderRadius: 8, border: `1px solid ${t.border}`,
+                background: "transparent", color: t.sub, cursor: "pointer",
+                fontWeight: 600, fontSize: 11, fontFamily: F,
+              }}>Dismiss</button>
+            )}
+            {item.status === "possibly_cancelled" && (
+              <div style={{ fontSize: 11, color: "#F59E0B", fontWeight: 600 }}>
+                ⏸️ No charge in {item.daysSinceLast} days (usually every {item.avgGapDays} days)
+              </div>
+            )}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function MoneyTab({ t }) {
   const [subTab, setSubTab] = useState("bank");
   const H = "'Outfit', 'Plus Jakarta Sans', sans-serif";
   const F = "'Plus Jakarta Sans', 'Outfit', sans-serif";
   const tabs = [
     { key: "bank", icon: "🏦", label: "Bank" },
+    { key: "recurring", icon: "🔄", label: "Recurring" },
     { key: "cards", icon: "💳", label: "Cards" },
     { key: "income", icon: "💰", label: "Income" },
-    { key: "household", icon: "🏠", label: "Household" },
+    { key: "household", icon: "🏠", label: "House" },
   ];
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
       {/* Segmented control */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 0, background: t.cardAlt, borderRadius: 14, padding: 4 }}>
+      <div style={{ display: "grid", gridTemplateColumns: `repeat(${tabs.length}, 1fr)`, gap: 0, background: t.cardAlt, borderRadius: 14, padding: 4 }}>
         {tabs.map(item => (
-          <button key={item.key} onClick={() => item.link ? window.open(item.link, "_blank") : setSubTab(item.key)} style={{
+          <button key={item.key} onClick={() => setSubTab(item.key)} style={{
             padding: "10px 0", borderRadius: 10, border: "none",
             background: subTab === item.key ? "#6C5CE7" : "transparent",
             color: subTab === item.key ? "white" : t.sub,
-            cursor: "pointer", fontWeight: 600, fontSize: 12, fontFamily: F,
+            cursor: "pointer", fontWeight: 600, fontSize: 11, fontFamily: F,
             transition: "all 0.2s ease", display: "flex", alignItems: "center",
-            justifyContent: "center", gap: 5,
-          }}><span style={{ fontSize: 14 }}>{item.icon}</span> {item.label}</button>
+            justifyContent: "center", gap: 4,
+          }}><span style={{ fontSize: 13 }}>{item.icon}</span> {item.label}</button>
         ))}
       </div>
       {subTab === "bank" && <BankAccountsView t={t} />}
+      {subTab === "recurring" && <RecurringView t={t} />}
       {subTab === "cards" && <CreditCardsView t={t} />}
       {subTab === "income" && <IncomeView t={t} />}
       {subTab === "household" && <HouseholdView t={t} />}

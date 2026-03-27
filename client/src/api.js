@@ -102,6 +102,7 @@ export const api = {
 
   // Subscriptions
   detectSubscriptions: () => request("/subscriptions/detect"),
+  getRecurring: (days) => request(`/subscriptions/recurring?days=${days || 180}`),
 
   // Activity Feed
   getActivity: (days, type) => request(`/activity?days=${days || 30}&type=${type || "all"}`),
