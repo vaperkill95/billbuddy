@@ -26,6 +26,17 @@ const reminderLabel = v => REMINDER_OPTIONS.find(r => r.value === v)?.label || "
 const getDaysInMonth = (y, m) => new Date(y, m + 1, 0).getDate();
 const getFirstDayOfMonth = (y, m) => new Date(y, m, 1).getDay();
 
+// ─── Reusable Empty State ───
+function EmptyState({ icon, title, subtitle, t }) {
+  return (
+    <div style={{ textAlign: "center", padding: "40px 20px" }}>
+      <div style={{ fontSize: 40, marginBottom: 12 }}>{icon || "📭"}</div>
+      <div style={{ fontWeight: 700, color: t.text, fontSize: 15, marginBottom: 6 }}>{title || "Nothing here yet"}</div>
+      {subtitle && <div style={{ fontSize: 12, color: t.sub, lineHeight: 1.5 }}>{subtitle}</div>}
+    </div>
+  );
+}
+
 function useTheme(dark) {
   return {
     // Backgrounds
@@ -482,7 +493,7 @@ function ActivityView({ t }) {
   useEffect(() => { load(); }, [days, filter]);
 
   if (loading && !activity) return <div style={{ textAlign: "center", padding: 60, color: t.sub }}>Loading activity...</div>;
-  if (!activity) return null;
+  if (!activity) return <EmptyState icon="📋" title="No activity yet" subtitle="Your transaction history will appear here once you connect a bank or add bills." t={t} />;
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
@@ -1820,7 +1831,7 @@ function BankAccountsView({ t }) {
                           onKeyDown={e => { if (e.key === "Enter") { setOverrides(prev => ({ ...prev, [a.id]: parseFloat(editValue) })); setEditingAcct(null); }
                             if (e.key === "Escape") setEditingAcct(null); }}
                         />
-                        <button onClick={() => { setOverrides(prev => ({ ...prev, [a.id]: parseFloat(editValue) })); setEditingAcct(null); }}
+                        <button onClick={() => { setOverrides(prev => ({ ...prev, [a.id]: parseFloat(editValue) })); setEditingAcct(null); if (window.bbToast) window.bbToast(`Balance updated to $${parseFloat(editValue).toFixed(2)}`, "success"); }}
                           style={{ background: "#10B981", color: "white", border: "none", borderRadius: 6, padding: "4px 10px", cursor: "pointer", fontWeight: 700, fontSize: 11 }}>✓</button>
                         <button onClick={() => setEditingAcct(null)}
                           style={{ background: "none", color: t.sub, border: `1px solid ${t.border}`, borderRadius: 6, padding: "4px 8px", cursor: "pointer", fontSize: 11 }}>✕</button>
