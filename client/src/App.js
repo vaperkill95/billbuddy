@@ -1545,9 +1545,16 @@ function BankAccountsView({ t }) {
   const [view, setView] = useState("overview");
   const [txnDays, setTxnDays] = useState(30);
   const [acctFilter, setAcctFilter] = useState("all");
-  const [overrides, setOverrides] = useState({});
+  const [overrides, setOverrides] = useState(() => {
+    try { const saved = localStorage.getItem("bb_balance_overrides"); return saved ? JSON.parse(saved) : {}; } catch { return {}; }
+  });
   const [editingAcct, setEditingAcct] = useState(null);
   const [editValue, setEditValue] = useState("");
+
+  // Persist overrides to localStorage
+  useEffect(() => {
+    try { localStorage.setItem("bb_balance_overrides", JSON.stringify(overrides)); } catch {}
+  }, [overrides]);
 
   const loadData = async () => {
     try {
@@ -1642,16 +1649,27 @@ function BankAccountsView({ t }) {
       {/* Summary cards */}
       {summary && accounts.length > 0 && (
         <div style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
-          {[
-            ["Total Balance", formatMoney(summary.totalBalance), "#10B981"],
-            ["Checking", formatMoney(summary.totalChecking), "#6C5CE7"],
-            ["Savings", formatMoney(summary.totalSavings), "#3B82F6"],
-          ].filter(([, v]) => v !== "$0.00").map(([label, value, color]) => (
-            <div key={label} style={{ background: t.card, borderRadius: 16, padding: "16px 22px", boxShadow: t.cs, flex: 1, minWidth: 140 }}>
-              <div style={{ fontSize: 11, color: t.sub, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5 }}>{label}</div>
-              <div style={{ fontSize: 22, fontWeight: 800, color, fontFamily: "'Outfit', sans-serif", marginTop: 2 }}>{value}</div>
-            </div>
-          ))}
+          {(() => {
+            // Recalculate totals with overrides
+            const totalWithOverrides = accounts.filter(a => a.type !== "credit").reduce((s, a) => {
+              return s + (overrides[a.id] !== undefined ? overrides[a.id] : (a.balanceAvailable > 0 ? a.balanceAvailable : a.balanceCurrent));
+            }, 0);
+            const checkingWithOverrides = accounts.filter(a => a.subtype === "checking" || a.type === "depository").reduce((s, a) => {
+              return s + (overrides[a.id] !== undefined ? overrides[a.id] : (a.balanceAvailable > 0 ? a.balanceAvailable : a.balanceCurrent));
+            }, 0);
+            const hasOverrides = Object.keys(overrides).length > 0;
+            return [
+              ["Total Balance", formatMoney(totalWithOverrides), "#10B981"],
+              ["Checking", formatMoney(checkingWithOverrides), "#6C5CE7"],
+              ["Savings", formatMoney(summary.totalSavings), "#3B82F6"],
+            ].filter(([, v]) => v !== "$0.00").map(([label, value, color]) => (
+              <div key={label} style={{ background: t.card, borderRadius: 16, padding: "16px 22px", boxShadow: t.cs, flex: 1, minWidth: 140 }}>
+                <div style={{ fontSize: 11, color: t.sub, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5 }}>{label}</div>
+                <div style={{ fontSize: 22, fontWeight: 800, color, fontFamily: "'Outfit', sans-serif", marginTop: 2 }}>{value}</div>
+                {hasOverrides && label === "Total Balance" && <div style={{ fontSize: 9, color: "#F59E0B", marginTop: 2 }}>⚡ includes manual overrides</div>}
+              </div>
+            ));
+          })()}
         </div>
       )}
 
@@ -1706,8 +1724,9 @@ function BankAccountsView({ t }) {
             const pendingIn = acctTxns.filter(tx => tx.pending && tx.amount < 0);
             const pendingOutTotal = pendingOut.reduce((s, tx) => s + tx.amount, 0);
             const pendingInTotal = pendingIn.reduce((s, tx) => s + Math.abs(tx.amount), 0);
-            // Use balanceAvailable if the bank provides it (already accounts for pending), otherwise use balanceCurrent
-            const projectedBalance = a.balanceAvailable > 0 ? a.balanceAvailable : a.balanceCurrent;
+            // Use override if set, otherwise use balanceAvailable/balanceCurrent
+            const displayBalance = overrides[a.id] !== undefined ? overrides[a.id] : (a.balanceAvailable > 0 ? a.balanceAvailable : a.balanceCurrent);
+            const projectedBalance = displayBalance;
             const hasPending = pendingOut.length > 0 || pendingIn.length > 0;
 
             return (
