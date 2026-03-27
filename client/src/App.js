@@ -1545,6 +1545,9 @@ function BankAccountsView({ t }) {
   const [view, setView] = useState("overview");
   const [txnDays, setTxnDays] = useState(30);
   const [acctFilter, setAcctFilter] = useState("all");
+  const [overrides, setOverrides] = useState({});
+  const [editingAcct, setEditingAcct] = useState(null);
+  const [editValue, setEditValue] = useState("");
 
   const loadData = async () => {
     try {
@@ -1720,10 +1723,44 @@ function BankAccountsView({ t }) {
 
                 {/* Balance breakdown */}
                 <div style={{ padding: "0 22px 18px" }}>
-                  {/* Current balance - big number */}
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+                  {/* Current balance - big number with edit */}
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
                     <span style={{ fontSize: 13, fontWeight: 600, color: t.sub }}>Available Balance</span>
-                    <span style={{ fontSize: 26, fontWeight: 800, color: t.text, fontFamily: "'Outfit', sans-serif" }}>{formatMoney(a.balanceAvailable > 0 ? a.balanceAvailable : a.balanceCurrent)}</span>
+                    {editingAcct === a.id ? (
+                      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                        <span style={{ fontSize: 18, fontWeight: 800, color: t.text }}>$</span>
+                        <input value={editValue} onChange={e => setEditValue(e.target.value.replace(/[^0-9.]/g, ""))}
+                          autoFocus style={{ width: 120, fontSize: 22, fontWeight: 800, color: t.text, fontFamily: "'Outfit', sans-serif",
+                            background: t.cardAlt, border: `2px solid #6C5CE7`, borderRadius: 8, padding: "4px 8px", textAlign: "right", outline: "none" }}
+                          onKeyDown={e => { if (e.key === "Enter") { setOverrides(prev => ({ ...prev, [a.id]: parseFloat(editValue) })); setEditingAcct(null); }
+                            if (e.key === "Escape") setEditingAcct(null); }}
+                        />
+                        <button onClick={() => { setOverrides(prev => ({ ...prev, [a.id]: parseFloat(editValue) })); setEditingAcct(null); }}
+                          style={{ background: "#10B981", color: "white", border: "none", borderRadius: 6, padding: "4px 10px", cursor: "pointer", fontWeight: 700, fontSize: 11 }}>✓</button>
+                        <button onClick={() => setEditingAcct(null)}
+                          style={{ background: "none", color: t.sub, border: `1px solid ${t.border}`, borderRadius: 6, padding: "4px 8px", cursor: "pointer", fontSize: 11 }}>✕</button>
+                      </div>
+                    ) : (
+                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        <span style={{ fontSize: 26, fontWeight: 800, color: t.text, fontFamily: "'Outfit', sans-serif" }}>
+                          {overrides[a.id] !== undefined ? formatMoney(overrides[a.id]) : formatMoney(a.balanceAvailable > 0 ? a.balanceAvailable : a.balanceCurrent)}
+                        </span>
+                        <button onClick={() => { setEditingAcct(a.id); setEditValue(String(overrides[a.id] !== undefined ? overrides[a.id] : (a.balanceAvailable > 0 ? a.balanceAvailable : a.balanceCurrent))); }}
+                          style={{ background: t.cardAlt, border: `1px solid ${t.border}`, borderRadius: 6, padding: "3px 8px", cursor: "pointer", fontSize: 10, color: t.sub, fontWeight: 600 }}>✏️ Edit</button>
+                      </div>
+                    )}
+                  </div>
+                  {/* Override notice */}
+                  {overrides[a.id] !== undefined && (
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8, fontSize: 10 }}>
+                      <span style={{ color: "#F59E0B", fontWeight: 600 }}>⚡ Manual override — Plaid shows {formatMoney(a.balanceAvailable > 0 ? a.balanceAvailable : a.balanceCurrent)}</span>
+                      <button onClick={() => setOverrides(prev => { const n = { ...prev }; delete n[a.id]; return n; })}
+                        style={{ background: "none", border: "none", color: "#6C5CE7", cursor: "pointer", fontSize: 10, fontWeight: 600 }}>Reset</button>
+                    </div>
+                  )}
+                  {/* Last synced */}
+                  <div style={{ fontSize: 10, color: t.muted, marginBottom: 10 }}>
+                    Last synced: {a.lastSynced ? new Date(a.lastSynced).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) : "Never"} · Balances may be delayed up to 24hrs
                   </div>
 
                   {hasPending && (
@@ -5342,14 +5379,11 @@ export default function App() {
       } catch (err) { /* silently fail */ }
     };
     runSync();
-    const interval = setInterval(runSync, 10 * 60 * 1000);
+    const interval = setInterval(runSync, 5 * 60 * 1000);
 
-    // Sync when user returns to the app (tab focus)
+    // Sync when user returns to the app (tab focus) — no minimum wait
     const handleVisibility = () => {
-      if (document.visibilityState === "visible" && lastSync) {
-        const minsSinceLast = (Date.now() - lastSync.getTime()) / 60000;
-        if (minsSinceLast >= 2) runSync();
-      }
+      if (document.visibilityState === "visible") runSync();
     };
     document.addEventListener("visibilitychange", handleVisibility);
 
