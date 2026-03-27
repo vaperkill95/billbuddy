@@ -146,4 +146,20 @@ router.delete("/budgets/:id", async (req, res) => {
   } catch (err) { res.status(500).json({ error: "Failed" }); }
 });
 
+// PATCH /api/spending/transactions/:id - Recategorize a transaction
+router.patch("/transactions/:id", async (req, res) => {
+  try {
+    const { category } = req.body;
+    if (!category) return res.status(400).json({ error: "Category required" });
+    await pool.query(
+      "UPDATE bank_transactions SET category = $1 WHERE id = $2 AND user_id = $3",
+      [category, req.params.id, req.user.id]
+    );
+    res.json({ success: true, category });
+  } catch (err) {
+    console.error("Recategorize error:", err);
+    res.status(500).json({ error: "Failed to update category" });
+  }
+});
+
 module.exports = router;

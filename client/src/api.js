@@ -163,6 +163,7 @@ export const api = {
 
   // Spending
   getSpendingSummary: (days) => request(`/spending/summary?days=${days || 30}`),
+  recategorizeTransaction: (id, category) => request(`/spending/transactions/${id}`, { method: "PATCH", body: JSON.stringify({ category }) }),
   getWeeklySpending: () => request("/spending/weekly"),
   setBudget: (category, monthlyLimit) => request("/spending/budgets", { method: "POST", body: JSON.stringify({ category, monthlyLimit }) }),
   deleteBudget: (id) => request(`/spending/budgets/${id}`, { method: "DELETE" }),

@@ -1552,6 +1552,8 @@ function AIInsights({ t }) {
 
 function BankTransactionsTab({ accounts, transactions, acctFilter, setAcctFilter, txnDays, setTxnDays, setTransactions, t }) {
   const [search, setSearch] = useState("");
+  const [editingCatTxn, setEditingCatTxn] = useState(null);
+  const SPEND_CATS_LIST = ["Gas & Fuel", "Groceries", "Eating Out", "Shopping", "Entertainment", "Health & Medical", "Transportation", "Utilities", "Home & Living", "Kids & Family", "Personal Care", "Subscriptions", "Transfers", "Other"];
   const acctTypes = [...new Set(accounts.map(a => a.type))];
   const searchLower = search.toLowerCase();
   const filteredTxns = (acctFilter === "all" ? transactions :
@@ -1568,7 +1570,7 @@ function BankTransactionsTab({ accounts, transactions, acctFilter, setAcctFilter
     const acct = accounts.find(a => a.accountId === txn.accountId);
     const isCredit = acct?.type === "credit";
     return (
-      <div key={txn.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", background: t.card, borderRadius: 10, boxShadow: t.cs }}>
+      <div key={txn.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", background: t.card, borderRadius: 10, boxShadow: t.cs, position: "relative" }}>
         <div style={{ width: 32, height: 32, borderRadius: 8, background: txn.pending ? "#F59E0B10" : txn.amount > 0 ? "#EF444410" : "#10B98110", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, flexShrink: 0 }}>
           {txn.pending ? "⏳" : txn.amount > 0 ? "💸" : "💵"}
         </div>
@@ -1580,7 +1582,8 @@ function BankTransactionsTab({ accounts, transactions, acctFilter, setAcctFilter
               <span style={{ width: 6, height: 6, borderRadius: 3, background: isCredit ? "#EF4444" : "#10B981", flexShrink: 0 }} />
               {txn.accountName} {txn.mask ? `••${txn.mask}` : ""}
             </span>
-            {txn.category && txn.category !== "Other" && <span style={{ background: t.pill, padding: "0px 5px", borderRadius: 3, fontSize: 9, fontWeight: 600 }}>{txn.category}</span>}
+            {txn.category && txn.category !== "Other" && <span onClick={(e) => { e.stopPropagation(); setEditingCatTxn(editingCatTxn === txn.id ? null : txn.id); }} style={{ background: t.pill, padding: "0px 5px", borderRadius: 3, fontSize: 9, fontWeight: 600, cursor: "pointer", border: editingCatTxn === txn.id ? "1px solid #6C5CE7" : "1px solid transparent" }}>{txn.category} ✎</span>}
+            {!txn.category || txn.category === "Other" ? <span onClick={(e) => { e.stopPropagation(); setEditingCatTxn(editingCatTxn === txn.id ? null : txn.id); }} style={{ background: t.pill, padding: "0px 5px", borderRadius: 3, fontSize: 9, fontWeight: 600, cursor: "pointer", color: t.muted }}>+ Category</span> : null}
           </div>
         </div>
         <div style={{ textAlign: "right", flexShrink: 0 }}>
@@ -1589,6 +1592,27 @@ function BankTransactionsTab({ accounts, transactions, acctFilter, setAcctFilter
           </div>
           {txn.pending && <div style={{ fontSize: 9, fontWeight: 700, color: "#F59E0B", marginTop: 1 }}>PENDING</div>}
         </div>
+        {editingCatTxn === txn.id && (
+          <div style={{ position: "absolute", right: 10, top: "100%", marginTop: 4, background: t.card, border: `1px solid ${t.border}`, borderRadius: 10, boxShadow: "0 8px 24px rgba(0,0,0,0.3)", padding: 6, zIndex: 100, maxHeight: 200, overflowY: "auto", minWidth: 150 }}>
+            {SPEND_CATS_LIST.map(cat => (
+              <button key={cat} onClick={async (e) => {
+                e.stopPropagation();
+                try {
+                  await api.recategorizeTransaction(txn.id, cat);
+                  setTransactions(prev => prev.map(tx => tx.id === txn.id ? { ...tx, category: cat } : tx));
+                  setEditingCatTxn(null);
+                  if (window.bbToast) window.bbToast(`Recategorized to ${cat}`, "success");
+                } catch { if (window.bbToast) window.bbToast("Failed to recategorize", "error"); }
+              }} style={{
+                display: "block", width: "100%", padding: "6px 10px", borderRadius: 6, border: "none",
+                background: txn.category === cat ? "#6C5CE720" : "transparent",
+                color: txn.category === cat ? "#6C5CE7" : t.text,
+                cursor: "pointer", fontWeight: 600, fontSize: 11, textAlign: "left",
+                fontFamily: "'Plus Jakarta Sans', sans-serif",
+              }}>{cat}</button>
+            ))}
+          </div>
+        )}
       </div>
     );
   };
