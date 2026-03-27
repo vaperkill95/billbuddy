@@ -2754,14 +2754,82 @@ function UnifiedDashboard({ dash, bills, t, onToggle, onDelete, onGoTo }) {
       {/* Onboarding */}
       {!dash.onboardingComplete && <OnboardingWizard steps={dash.onboardingSteps} t={t} onGoTo={onGoTo} />}
 
-      {/* Balance hero */}
+      {/* Net Worth & Multi-Account Dashboard */}
       {dash.accountCount > 0 ? (
         <div style={{ background: t.card, borderRadius: 18, padding: "22px 22px 18px", boxShadow: t.cs, borderTop: "3px solid #6C5CE7" }}>
-          <div style={{ fontSize: 11, color: t.sub, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5 }}>Balance</div>
-          <div style={{ fontSize: 34, fontWeight: 800, color: "#10B981", fontFamily: H, margin: "2px 0 8px", letterSpacing: -1 }}>{formatMoney(dash.totalAvailable > 0 ? dash.totalAvailable : dash.totalBankBalance)}</div>
-          <div style={{ display: "flex", gap: 20, fontSize: 13, color: t.sub }}>
-            {dash.totalCardDebt > 0 && <span>💳 <span style={{ color: "#EF4444", fontWeight: 600 }}>{formatMoney(dash.totalCardDebt)}</span> debt</span>}
-            <span>💰 {formatMoney(dash.incomeThisMonth)} earned</span>
+          {/* Net worth hero */}
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12 }}>
+            <div>
+              <div style={{ fontSize: 11, color: t.sub, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5 }}>Net Worth</div>
+              <div style={{ fontSize: 34, fontWeight: 800, color: ((dash.totalAvailable > 0 ? dash.totalAvailable : dash.totalBankBalance) - dash.totalCardDebt) >= 0 ? "#10B981" : "#EF4444", fontFamily: H, margin: "2px 0 0", letterSpacing: -1 }}>
+                {formatMoney((dash.totalAvailable > 0 ? dash.totalAvailable : dash.totalBankBalance) - dash.totalCardDebt)}
+              </div>
+            </div>
+            <div style={{ textAlign: "right" }}>
+              <div style={{ fontSize: 11, color: t.sub, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5 }}>This Month</div>
+              <div style={{ fontSize: 16, fontWeight: 800, color: "#6C5CE7", fontFamily: H, marginTop: 2 }}>{formatMoney(dash.incomeThisMonth)}</div>
+              <div style={{ fontSize: 10, color: t.sub }}>earned</div>
+            </div>
+          </div>
+
+          {/* Assets vs Debt bar */}
+          <div style={{ marginBottom: 14 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, marginBottom: 4 }}>
+              <span style={{ color: "#10B981", fontWeight: 700 }}>🏦 Assets: {formatMoney(dash.totalAvailable > 0 ? dash.totalAvailable : dash.totalBankBalance)}</span>
+              <span style={{ color: "#EF4444", fontWeight: 700 }}>💳 Debt: {formatMoney(dash.totalCardDebt)}</span>
+            </div>
+            <div style={{ display: "flex", height: 8, borderRadius: 6, overflow: "hidden", background: t.cardAlt }}>
+              {(() => {
+                const assets = dash.totalAvailable > 0 ? dash.totalAvailable : dash.totalBankBalance;
+                const debt = dash.totalCardDebt;
+                const total = assets + debt || 1;
+                return <>
+                  <div style={{ width: `${(assets / total) * 100}%`, background: "#10B981", borderRadius: "6px 0 0 6px" }} />
+                  {debt > 0 && <div style={{ width: `${(debt / total) * 100}%`, background: "#EF4444", borderRadius: "0 6px 6px 0" }} />}
+                </>;
+              })()}
+            </div>
+          </div>
+
+          {/* Account breakdown grid */}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+            {dash.totalAvailable > 0 || dash.totalBankBalance > 0 ? (
+              <div style={{ background: t.cardAlt, borderRadius: 10, padding: "10px 12px" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
+                  <span style={{ fontSize: 12 }}>🏦</span>
+                  <span style={{ fontSize: 10, color: t.sub, fontWeight: 600, textTransform: "uppercase" }}>Bank ({dash.accountCount})</span>
+                </div>
+                <div style={{ fontSize: 17, fontWeight: 800, color: "#10B981", fontFamily: H }}>{formatMoney(dash.totalAvailable > 0 ? dash.totalAvailable : dash.totalBankBalance)}</div>
+              </div>
+            ) : null}
+            {dash.totalCardDebt > 0 ? (
+              <div style={{ background: t.cardAlt, borderRadius: 10, padding: "10px 12px" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
+                  <span style={{ fontSize: 12 }}>💳</span>
+                  <span style={{ fontSize: 10, color: t.sub, fontWeight: 600, textTransform: "uppercase" }}>Cards ({dash.cardCount})</span>
+                </div>
+                <div style={{ fontSize: 17, fontWeight: 800, color: "#EF4444", fontFamily: H }}>-{formatMoney(dash.totalCardDebt)}</div>
+                <div style={{ fontSize: 10, color: t.sub }}>{formatMoney(dash.totalCardMin)}/mo min</div>
+              </div>
+            ) : null}
+            {dash.estimatedMonthlyIncome > 0 ? (
+              <div style={{ background: t.cardAlt, borderRadius: 10, padding: "10px 12px" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
+                  <span style={{ fontSize: 12 }}>💵</span>
+                  <span style={{ fontSize: 10, color: t.sub, fontWeight: 600, textTransform: "uppercase" }}>Income</span>
+                </div>
+                <div style={{ fontSize: 17, fontWeight: 800, color: "#6C5CE7", fontFamily: H }}>{formatMoney(dash.estimatedMonthlyIncome)}</div>
+                <div style={{ fontSize: 10, color: t.sub }}>per month</div>
+              </div>
+            ) : null}
+            <div style={{ background: t.cardAlt, borderRadius: 10, padding: "10px 12px" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
+                <span style={{ fontSize: 12 }}>📋</span>
+                <span style={{ fontSize: 10, color: t.sub, fontWeight: 600, textTransform: "uppercase" }}>Bills</span>
+              </div>
+              <div style={{ fontSize: 17, fontWeight: 800, color: t.text, fontFamily: H }}>{formatMoney(dash.totalMonthlyBills)}</div>
+              <div style={{ fontSize: 10, color: t.sub }}>{dash.paidCount}/{dash.totalBills} paid</div>
+            </div>
           </div>
         </div>
       ) : null}
