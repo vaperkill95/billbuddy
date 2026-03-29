@@ -5800,12 +5800,12 @@ export default function App() {
         }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
         .bb-animate { animation: fadeIn 0.25s ease-out; }
-        .bb-content { max-width: 600px; margin: 0 auto; padding: 0 16px; }
+        .bb-content { max-width: 600px; margin: 0 auto; padding: 0 16px; padding-left: max(16px, env(safe-area-inset-left)); padding-right: max(16px, env(safe-area-inset-right)); }
         @media (min-width: 768px) { .bb-content { max-width: 720px; } }
       `}</style>
 
       {/* ── Header ── */}
-      <div style={{ background: t.card, borderBottom: `1px solid ${t.border}`, padding: "10px 16px", position: "sticky", top: 0, zIndex: 50 }}>
+      <div style={{ background: t.card, borderBottom: `1px solid ${t.border}`, padding: "10px 16px", paddingTop: "max(12px, env(safe-area-inset-top, 10px))", position: "sticky", top: 0, zIndex: 50 }}>
         <div className="bb-content" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", maxWidth: 720, margin: "0 auto", padding: 0 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <div style={{ width: 36, height: 36, borderRadius: 12, background: "#6C5CE7", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18 }}>💸</div>
