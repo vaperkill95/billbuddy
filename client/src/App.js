@@ -5436,7 +5436,7 @@ function SecurityView({ t }) {
   );
 }
 
-function SettingsTab({ bills, history, hMonths, hFilter, setHFilter, onUpdateReminder, t }) {
+function SettingsTab({ bills, history, hMonths, hFilter, setHFilter, onUpdateReminder, t, dark, toggleDark }) {
   const [subTab, setSubTab] = useState(null);
   const F = "'Plus Jakarta Sans', 'Outfit', sans-serif";
   const H = "'Outfit', 'Plus Jakarta Sans', sans-serif";
@@ -5523,6 +5523,17 @@ function SettingsTab({ bills, history, hMonths, hFilter, setHFilter, onUpdateRem
       <div>
         <h2 style={{ fontFamily: H, color: t.text, margin: 0, fontSize: 22, fontWeight: 700 }}>More</h2>
         <p style={{ margin: "4px 0 0", fontSize: 13, color: t.sub }}>All your financial tools in one place</p>
+      </div>
+
+      {/* Quick settings */}
+      <div style={{ background: t.card, borderRadius: 16, padding: "12px 16px", boxShadow: t.cs, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <span style={{ fontSize: 18 }}>{dark ? "🌙" : "☀️"}</span>
+          <span style={{ fontWeight: 600, color: t.text, fontSize: 13 }}>{dark ? "Dark Mode" : "Light Mode"}</span>
+        </div>
+        <button onClick={toggleDark} style={{ width: 44, height: 24, borderRadius: 12, border: "none", background: dark ? "#6C5CE7" : t.border, cursor: "pointer", position: "relative", transition: "background 0.2s" }}>
+          <div style={{ width: 20, height: 20, borderRadius: 10, background: "white", position: "absolute", top: 2, left: dark ? 22 : 2, transition: "left 0.2s", boxShadow: "0 1px 3px rgba(0,0,0,0.2)" }} />
+        </button>
       </div>
       {groups.map((group, gi) => (
         <div key={gi}>
@@ -5807,23 +5818,23 @@ export default function App() {
       {/* ── Header ── */}
       <div style={{ background: t.card, borderBottom: `1px solid ${t.border}`, padding: "10px 16px", paddingTop: "max(12px, env(safe-area-inset-top, 10px))", position: "sticky", top: 0, zIndex: 50 }}>
         <div className="bb-content" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", maxWidth: 720, margin: "0 auto", padding: 0 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <div style={{ width: 36, height: 36, borderRadius: 12, background: "#6C5CE7", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18 }}>💸</div>
-            <div>
-              <div style={{ fontFamily: H, fontWeight: 800, fontSize: 17, color: t.text, letterSpacing: -0.5 }}>BillBuddy</div>
-              <div style={{ fontSize: 11, color: t.sub, fontWeight: 500 }}>Hey, {user.name?.split(" ")[0]}</div>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
+            <div style={{ width: 32, height: 32, borderRadius: 10, background: "#6C5CE7", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, flexShrink: 0 }}>💸</div>
+            <div style={{ minWidth: 0 }}>
+              <div style={{ fontFamily: H, fontWeight: 800, fontSize: 15, color: t.text, letterSpacing: -0.5 }}>BillBuddy</div>
+              <div style={{ fontSize: 10, color: t.sub, fontWeight: 500 }}>Hey, {user.name?.split(" ")[0]}</div>
             </div>
           </div>
-          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-            <button onClick={toggleDark} style={{ width: 36, height: 36, borderRadius: 10, border: `1px solid ${t.border}`, cursor: "pointer", background: t.cardAlt, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16 }}>
+          <div style={{ display: "flex", gap: 6, alignItems: "center", flexShrink: 0 }}>
+            <button onClick={toggleDark} className="bb-desktop-nav" style={{ width: 32, height: 32, borderRadius: 8, border: `1px solid ${t.border}`, cursor: "pointer", background: t.cardAlt, display: "none", alignItems: "center", justifyContent: "center", fontSize: 14 }}>
               {dark ? "🌙" : "☀️"}
             </button>
             <div style={{ position: "relative", overflow: "visible" }}>
-              <button onClick={() => setShowNotifs(!showNotifs)} style={{ width: 36, height: 36, borderRadius: 10, border: `1px solid ${t.border}`, cursor: "pointer", background: showNotifs ? "#6C5CE7" : t.cardAlt, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, position: "relative", zIndex: 101 }}>
+              <button onClick={() => setShowNotifs(!showNotifs)} style={{ width: 32, height: 32, borderRadius: 8, border: `1px solid ${t.border}`, cursor: "pointer", background: showNotifs ? "#6C5CE7" : t.cardAlt, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, position: "relative", zIndex: 101 }}>
                 🔔
               </button>
               {notifs.length > 0 && !showNotifs && (
-                <div style={{ position: "absolute", top: -6, right: -6, minWidth: 20, height: 20, borderRadius: 10, background: "#EF4444", color: "white", fontSize: 11, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center", padding: "0 5px", pointerEvents: "none", zIndex: 102, border: "2px solid " + t.card }}>{notifs.length}</div>
+                <div style={{ position: "absolute", top: -4, right: -4, minWidth: 18, height: 18, borderRadius: 9, background: "#EF4444", color: "white", fontSize: 10, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center", padding: "0 4px", pointerEvents: "none", zIndex: 102, border: "2px solid " + t.card }}>{notifs.length}</div>
               )}
               {showNotifs && (
                 <>
@@ -5853,15 +5864,15 @@ export default function App() {
               )}
             </div>
             <button onClick={() => setShowAdd(true)} style={{
-              height: 36, padding: "0 16px", borderRadius: 10, border: "none",
+              height: 32, padding: "0 12px", borderRadius: 8, border: "none",
               background: "#6C5CE7", color: "white", cursor: "pointer",
-              fontWeight: 700, fontSize: 13, fontFamily: F,
-              display: "flex", alignItems: "center", gap: 5,
+              fontWeight: 700, fontSize: 12, fontFamily: F,
+              display: "flex", alignItems: "center", gap: 3,
               boxShadow: "0 2px 8px rgba(108,92,231,0.3)",
             }}>
-              <span style={{ fontSize: 18, lineHeight: 1 }}>+</span> Bill
+              + Bill
             </button>
-            <button onClick={handleLogout} style={{ width: 36, height: 36, borderRadius: 10, border: `1px solid ${t.border}`, background: t.cardAlt, cursor: "pointer", fontSize: 14, color: t.sub, display: "flex", alignItems: "center", justifyContent: "center" }}>→</button>
+            <button onClick={handleLogout} style={{ width: 32, height: 32, borderRadius: 8, border: `1px solid ${t.border}`, background: t.cardAlt, cursor: "pointer", fontSize: 12, color: t.sub, display: "flex", alignItems: "center", justifyContent: "center" }}>→</button>
           </div>
         </div>
       </div>
@@ -5911,7 +5922,7 @@ export default function App() {
           {tab === "money" && <MoneyTab t={t} />}
           {tab === "calendar" && <CalendarView bills={bills} cards={calCards} t={t} onMoveBill={moveBillDate} />}
           {tab === "insights" && <AIInsights t={t} />}
-          {tab === "more" && <SettingsTab bills={bills} history={history} hMonths={hMonths} hFilter={hFilter} setHFilter={setHFilter} onUpdateReminder={updateReminder} t={t} />}
+          {tab === "more" && <SettingsTab bills={bills} history={history} hMonths={hMonths} hFilter={hFilter} setHFilter={setHFilter} onUpdateReminder={updateReminder} t={t} dark={dark} toggleDark={toggleDark} />}
         </>)}
       </div>
 
