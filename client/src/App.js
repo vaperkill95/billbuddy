@@ -105,6 +105,44 @@ function AuthPage({ onAuth, t }) {
   const onAuthRef = useRef(onAuth);
   onAuthRef.current = onAuth;
 
+  // Handle Google redirect flow - check URL params
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const googleToken = params.get("google_token");
+    const googleUser = params.get("google_user");
+    const google2fa = params.get("google_2fa");
+    const google2faName = params.get("name");
+    const errorParam = params.get("error");
+
+    // Clean URL params
+    if (googleToken || google2fa || errorParam) {
+      window.history.replaceState({}, document.title, "/");
+    }
+
+    if (errorParam) {
+      setError("Google sign-in failed. Please try again.");
+      return;
+    }
+
+    if (google2fa) {
+      setNeeds2FA(true);
+      setPending2FAUser({ userId: parseInt(google2fa), userName: google2faName || "" });
+      return;
+    }
+
+    if (googleToken && googleUser) {
+      try {
+        const user = JSON.parse(decodeURIComponent(googleUser));
+        api.setToken(googleToken);
+        api.setUser(user);
+        onAuthRef.current(user);
+      } catch (err) {
+        console.error("Failed to parse Google redirect response:", err);
+        setError("Google sign-in failed. Please try again.");
+      }
+    }
+  }, []);
+
   // Handle auth response - check if 2FA is required
   const processAuthResponse = async (data) => {
     if (data.requires2FA) {
@@ -146,14 +184,10 @@ function AuthPage({ onAuth, t }) {
     script.onload = () => {
       window.google?.accounts?.id?.initialize({
         client_id: GOOGLE_CLIENT_ID,
-        callback: async (response) => {
-          try {
-            const data = await api.googleLogin(response.credential);
-            processAuthResponse(data);
-          } catch (err) {
-            console.error("Google auth error:", err);
-          }
-        },
+        login_uri: window.location.origin + "/api/auth/google-redirect",
+        ux_mode: "redirect",
+        use_fedcm_for_prompt: true,
+        itp_support: true,
       });
       window.google?.accounts?.id?.renderButton(
         document.getElementById("google-btn"),

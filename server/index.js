@@ -30,6 +30,7 @@ app.use(cors({
   credentials: true,
 }));
 app.use(express.json({ limit: "2mb" }));
+app.use(express.urlencoded({ extended: true }));
 app.set("trust proxy", 1);
 
 // Global rate limiter for all API routes (200 req/min per user)

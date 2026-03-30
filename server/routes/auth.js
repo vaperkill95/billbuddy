@@ -66,6 +66,47 @@ router.post("/login", async (req, res) => {
   }
 });
 
+// POST /api/auth/google-redirect - Handles Google Sign-In redirect flow
+router.post("/google-redirect", async (req, res) => {
+  try {
+    const { credential, g_csrf_token } = req.body;
+    if (!credential) return res.redirect("/?error=no_credential");
+    // Verify CSRF token
+    const csrfCookie = req.cookies?.g_csrf_token;
+    if (g_csrf_token && csrfCookie && g_csrf_token !== csrfCookie) {
+      return res.redirect("/?error=csrf_mismatch");
+    }
+    const clientId = process.env.REACT_APP_GOOGLE_CLIENT_ID;
+    if (!clientId) return res.redirect("/?error=not_configured");
+    const client = new OAuth2Client(clientId);
+    const ticket = await client.verifyIdToken({ idToken: credential, audience: clientId });
+    const payload = ticket.getPayload();
+    const { email, name, sub: googleId } = payload;
+    let { rows } = await pool.query("SELECT * FROM users WHERE email=$1", [email]);
+    if (!rows.length) {
+      const result = await pool.query("INSERT INTO users (email, name, google_id) VALUES ($1,$2,$3) RETURNING *", [email, name, googleId]);
+      rows = result.rows;
+    } else if (!rows[0].google_id) {
+      await pool.query("UPDATE users SET google_id=$1 WHERE id=$2", [googleId, rows[0].id]);
+    }
+    const user = rows[0];
+    // Check 2FA
+    const { rows: tfa } = await pool.query(
+      "SELECT enabled FROM user_2fa WHERE user_id = $1 AND enabled = true",
+      [user.id]
+    );
+    if (tfa.length > 0) {
+      return res.redirect("/?google_2fa=" + user.id + "&name=" + encodeURIComponent(user.name));
+    }
+    const token = generateToken(user);
+    const userData = encodeURIComponent(JSON.stringify({ id: user.id, email: user.email, name: user.name, darkMode: user.dark_mode }));
+    res.redirect("/?google_token=" + token + "&google_user=" + userData);
+  } catch (err) {
+    console.error("Google redirect auth error:", err);
+    res.redirect("/?error=google_failed");
+  }
+});
+
 // POST /api/auth/google
 router.post("/google", async (req, res) => {
   try {
