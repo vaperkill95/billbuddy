@@ -23,21 +23,30 @@ const CATEGORY_MAP = {
 
 function categorizeTransaction(name, plaidCategory) {
   const lower = (name || "").toLowerCase();
+  // First try matching by merchant name
   for (const [cat, patterns] of Object.entries(CATEGORY_MAP)) {
     if (patterns.some(p => lower.includes(p))) return cat;
   }
+  // Then try matching by Plaid category
   if (plaidCategory) {
     const pc = plaidCategory.toLowerCase();
-    if (pc.includes("food") && pc.includes("groceries")) return "Groceries";
-    if (pc.includes("food") || pc.includes("restaurant")) return "Eating Out";
-    if (pc.includes("gas") || pc.includes("fuel")) return "Gas & Fuel";
-    if (pc.includes("shops") || pc.includes("merchandise")) return "Shopping";
-    if (pc.includes("entertainment") || pc.includes("recreation")) return "Entertainment";
-    if (pc.includes("health") || pc.includes("medical") || pc.includes("pharmacy")) return "Health & Medical";
-    if (pc.includes("travel") || pc.includes("transportation")) return "Transportation";
-    if (pc.includes("utilities") || pc.includes("telecom")) return "Utilities";
-    if (pc.includes("payment") || pc.includes("transfer")) return "Transfers";
-    if (pc.includes("service") || pc.includes("subscription")) return "Subscriptions";
+    // Plaid personal_finance_category primary values
+    if (pc === "food_and_drink" || pc.includes("food") && pc.includes("groceries")) return "Groceries";
+    if (pc === "food_and_drink" || pc.includes("food") || pc.includes("restaurant") || pc.includes("coffee")) return "Eating Out";
+    if (pc === "transportation" || pc.includes("gas") || pc.includes("fuel") || pc.includes("automotive")) return "Gas & Fuel";
+    if (pc === "general_merchandise" || pc === "general_services" || pc.includes("shops") || pc.includes("merchandise")) return "Shopping";
+    if (pc === "entertainment" || pc === "recreation" || pc.includes("entertainment") || pc.includes("recreation")) return "Entertainment";
+    if (pc === "medical" || pc === "healthcare" || pc.includes("health") || pc.includes("medical") || pc.includes("pharmacy")) return "Health & Medical";
+    if (pc === "travel" || pc.includes("travel") || pc.includes("transportation") || pc.includes("airlines") || pc.includes("lodging")) return "Transportation";
+    if (pc === "rent_and_utilities" || pc.includes("utilities") || pc.includes("telecom") || pc.includes("rent")) return "Utilities";
+    if (pc === "transfer_in" || pc === "transfer_out" || pc.includes("payment") || pc.includes("transfer")) return "Transfers";
+    if (pc.includes("service") || pc.includes("subscription") || pc.includes("personal_care")) return "Subscriptions";
+    if (pc === "home_improvement" || pc.includes("home")) return "Home & Living";
+    if (pc === "personal_care" || pc.includes("gym") || pc.includes("fitness")) return "Personal Care";
+    if (pc === "government_and_non_profit" || pc.includes("government") || pc.includes("tax")) return "Other";
+    if (pc === "income" || pc.includes("income") || pc.includes("salary") || pc.includes("deposit")) return "Transfers";
+    if (pc === "loan_payments" || pc.includes("loan")) return "Other";
+  }
   }
   return "Other";
 }

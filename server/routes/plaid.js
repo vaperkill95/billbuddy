@@ -155,12 +155,16 @@ router.post("/sync-transactions", async (req, res) => {
 
         for (const txn of response.data.transactions) {
           try {
+            // Use personal_finance_category (more accurate) or fall back to legacy category
+            const pfc = txn.personal_finance_category?.primary || "";
+            const legacyCat = txn.category?.[0] || "";
+            const catStr = pfc || legacyCat || "Other";
             await pool.query(
               `INSERT INTO bank_transactions (user_id, account_id, transaction_id, name, amount, date, category, pending)
                VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-               ON CONFLICT (transaction_id) DO UPDATE SET amount=$5, pending=$8, name=$4`,
+               ON CONFLICT (transaction_id) DO UPDATE SET amount=$5, pending=$8, name=$4, category=CASE WHEN bank_transactions.category = 'Other' THEN $7 ELSE bank_transactions.category END`,
               [req.user.id, txn.account_id, txn.transaction_id, txn.name,
-               txn.amount, txn.date, txn.category?.[0] || "Other", txn.pending]
+               txn.amount, txn.date, catStr, txn.pending]
             );
             totalNew++;
           } catch (txnErr) { /* duplicate, skip */ }
