@@ -133,4 +133,29 @@ router.patch("/preferences", authMiddleware, async (req, res) => {
   }
 });
 
+// DELETE /api/auth/account - Delete user account and all data
+router.delete("/account", authMiddleware, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    // Delete all user data (CASCADE should handle most, but be explicit)
+    await pool.query("DELETE FROM bank_transactions WHERE user_id = $1", [userId]);
+    await pool.query("DELETE FROM bank_accounts WHERE user_id = $1", [userId]);
+    await pool.query("DELETE FROM plaid_items WHERE user_id = $1", [userId]);
+    await pool.query("DELETE FROM bills WHERE user_id = $1", [userId]);
+    await pool.query("DELETE FROM payment_history WHERE user_id = $1", [userId]);
+    await pool.query("DELETE FROM income_sources WHERE user_id = $1", [userId]);
+    await pool.query("DELETE FROM income_logs WHERE user_id = $1", [userId]);
+    await pool.query("DELETE FROM credit_cards WHERE user_id = $1", [userId]);
+    await pool.query("DELETE FROM spending_budgets WHERE user_id = $1", [userId]);
+    await pool.query("DELETE FROM financial_goals WHERE user_id = $1", [userId]);
+    await pool.query("DELETE FROM two_factor_auth WHERE user_id = $1", [userId]);
+    // Finally delete the user
+    await pool.query("DELETE FROM users WHERE id = $1", [userId]);
+    res.json({ success: true, message: "Account deleted" });
+  } catch (err) {
+    console.error("Account deletion error:", err);
+    res.status(500).json({ error: "Failed to delete account" });
+  }
+});
+
 module.exports = router;

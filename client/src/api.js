@@ -115,6 +115,7 @@ export const api = {
 
   // User Preferences
   updatePreferences: (prefs) => request("/auth/preferences", { method: "PATCH", body: JSON.stringify(prefs) }),
+  deleteAccount: () => request("/auth/account", { method: "DELETE" }),
 
   // Credit Cards
   getCards: () => request("/cards"),

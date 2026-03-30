@@ -5275,6 +5275,7 @@ function SecurityView({ t }) {
   const [backupCodes, setBackupCodes] = useState(null);
   const [error, setError] = useState("");
   const [msg, setMsg] = useState("");
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const F = "'Plus Jakarta Sans', 'Outfit', sans-serif";
   const H = "'Outfit', 'Plus Jakarta Sans', sans-serif";
 
@@ -5432,6 +5433,52 @@ function SecurityView({ t }) {
           </div>
         </div>
       )}
+
+      {/* Delete Account - Apple App Store requirement */}
+      <div style={{ background: t.card, borderRadius: 16, padding: "18px 20px", boxShadow: t.cs, borderLeft: "4px solid #EF4444" }}>
+        <div style={{ fontWeight: 700, color: "#EF4444", fontSize: 14, marginBottom: 6 }}>Delete Account</div>
+        <p style={{ fontSize: 12, color: t.sub, marginBottom: 12, lineHeight: 1.5 }}>
+          Permanently delete your account and all associated data including bills, transactions, income records, and connected bank accounts. This action cannot be undone.
+        </p>
+        {!showDeleteConfirm ? (
+          <button onClick={() => setShowDeleteConfirm(true)} style={{
+            padding: "10px 20px", borderRadius: 10, border: "1px solid #EF4444",
+            background: "transparent", color: "#EF4444", cursor: "pointer",
+            fontWeight: 700, fontSize: 13, fontFamily: F,
+          }}>Delete My Account</button>
+        ) : (
+          <div style={{ background: "#EF444410", borderRadius: 10, padding: 14 }}>
+            <p style={{ fontSize: 13, color: "#EF4444", fontWeight: 700, marginBottom: 10 }}>Are you sure? This will permanently delete:</p>
+            <ul style={{ fontSize: 12, color: t.sub, marginBottom: 12, paddingLeft: 18, lineHeight: 1.8 }}>
+              <li>Your account and profile</li>
+              <li>All bills and payment history</li>
+              <li>Connected bank accounts and transactions</li>
+              <li>Income records and financial goals</li>
+              <li>All app data and preferences</li>
+            </ul>
+            <div style={{ display: "flex", gap: 8 }}>
+              <button onClick={() => setShowDeleteConfirm(false)} style={{
+                flex: 1, padding: "10px", borderRadius: 10, border: `1px solid ${t.border}`,
+                background: "transparent", color: t.text, cursor: "pointer",
+                fontWeight: 600, fontSize: 13, fontFamily: F,
+              }}>Cancel</button>
+              <button onClick={async () => {
+                try {
+                  await api.deleteAccount();
+                  localStorage.clear();
+                  window.location.reload();
+                } catch (err) {
+                  if (window.bbToast) window.bbToast("Failed to delete account", "error");
+                }
+              }} style={{
+                flex: 1, padding: "10px", borderRadius: 10, border: "none",
+                background: "#EF4444", color: "white", cursor: "pointer",
+                fontWeight: 700, fontSize: 13, fontFamily: F,
+              }}>Yes, Delete Everything</button>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -5966,8 +6013,7 @@ export default function App() {
         })}
       </div>
 
-      {user && <FloatingCalculator t={t} />}
-      {user && <AdvisorChat t={t} user={user} />}
+      {/* Floating buttons removed - they were blocking content on mobile (Apple rejection) */}
       {showAdd && <AddBillModal onClose={() => setShowAdd(false)} onAdd={addBill} t={t} />}
 
       {/* Toast notifications */}
