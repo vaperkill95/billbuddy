@@ -4992,8 +4992,7 @@ function CancelHelperView({ t }) {
   );
 }
 
-function FloatingCalculator({ t }) {
-  const [open, setOpen] = useState(false);
+function FloatingCalculator({ t, onClose }) {
   const [display, setDisplay] = useState("0");
   const [prev, setPrev] = useState(null);
   const [op, setOp] = useState(null);
@@ -5055,26 +5054,10 @@ function FloatingCalculator({ t }) {
 
   return (
     <>
-      {!open && (
-        <button onClick={() => setOpen(true)} style={{
-          position: "fixed", bottom: 155, right: 20, width: 48, height: 48,
-          borderRadius: "50%", background: "linear-gradient(135deg, #F59E0B, #F97316)",
-          border: "none", cursor: "pointer", zIndex: 999,
-          boxShadow: "0 4px 16px rgba(245,158,11,0.5)",
-          display: "flex", alignItems: "center", justifyContent: "center",
-          transition: "transform 0.2s",
-        }}
-        onMouseEnter={e => e.currentTarget.style.transform = "scale(1.1)"}
-        onMouseLeave={e => e.currentTarget.style.transform = "scale(1)"}
-        >
-          <span style={{ fontSize: 22, lineHeight: 1 }}>🧮</span>
-        </button>
-      )}
-
-      {open && (
+      <div onClick={onClose} style={{ position: "fixed", inset: 0, zIndex: 999, background: "rgba(0,0,0,0.3)" }} />
         <div style={{
-          position: "fixed", bottom: 90, right: 20,
-          width: 280, background: t.card, borderRadius: 20, zIndex: 1000,
+          position: "fixed", bottom: 90, left: "50%", transform: "translateX(-50%)",
+          width: 300, maxWidth: "calc(100vw - 32px)", background: t.card, borderRadius: 20, zIndex: 1000,
           boxShadow: "0 8px 40px rgba(0,0,0,0.3)", overflow: "hidden",
           border: `1px solid ${t.border}`,
         }}>
@@ -5083,7 +5066,7 @@ function FloatingCalculator({ t }) {
             padding: "12px 16px", display: "flex", justifyContent: "space-between", alignItems: "center",
           }}>
             <span style={{ color: "white", fontWeight: 700, fontSize: 14, fontFamily: H }}>🧮 Calculator</span>
-            <button onClick={() => setOpen(false)} style={{ background: "rgba(255,255,255,0.2)", border: "none", borderRadius: 8, width: 28, height: 28, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: "white", fontSize: 16, fontWeight: 700 }}>✕</button>
+            <button onClick={onClose} style={{ background: "rgba(255,255,255,0.2)", border: "none", borderRadius: 8, width: 28, height: 28, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: "white", fontSize: 16, fontWeight: 700 }}>✕</button>
           </div>
           <div style={{ padding: "16px 16px 8px" }}>
             {prev !== null && op && <div style={{ fontSize: 11, color: t.sub, textAlign: "right", marginBottom: 2 }}>{prev} {op}</div>}
@@ -5111,13 +5094,11 @@ function FloatingCalculator({ t }) {
             ))}
           </div>
         </div>
-      )}
     </>
   );
 }
 
-function AdvisorChat({ t, user }) {
-  const [open, setOpen] = useState(false);
+function AdvisorChat({ t, user, onClose }) {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -5128,7 +5109,7 @@ function AdvisorChat({ t, user }) {
 
   const scrollToBottom = () => { messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }); };
   useEffect(() => { scrollToBottom(); }, [messages]);
-  useEffect(() => { if (open && inputRef.current) inputRef.current.focus(); }, [open]);
+  useEffect(() => { if (inputRef.current) inputRef.current.focus(); }, []);
 
   const send = async () => {
     if (!input.trim() || loading) return;
@@ -5154,28 +5135,10 @@ function AdvisorChat({ t, user }) {
 
   return (
     <>
-      {/* Floating button - always visible */}
-      {!open && (
-        <button onClick={() => setOpen(true)} style={{
-          position: "fixed", bottom: 90, right: 20, width: 56, height: 56,
-          borderRadius: "50%", background: "linear-gradient(135deg, #6C5CE7, #a78bfa)",
-          border: "none", cursor: "pointer", zIndex: 999,
-          boxShadow: "0 4px 20px rgba(108,92,231,0.5)",
-          display: "flex", alignItems: "center", justifyContent: "center",
-          transition: "transform 0.2s, box-shadow 0.2s",
-        }}
-        onMouseEnter={e => { e.target.style.transform = "scale(1.1)"; e.target.style.boxShadow = "0 6px 28px rgba(108,92,231,0.6)"; }}
-        onMouseLeave={e => { e.target.style.transform = "scale(1)"; e.target.style.boxShadow = "0 4px 20px rgba(108,92,231,0.5)"; }}
-        >
-          <span style={{ fontSize: 26, lineHeight: 1 }}>💬</span>
-        </button>
-      )}
-
-      {/* Chat panel */}
-      {open && (
+      <div onClick={onClose} style={{ position: "fixed", inset: 0, zIndex: 999, background: "rgba(0,0,0,0.3)" }} />
         <div style={{
-          position: "fixed", bottom: 20, right: 20,
-          width: 380, maxWidth: "calc(100vw - 40px)", height: 520, maxHeight: "calc(100vh - 100px)",
+          position: "fixed", bottom: 20, left: "50%", transform: "translateX(-50%)",
+          width: 380, maxWidth: "calc(100vw - 32px)", height: 520, maxHeight: "calc(100vh - 100px)",
           background: t.card, borderRadius: 20, zIndex: 1000,
           boxShadow: "0 8px 40px rgba(0,0,0,0.3)",
           display: "flex", flexDirection: "column", overflow: "hidden",
@@ -5193,7 +5156,7 @@ function AdvisorChat({ t, user }) {
                 <div style={{ color: "rgba(255,255,255,0.7)", fontSize: 11 }}>AI-powered financial advice</div>
               </div>
             </div>
-            <button onClick={() => setOpen(false)} style={{ background: "rgba(255,255,255,0.2)", border: "none", borderRadius: 8, width: 32, height: 32, cursor: "pointer", color: "white", fontSize: 16, display: "flex", alignItems: "center", justifyContent: "center" }}>✕</button>
+            <button onClick={onClose} style={{ background: "rgba(255,255,255,0.2)", border: "none", borderRadius: 8, width: 32, height: 32, cursor: "pointer", color: "white", fontSize: 16, display: "flex", alignItems: "center", justifyContent: "center" }}>✕</button>
           </div>
 
           {/* Messages area */}
@@ -5259,7 +5222,6 @@ function AdvisorChat({ t, user }) {
             }}>↑</button>
           </div>
         </div>
-      )}
     </>
   );
 }
@@ -5620,6 +5582,116 @@ function SettingsTab({ bills, history, hMonths, hFilter, setHFilter, onUpdateRem
     </div>
   );
 }
+// ─── Draggable Floating Action Button ───
+function DraggableFAB({ t, user }) {
+  const [pos, setPos] = useState(() => {
+    try { const saved = JSON.parse(localStorage.getItem("bb_fab_pos")); if (saved) return saved; } catch {}
+    return { x: window.innerWidth - 70, y: window.innerHeight - 180 };
+  });
+  const [expanded, setExpanded] = useState(false);
+  const [dragging, setDragging] = useState(false);
+  const [showCalc, setShowCalc] = useState(false);
+  const [showChat, setShowChat] = useState(false);
+  const dragRef = useRef({ startX: 0, startY: 0, startPosX: 0, startPosY: 0, moved: false });
+  const F = "'Plus Jakarta Sans', 'Outfit', sans-serif";
+
+  const handleTouchStart = (e) => {
+    const touch = e.touches[0];
+    dragRef.current = { startX: touch.clientX, startY: touch.clientY, startPosX: pos.x, startPosY: pos.y, moved: false };
+    setDragging(true);
+  };
+  const handleMouseDown = (e) => {
+    dragRef.current = { startX: e.clientX, startY: e.clientY, startPosX: pos.x, startPosY: pos.y, moved: false };
+    setDragging(true);
+  };
+
+  useEffect(() => {
+    if (!dragging) return;
+    const handleMove = (clientX, clientY) => {
+      const dx = clientX - dragRef.current.startX;
+      const dy = clientY - dragRef.current.startY;
+      if (Math.abs(dx) > 5 || Math.abs(dy) > 5) dragRef.current.moved = true;
+      const newX = Math.max(10, Math.min(window.innerWidth - 60, dragRef.current.startPosX + dx));
+      const newY = Math.max(10, Math.min(window.innerHeight - 60, dragRef.current.startPosY + dy));
+      setPos({ x: newX, y: newY });
+    };
+    const onTouchMove = (e) => { handleMove(e.touches[0].clientX, e.touches[0].clientY); e.preventDefault(); };
+    const onMouseMove = (e) => { handleMove(e.clientX, e.clientY); };
+    const onEnd = () => {
+      setDragging(false);
+      try { localStorage.setItem("bb_fab_pos", JSON.stringify(pos)); } catch {}
+      if (!dragRef.current.moved) setExpanded(prev => !prev);
+    };
+    window.addEventListener("touchmove", onTouchMove, { passive: false });
+    window.addEventListener("mousemove", onMouseMove);
+    window.addEventListener("touchend", onEnd);
+    window.addEventListener("mouseup", onEnd);
+    return () => {
+      window.removeEventListener("touchmove", onTouchMove);
+      window.removeEventListener("mousemove", onMouseMove);
+      window.removeEventListener("touchend", onEnd);
+      window.removeEventListener("mouseup", onEnd);
+    };
+  }, [dragging, pos]);
+
+  // Save position on change
+  useEffect(() => {
+    try { localStorage.setItem("bb_fab_pos", JSON.stringify(pos)); } catch {}
+  }, [pos]);
+
+  if (showCalc) return <FloatingCalculator t={t} onClose={() => setShowCalc(false)} />;
+  if (showChat) return <AdvisorChat t={t} user={user} onClose={() => setShowChat(false)} />;
+
+  return (
+    <>
+      {/* Backdrop to close expanded menu */}
+      {expanded && <div onClick={() => setExpanded(false)} style={{ position: "fixed", inset: 0, zIndex: 998 }} />}
+
+      {/* Expanded action buttons */}
+      {expanded && (
+        <>
+          <button onClick={() => { setShowCalc(true); setExpanded(false); }} style={{
+            position: "fixed", left: pos.x - 8, top: pos.y - 58, zIndex: 999,
+            width: 44, height: 44, borderRadius: 22, border: "none",
+            background: "#6C5CE7", color: "white", cursor: "pointer",
+            boxShadow: "0 4px 16px rgba(108,92,231,0.4)",
+            display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20,
+            animation: "fadeIn 0.15s ease",
+          }}>🧮</button>
+          <button onClick={() => { setShowChat(true); setExpanded(false); }} style={{
+            position: "fixed", left: pos.x + 48, top: pos.y - 8, zIndex: 999,
+            width: 44, height: 44, borderRadius: 22, border: "none",
+            background: "#10B981", color: "white", cursor: "pointer",
+            boxShadow: "0 4px 16px rgba(16,185,129,0.4)",
+            display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20,
+            animation: "fadeIn 0.15s ease",
+          }}>💬</button>
+        </>
+      )}
+
+      {/* Main FAB button */}
+      <div
+        onTouchStart={handleTouchStart}
+        onMouseDown={handleMouseDown}
+        style={{
+          position: "fixed", left: pos.x, top: pos.y, zIndex: 999,
+          width: 48, height: 48, borderRadius: 24,
+          background: expanded ? "#6C5CE7" : "rgba(108, 92, 231, 0.7)",
+          backdropFilter: "blur(8px)",
+          boxShadow: "0 4px 20px rgba(0,0,0,0.25)",
+          display: "flex", alignItems: "center", justifyContent: "center",
+          cursor: dragging ? "grabbing" : "grab",
+          transition: dragging ? "none" : "background 0.2s",
+          userSelect: "none", touchAction: "none",
+          fontSize: 20,
+        }}
+      >
+        {expanded ? "✕" : "⚡"}
+      </div>
+    </>
+  );
+}
+
 // ─── Main App ───
 export default function App() {
   const [user, setUser] = useState(api.getUser());
@@ -6023,7 +6095,8 @@ export default function App() {
         })}
       </div>
 
-      {/* Floating buttons removed - they were blocking content on mobile (Apple rejection) */}
+      {/* Draggable Floating Action Button */}
+      {user && <DraggableFAB t={t} user={user} />}
       {showAdd && <AddBillModal onClose={() => setShowAdd(false)} onAdd={addBill} t={t} />}
 
       {/* Toast notifications */}
