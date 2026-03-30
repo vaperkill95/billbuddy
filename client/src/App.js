@@ -157,7 +157,7 @@ function AuthPage({ onAuth, t }) {
       });
       window.google?.accounts?.id?.renderButton(
         document.getElementById("google-btn"),
-        { theme: "outline", size: "large", width: "100%", text: "continue_with", shape: "pill" }
+        { theme: "outline", size: "large", width: 300, text: "continue_with", shape: "pill" }
       );
     };
     document.head.appendChild(script);
