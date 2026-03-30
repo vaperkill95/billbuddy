@@ -22,8 +22,8 @@ const plaidClient = new PlaidApi(configuration);
 // POST /api/plaid/create-link-token - Generate link token for Plaid Link
 router.post("/create-link-token", async (req, res) => {
   try {
-    const baseUrl = process.env.PLAID_REDIRECT_URI || req.headers.origin || "https://billbuddy.us";
-    const redirectUri = baseUrl + "/plaid-oauth";
+    const userAgent = req.headers["user-agent"] || "";
+    const isIOS = /iPhone|iPad|iPod/i.test(userAgent);
     const config = {
       user: { client_user_id: String(req.user.id) },
       client_name: "BillBuddy",
@@ -31,8 +31,13 @@ router.post("/create-link-token", async (req, res) => {
       optional_products: [Products.Liabilities],
       country_codes: [CountryCode.Us],
       language: "en",
-      redirect_uri: redirectUri,
     };
+    // Only add redirect_uri for non-iOS (desktop/Android browsers)
+    // iOS WKWebView can't handle OAuth redirects properly
+    if (!isIOS) {
+      const baseUrl = process.env.PLAID_REDIRECT_URI || req.headers.origin || "https://billbuddy.us";
+      config.redirect_uri = baseUrl + "/plaid-oauth";
+    }
     const response = await plaidClient.linkTokenCreate(config);
     res.json({ linkToken: response.data.link_token });
   } catch (err) {
