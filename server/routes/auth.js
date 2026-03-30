@@ -137,18 +137,31 @@ router.patch("/preferences", authMiddleware, async (req, res) => {
 router.delete("/account", authMiddleware, async (req, res) => {
   try {
     const userId = req.user.id;
-    // Delete all user data (CASCADE should handle most, but be explicit)
-    await pool.query("DELETE FROM bank_transactions WHERE user_id = $1", [userId]);
-    await pool.query("DELETE FROM bank_accounts WHERE user_id = $1", [userId]);
-    await pool.query("DELETE FROM plaid_items WHERE user_id = $1", [userId]);
-    await pool.query("DELETE FROM bills WHERE user_id = $1", [userId]);
-    await pool.query("DELETE FROM payment_history WHERE user_id = $1", [userId]);
-    await pool.query("DELETE FROM income_sources WHERE user_id = $1", [userId]);
-    await pool.query("DELETE FROM income_logs WHERE user_id = $1", [userId]);
-    await pool.query("DELETE FROM credit_cards WHERE user_id = $1", [userId]);
-    await pool.query("DELETE FROM spending_budgets WHERE user_id = $1", [userId]);
-    await pool.query("DELETE FROM financial_goals WHERE user_id = $1", [userId]);
-    await pool.query("DELETE FROM two_factor_auth WHERE user_id = $1", [userId]);
+    // Delete all user data from every table
+    const tables = [
+      "bank_transactions",
+      "bank_accounts",
+      "plaid_items",
+      "card_payments",
+      "credit_cards",
+      "payment_history",
+      "bills",
+      "income_entries",
+      "income_sources",
+      "spending_budgets",
+      "financial_goals",
+      "savings_goals",
+      "credit_scores",
+      "user_2fa",
+      "household_splits",
+      "household_bills",
+      "household_members",
+    ];
+    for (const table of tables) {
+      try { await pool.query(`DELETE FROM ${table} WHERE user_id = $1`, [userId]); } catch (e) { /* table may not exist */ }
+    }
+    // Delete households where user is owner
+    try { await pool.query("DELETE FROM households WHERE owner_id = $1", [userId]); } catch (e) {}
     // Finally delete the user
     await pool.query("DELETE FROM users WHERE id = $1", [userId]);
     res.json({ success: true, message: "Account deleted" });
