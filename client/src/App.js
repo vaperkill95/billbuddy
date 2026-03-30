@@ -5528,8 +5528,8 @@ function SettingsTab({ bills, history, hMonths, hFilter, setHFilter, onUpdateRem
       items: [
         { key: "security", icon: "🔐", label: "Security", desc: "2FA and account protection" },
         { key: "help", icon: "❓", label: "Help Guide", desc: "How to use BillBuddy" },
-        { key: "link_support", icon: "💬", label: "Support", desc: "FAQ & contact us", link: "/support.html" },
-        { key: "link_privacy", icon: "📄", label: "Privacy", desc: "Privacy policy", link: "/privacy.html" },
+        { key: "support", icon: "💬", label: "Support", desc: "FAQ & contact us" },
+        { key: "privacy", icon: "📄", label: "Privacy", desc: "Privacy policy" },
       ]
     },
   ];
@@ -5560,6 +5560,16 @@ function SettingsTab({ bills, history, hMonths, hFilter, setHFilter, onUpdateRem
         {subTab === "cancel" && <CancelHelperView t={t} />}
         {subTab === "security" && <SecurityView t={t} />}
         {subTab === "help" && <HelpGuide t={t} />}
+        {subTab === "support" && (
+          <div style={{ borderRadius: 16, overflow: "hidden", background: t.card, boxShadow: t.cs }}>
+            <iframe src="/support.html" style={{ width: "100%", height: "calc(100vh - 160px)", border: "none", borderRadius: 16 }} title="Support" />
+          </div>
+        )}
+        {subTab === "privacy" && (
+          <div style={{ borderRadius: 16, overflow: "hidden", background: t.card, boxShadow: t.cs }}>
+            <iframe src="/privacy.html" style={{ width: "100%", height: "calc(100vh - 160px)", border: "none", borderRadius: 16 }} title="Privacy Policy" />
+          </div>
+        )}
       </div>
     );
   }
@@ -5587,7 +5597,7 @@ function SettingsTab({ bills, history, hMonths, hFilter, setHFilter, onUpdateRem
           <div style={{ fontSize: 11, fontWeight: 700, color: t.sub, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 8, paddingLeft: 2 }}>{group.title}</div>
           <div style={{ background: t.card, borderRadius: 16, overflow: "hidden", boxShadow: t.cs }}>
             {group.items.map((item, ii) => (
-              <button key={item.key} onClick={() => item.link ? window.open(item.link, "_blank") : setSubTab(item.key)} style={{
+              <button key={item.key} onClick={() => setSubTab(item.key)} style={{
                 display: "flex", alignItems: "center", gap: 14, width: "100%",
                 padding: "14px 16px", background: "none", border: "none", cursor: "pointer",
                 borderTop: ii > 0 ? `1px solid ${t.border}` : "none",
