@@ -2183,21 +2183,21 @@ function IncomeView({ t }) {
   useEffect(() => { loadData(); }, []);
 
   const addSource = async (src) => {
-    try { const s = await api.createIncomeSource(src); setSources(p => [...p, s]); setShowAddSource(false); loadData(); } catch (err) { console.error(err); }
+    try { const s = await api.createIncomeSource(src); setSources(p => [...p, s]); setShowAddSource(false); loadData(); window.dispatchEvent(new Event("bb_data_changed")); } catch (err) { console.error(err); }
   };
 
   const deleteSource = async (id) => {
     setSources(p => p.filter(s => s.id !== id));
-    try { await api.deleteIncomeSource(id); loadData(); } catch { loadData(); }
+    try { await api.deleteIncomeSource(id); loadData(); window.dispatchEvent(new Event("bb_data_changed")); } catch { loadData(); }
   };
 
   const logEntry = async (entry) => {
-    try { await api.createIncomeEntry(entry); setShowLogIncome(false); loadData(); } catch (err) { console.error(err); }
+    try { await api.createIncomeEntry(entry); setShowLogIncome(false); loadData(); window.dispatchEvent(new Event("bb_data_changed")); } catch (err) { console.error(err); }
   };
 
   const deleteEntry = async (id) => {
     setEntries(p => p.filter(e => e.id !== id));
-    try { await api.deleteIncomeEntry(id); loadData(); } catch { loadData(); }
+    try { await api.deleteIncomeEntry(id); loadData(); window.dispatchEvent(new Event("bb_data_changed")); } catch { loadData(); }
   };
 
   const detectFromBank = async () => {
@@ -2487,6 +2487,8 @@ function CreditCardsView({ t }) {
       if (!window.Plaid) { alert("Plaid is loading. Please try again."); return; }
       const { linkToken } = await api.createLinkToken();
       if (!linkToken) { alert("Bank connection is not configured."); return; }
+      // Save token for OAuth return (mobile bank logins)
+      localStorage.setItem("bb_plaid_link_token", linkToken);
       const handler = window.Plaid.create({
         token: linkToken,
         onSuccess: async (publicToken, metadata) => {
@@ -5954,6 +5956,13 @@ export default function App() {
     window.addEventListener("bb_auth_expired", handler);
     return () => window.removeEventListener("bb_auth_expired", handler);
   }, []);
+
+  // Listen for data changes from child components (income, bank, etc.) to refresh dashboard
+  useEffect(() => {
+    const handler = () => { loadData(); };
+    window.addEventListener("bb_data_changed", handler);
+    return () => window.removeEventListener("bb_data_changed", handler);
+  }, [loadData]);
 
   const togglePaid = async (bill) => {
     const np = !bill.isPaid;
