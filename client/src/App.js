@@ -1752,16 +1752,6 @@ function BankAccountsView({ t }) {
 
   const connectBank = async () => {
     setBankError("");
-    // Detect if running in iOS app (standalone/WKWebView) — OAuth bank logins don't work in WKWebView
-    const ua = navigator.userAgent;
-    const isIOS = /iPhone|iPad|iPod/i.test(ua);
-    const isStandalone = window.navigator.standalone === true;
-    const isNotSafari = isIOS && !/Safari/i.test(ua);
-    const isIOSApp = isIOS && (isStandalone || isNotSafari);
-    if (isIOSApp) {
-      setBankError("To connect your bank, open billbuddy.us in Safari (not the app). Bank logins require Safari's full browser. Once connected, your bank will sync in the app automatically.");
-      return;
-    }
     try {
       if (!window.Plaid) {
         setBankError("Plaid is loading. Please try again in a moment.");
@@ -1785,7 +1775,17 @@ function BankAccountsView({ t }) {
             setBankError("Failed to connect bank. Please try again.");
           }
         },
-        onExit: (err) => { if (err) { console.error("Plaid Link exit:", err); setBankError("Bank connection was cancelled or failed."); } },
+        onExit: (err) => {
+          if (err) {
+            console.error("Plaid Link exit:", err);
+            const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
+            if (isIOS) {
+              setBankError("If your bank login keeps looping, try opening billbuddy.us in Safari to connect. Some banks require Safari's full browser for login.");
+            } else {
+              setBankError("Bank connection was cancelled or failed.");
+            }
+          }
+        },
       });
       handler.open();
     } catch (err) {
@@ -2493,14 +2493,6 @@ function CreditCardsView({ t }) {
   };
 
   const connectBank = async () => {
-    // Detect iOS app — OAuth bank logins don't work in WKWebView
-    const ua = navigator.userAgent;
-    const isIOS = /iPhone|iPad|iPod/i.test(ua);
-    const isIOSApp = isIOS && (window.navigator.standalone === true || !/Safari/i.test(ua));
-    if (isIOSApp) {
-      alert("To connect your bank or credit card, open billbuddy.us in Safari. Bank logins require Safari's full browser. Once connected, it will sync in the app automatically.");
-      return;
-    }
     try {
       if (!window.Plaid) { alert("Plaid is loading. Please try again."); return; }
       const { linkToken } = await api.createLinkToken();
@@ -2546,7 +2538,15 @@ function CreditCardsView({ t }) {
             loadCards();
           } catch (err) { console.error("Exchange error:", err); }
         },
-        onExit: (err) => { if (err) console.error("Plaid exit:", err); },
+        onExit: (err) => {
+          if (err) {
+            console.error("Plaid exit:", err);
+            const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
+            if (isIOS) {
+              alert("If your bank login keeps looping, try opening billbuddy.us in Safari to connect. Some banks require Safari for login.");
+            }
+          }
+        },
       });
       handler.open();
     } catch (err) { console.error("Link token error:", err); alert(err.message || "Failed to start bank connection. Plaid may not be configured."); }
