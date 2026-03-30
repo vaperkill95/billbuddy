@@ -47,7 +47,6 @@ function categorizeTransaction(name, plaidCategory) {
     if (pc === "income" || pc.includes("income") || pc.includes("salary") || pc.includes("deposit")) return "Transfers";
     if (pc === "loan_payments" || pc.includes("loan")) return "Other";
   }
-  }
   return "Other";
 }
 
