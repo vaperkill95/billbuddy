@@ -1752,6 +1752,16 @@ function BankAccountsView({ t }) {
 
   const connectBank = async () => {
     setBankError("");
+    // Detect if running in iOS app (standalone/WKWebView) — OAuth bank logins don't work in WKWebView
+    const ua = navigator.userAgent;
+    const isIOS = /iPhone|iPad|iPod/i.test(ua);
+    const isStandalone = window.navigator.standalone === true;
+    const isNotSafari = isIOS && !/Safari/i.test(ua);
+    const isIOSApp = isIOS && (isStandalone || isNotSafari);
+    if (isIOSApp) {
+      setBankError("To connect your bank, open billbuddy.us in Safari (not the app). Bank logins require Safari's full browser. Once connected, your bank will sync in the app automatically.");
+      return;
+    }
     try {
       if (!window.Plaid) {
         setBankError("Plaid is loading. Please try again in a moment.");
@@ -2483,6 +2493,14 @@ function CreditCardsView({ t }) {
   };
 
   const connectBank = async () => {
+    // Detect iOS app — OAuth bank logins don't work in WKWebView
+    const ua = navigator.userAgent;
+    const isIOS = /iPhone|iPad|iPod/i.test(ua);
+    const isIOSApp = isIOS && (window.navigator.standalone === true || !/Safari/i.test(ua));
+    if (isIOSApp) {
+      alert("To connect your bank or credit card, open billbuddy.us in Safari. Bank logins require Safari's full browser. Once connected, it will sync in the app automatically.");
+      return;
+    }
     try {
       if (!window.Plaid) { alert("Plaid is loading. Please try again."); return; }
       const { linkToken } = await api.createLinkToken();
