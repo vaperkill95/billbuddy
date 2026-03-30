@@ -16,7 +16,7 @@ function rateLimiter(maxRequests = 100, windowMs = 60000) {
   };
 }
 
-function authRateLimiter(maxRequests = 10, windowMs = 300000) {
+function authRateLimiter(maxRequests = 30, windowMs = 300000) {
   return rateLimiter(maxRequests, windowMs);
 }
 

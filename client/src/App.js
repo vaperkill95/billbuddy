@@ -1748,21 +1748,40 @@ function BankAccountsView({ t }) {
 
   useEffect(() => { loadData(); }, []);
 
+  const [bankError, setBankError] = useState("");
+
   const connectBank = async () => {
+    setBankError("");
     try {
+      if (!window.Plaid) {
+        setBankError("Plaid is loading. Please try again in a moment.");
+        return;
+      }
       const { linkToken } = await api.createLinkToken();
+      if (!linkToken) {
+        setBankError("Bank connection is not configured. Please contact support.");
+        return;
+      }
+      // Save token for OAuth return (mobile bank logins)
+      localStorage.setItem("bb_plaid_link_token", linkToken);
       const handler = window.Plaid.create({
         token: linkToken,
         onSuccess: async (publicToken, metadata) => {
           try {
             await api.exchangePlaidToken(publicToken, metadata.institution);
             loadData();
-          } catch (err) { console.error("Exchange error:", err); }
+          } catch (err) {
+            console.error("Exchange error:", err);
+            setBankError("Failed to connect bank. Please try again.");
+          }
         },
-        onExit: (err) => { if (err) console.error("Plaid Link exit:", err); },
+        onExit: (err) => { if (err) { console.error("Plaid Link exit:", err); setBankError("Bank connection was cancelled or failed."); } },
       });
       handler.open();
-    } catch (err) { console.error("Link token error:", err); }
+    } catch (err) {
+      console.error("Link token error:", err);
+      setBankError(err.message || "Failed to start bank connection. Plaid may not be configured.");
+    }
   };
 
   const [syncResult, setSyncResult] = useState(null);
@@ -2043,6 +2062,7 @@ function BankAccountsView({ t }) {
               <div style={{ fontWeight: 700, color: t.text, fontSize: 16, fontFamily: "'Outfit', sans-serif", marginBottom: 6 }}>No Banks Connected</div>
               <div style={{ fontSize: 13, color: t.sub, lineHeight: 1.6, marginBottom: 16 }}>Connect your bank to see balances, track spending, and auto-import transactions.</div>
               <button onClick={connectBank} style={{ padding: "12px 32px", borderRadius: 14, border: "none", background: "#6C5CE7", color: "white", cursor: "pointer", fontWeight: 700, fontSize: 14, fontFamily: "'Plus Jakarta Sans', sans-serif" }}>🔗 Connect Your Bank</button>
+              {bankError && <div style={{ color: "#EF4444", fontSize: 13, marginTop: 10, fontWeight: 600 }}>{bankError}</div>}
             </div>
           )}
         </div>
@@ -2464,7 +2484,9 @@ function CreditCardsView({ t }) {
 
   const connectBank = async () => {
     try {
+      if (!window.Plaid) { alert("Plaid is loading. Please try again."); return; }
       const { linkToken } = await api.createLinkToken();
+      if (!linkToken) { alert("Bank connection is not configured."); return; }
       const handler = window.Plaid.create({
         token: linkToken,
         onSuccess: async (publicToken, metadata) => {
@@ -2504,10 +2526,10 @@ function CreditCardsView({ t }) {
             loadCards();
           } catch (err) { console.error("Exchange error:", err); }
         },
-        onExit: () => {},
+        onExit: (err) => { if (err) console.error("Plaid exit:", err); },
       });
       handler.open();
-    } catch (err) { console.error("Link token error:", err); }
+    } catch (err) { console.error("Link token error:", err); alert(err.message || "Failed to start bank connection. Plaid may not be configured."); }
   };
 
   const importPlaidCard = async (pa) => {
@@ -5801,6 +5823,41 @@ export default function App() {
   };
 
   const t = useTheme(dark);
+
+  // Handle Plaid OAuth return (for iOS/mobile bank logins)
+  useEffect(() => {
+    const path = window.location.pathname;
+    const fullUrl = window.location.href;
+    if (path === "/plaid-oauth" && fullUrl.includes("oauth_state_id")) {
+      const savedToken = localStorage.getItem("bb_plaid_link_token");
+      if (savedToken && window.Plaid) {
+        const handler = window.Plaid.create({
+          token: savedToken,
+          receivedRedirectUri: fullUrl,
+          onSuccess: async (publicToken, metadata) => {
+            try {
+              await api.exchangePlaidToken(publicToken, metadata.institution);
+              localStorage.removeItem("bb_plaid_link_token");
+              window.history.replaceState({}, document.title, "/");
+              setTab("money");
+              if (window.bbToast) window.bbToast("Bank connected!", "success");
+            } catch (err) {
+              console.error("Plaid exchange error after OAuth:", err);
+              window.history.replaceState({}, document.title, "/");
+            }
+          },
+          onExit: () => {
+            localStorage.removeItem("bb_plaid_link_token");
+            window.history.replaceState({}, document.title, "/");
+          },
+        });
+        handler.open();
+      } else {
+        // No saved token or Plaid not loaded yet — clean up URL
+        window.history.replaceState({}, document.title, "/");
+      }
+    }
+  }, []);
 
   const loadData = useCallback(async () => {
     if (!user) return;
