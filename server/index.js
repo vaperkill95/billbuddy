@@ -24,9 +24,12 @@ const PORT = process.env.PORT || 3001;
 
 app.use(helmet({ contentSecurityPolicy: false }));
 app.use(cors({
-  origin: process.env.NODE_ENV === "production"
-    ? ["https://billbuddy.us", "https://www.billbuddy.us"]
-    : true,
+  origin: (origin, callback) => {
+    if (!origin) return callback(null, true);
+    const allowed = ["https://billbuddy.us", "https://www.billbuddy.us"];
+    if (allowed.includes(origin)) return callback(null, true);
+    callback(new Error("Not allowed by CORS"));
+  },
   credentials: true,
 }));
 app.use(express.json({ limit: "2mb" }));
