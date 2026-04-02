@@ -92,7 +92,15 @@ app.get("/api/health", async (req, res) => {
     res.status(500).json({ status: "error", database: { connected: false, error: err.message } });
   }
 });
+// Apple App Site Association for Universal Links
+app.get("/.well-known/apple-app-site-association", (req, res) => {
+  res.setHeader("Content-Type", "application/json");
+  res.json({applinks:{apps:[],details:[{appID:"J53WBCTDUM.com.billbuddy.us",paths:["/plaid-oauth","/plaid-oauth*"]}]}});
+});
 
+app.get("/plaid-oauth", (req, res) => {
+  res.send('<html><head><meta name="viewport" content="width=device-width,initial-scale=1"></head><body style="display:flex;justify-content:center;align-items:center;height:100vh;font-family:-apple-system,sans-serif;background:#0D0D12;color:white;text-align:center"><div><p style="font-size:48px">💸</p><h2>Bank Connected!</h2><p style="color:#999">Return to BillBuddy app to continue.</p></div></body></html>');
+});
 // Serve React frontend in production
 if (process.env.NODE_ENV === "production") {
   app.use(express.static(path.join(__dirname, "../client/build")));
