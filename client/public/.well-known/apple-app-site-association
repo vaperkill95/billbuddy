@@ -1,0 +1,11 @@
+{
+  "applinks": {
+    "apps": [],
+    "details": [
+      {
+        "appID": "J53WBCTDUM.com.billbuddy.us",
+        "paths": ["/plaid-oauth", "/plaid-oauth*"]
+      }
+    ]
+  }
+}
